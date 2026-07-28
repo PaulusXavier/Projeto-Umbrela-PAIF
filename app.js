@@ -3,6 +3,15 @@
    Lógica do aplicativo: dados, telas, sincronização e exportação.
    ========================================================================= */
 
+/* ---------------------------- Registro do Service Worker (Offline/PWA) ---------------------------- */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('Service Worker registrado:', reg.scope))
+      .catch(err => console.error('Erro ao registrar Service Worker:', err));
+  });
+}
+
 /* ---------------------------- Listas fixas do formulário ---------------------------- */
 
 const VULNERABILIDADES_FAMILIA = [
@@ -204,15 +213,36 @@ function fmtDateBR(iso) {
   return `${d}/${m}/${y}`;
 }
 
-/* ---------------------------- Toast ---------------------------- */
+/* ---------------------------- Modal e Toast ---------------------------- */
 
 let toastTimer = null;
 function toast(msg) {
   const el = document.getElementById("toast");
+  if (!el) return;
   el.textContent = msg;
   el.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+function confirmModal(title, msg, onConfirm) {
+  const root = document.getElementById("modalRoot");
+  root.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal-box">
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(msg)}</p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="modalCancel">Cancelar</button>
+          <button class="btn btn-danger" id="modalConfirm">Confirmar</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("modalCancel").onclick = () => root.innerHTML = "";
+  document.getElementById("modalConfirm").onclick = () => {
+    onConfirm();
+    root.innerHTML = "";
+  };
 }
 
 /* ---------------------------- Firebase / armazenamento ---------------------------- */
@@ -225,6 +255,7 @@ function firebaseConfigured() {
 
 function setSyncPill(kind, label) {
   const pill = document.getElementById("syncPill");
+  if (!pill) return;
   pill.className = "sync-pill " + kind;
   document.getElementById("syncLabel").textContent = label;
 }
@@ -232,7 +263,7 @@ function setSyncPill(kind, label) {
 function initStorage() {
   if (firebaseConfigured()) {
     try {
-      firebase.initializeApp(FIREBASE_CONFIG);
+      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       state.db = firebase.firestore();
       state.db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
       state.mode = "cloud";
@@ -330,7 +361,6 @@ function openPAF(id) {
   const paf = state.pafs.find(p => p.id === id);
   if (!paf) return;
   state.current = JSON.parse(JSON.stringify(paf));
-  // garante compatibilidade caso o registro seja antigo e falte algum campo novo
   const blank = emptyPAF();
   Object.keys(blank).forEach(k => { if (state.current[k] === undefined) state.current[k] = blank[k]; });
   state.view = "editor";
@@ -346,7 +376,7 @@ function newPAF() {
   renderApp();
 }
 
-/* ---------------------------- Render: shell ---------------------------- */
+/* ---------------------------- Render: SHELL ---------------------------- */
 
 function renderApp() {
   const main = document.getElementById("mainArea");
@@ -538,7 +568,6 @@ function renderSection(id, paf) {
           <div class="f c4"><label>Periodicidade de acompanhamento</label><input type="text" data-field="periodicidade" placeholder="Ex.: mensal, quinzenal…" value="${escapeHtml(paf.periodicidade)}"></div>
           <div class="f c4"><label>Data da situação atual</label><input type="date" data-field="situacaoData" value="${escapeHtml(paf.situacaoData)}"></div>
         </div>
-        <p class="hint">O status geral do PAF (Em andamento / Encaminhado / Concluído / Cancelado) fica nos botões no topo desta tela.</p>
       </div>`;
 
     case "familia": return `
@@ -660,7 +689,6 @@ function renderSection(id, paf) {
           <div class="f c6"><label>Técnico de Referência</label><input type="text" data-field="tecnicoReferencia" value="${escapeHtml(paf.tecnicoReferencia)}"></div>
           <div class="f c3"><label>Data de elaboração</label><input type="date" data-field="dataElaboracao" value="${escapeHtml(paf.dataElaboracao)}"></div>
         </div>
-        <p class="hint">O responsável familiar assina a via impressa (PDF/Word) gerada a partir deste registro.</p>
       </div>`;
 
     case "encerramento": return `
@@ -681,408 +709,169 @@ function renderSection(id, paf) {
         ${sectionHeader("11", "Observações", "")}
         <div class="f"><textarea data-field="observacoes" rows="8">${escapeHtml(paf.observacoes)}</textarea></div>
       </div>`;
-
-    default: return "";
   }
 }
 
 function attachEditorHandlers() {
-  document.getElementById("backHomeBtn").addEventListener("click", () => { savePAF(state.current); goHome(); });
-  document.getElementById("saveBtn").addEventListener("click", () => savePAF(state.current));
-  document.getElementById("exportPdfBtn").addEventListener("click", () => exportPDF(state.current));
-  document.getElementById("exportWordBtn").addEventListener("click", () => exportWord(state.current));
-  document.getElementById("railToggleBtn").addEventListener("click", () => { state.railOpen = !state.railOpen; document.getElementById("tabRail").classList.toggle("open", state.railOpen); });
+  document.getElementById("backHomeBtn")?.addEventListener("click", goHome);
+  document.getElementById("saveBtn")?.addEventListener("click", () => savePAF(state.current));
+  document.getElementById("exportPdfBtn")?.addEventListener("click", () => exportPDF(state.current));
+  document.getElementById("exportWordBtn")?.addEventListener("click", () => exportWord(state.current));
 
   document.querySelectorAll("[data-section]").forEach(el => {
-    el.addEventListener("click", () => { state.activeSection = el.dataset.section; state.railOpen = false; renderApp(); });
-  });
-  document.querySelectorAll("[data-set-status]").forEach(el => {
-    el.addEventListener("click", () => { state.current.situacaoPAF = el.dataset.setStatus; savePAF(state.current); renderApp(); });
-  });
-
-  const scroll = document.getElementById("formScroll");
-
-  scroll.addEventListener("input", e => {
-    const t = e.target;
-    if (t.dataset.field) {
-      setPath(state.current, t.dataset.field, t.value);
-      scheduleAutosave();
-    }
+    el.addEventListener("click", () => {
+      state.activeSection = el.dataset.section;
+      state.railOpen = false;
+      renderApp();
+    });
   });
 
-  scroll.addEventListener("change", e => {
-    const t = e.target;
-    if (t.dataset.checkGroup) {
-      toggleArrayValue(state.current[t.dataset.checkGroup], t.dataset.checkValue);
+  document.querySelectorAll("[data-set-status]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.current.situacaoPAF = btn.dataset.setStatus;
       scheduleAutosave();
-    } else if (t.dataset.fieldCheck) {
-      setPath(state.current, t.dataset.fieldCheck, t.checked);
-      scheduleAutosave();
-    } else if (t.dataset.field && (t.type === "radio")) {
-      setPath(state.current, t.dataset.field, t.value);
-      scheduleAutosave();
-    }
+      renderApp();
+    });
   });
 
-  scroll.addEventListener("click", e => {
-    const btn = e.target.closest("[data-action]");
-    if (!btn) return;
-    if (btn.dataset.action === "add-membro") {
+  document.querySelectorAll("[data-field]").forEach(input => {
+    input.addEventListener("input", e => {
+      setPath(state.current, e.target.dataset.field, e.target.value);
+      scheduleAutosave();
+    });
+  });
+
+  document.querySelectorAll("[data-field-check]").forEach(chk => {
+    chk.addEventListener("change", e => {
+      setPath(state.current, e.target.dataset.fieldCheck, e.target.checked);
+      scheduleAutosave();
+    });
+  });
+
+  document.querySelectorAll("[data-check-group]").forEach(chk => {
+    chk.addEventListener("change", e => {
+      const grp = e.target.dataset.checkGroup;
+      const val = e.target.dataset.checkValue;
+      if (!Array.isArray(state.current[grp])) state.current[grp] = [];
+      toggleArrayValue(state.current[grp], val);
+      scheduleAutosave();
+    });
+  });
+
+  document.querySelectorAll("[data-action='add-membro']").forEach(btn => {
+    btn.addEventListener("click", () => {
       state.current.membros.push({ nome: "", nascimento: "", parentesco: "" });
-      savePAF(state.current, { silent: true });
+      scheduleAutosave();
       renderApp();
-    } else if (btn.dataset.action === "remove-membro") {
-      state.current.membros.splice(Number(btn.dataset.idx), 1);
-      if (state.current.membros.length === 0) state.current.membros.push({ nome: "", nascimento: "", parentesco: "" });
-      savePAF(state.current, { silent: true });
+    });
+  });
+
+  document.querySelectorAll("[data-action='remove-membro']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      state.current.membros.splice(idx, 1);
+      scheduleAutosave();
       renderApp();
-    }
+    });
   });
 }
-
-/* ---------------------------- Modais ---------------------------- */
-
-function confirmModal(title, body, onConfirm) {
-  const root = document.getElementById("modalRoot");
-  root.innerHTML = `
-    <div class="modal-backdrop" id="confirmBackdrop">
-      <div class="modal">
-        <h3>${title}</h3>
-        <p>${body}</p>
-        <div class="modal-actions">
-          <button class="btn btn-ghost" id="confirmCancel">Cancelar</button>
-          <button class="btn btn-danger" id="confirmOk">Confirmar</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById("confirmCancel").addEventListener("click", () => root.innerHTML = "");
-  document.getElementById("confirmBackdrop").addEventListener("click", e => { if (e.target.id === "confirmBackdrop") root.innerHTML = ""; });
-  document.getElementById("confirmOk").addEventListener("click", () => { root.innerHTML = ""; onConfirm(); });
-}
-
-function settingsModal() {
-  const root = document.getElementById("modalRoot");
-  const cloud = state.mode === "cloud";
-  root.innerHTML = `
-    <div class="modal-backdrop" id="settingsBackdrop">
-      <div class="modal">
-        <h3>Sincronização</h3>
-        <p>
-          ${cloud
-            ? "Este aplicativo está conectado a um banco de dados na nuvem (Firebase). Todos os dispositivos que abrirem este mesmo link compartilham os mesmos Planos de Acompanhamento Familiar automaticamente."
-            : "Este aplicativo ainda está salvando os registros apenas neste dispositivo. Para compartilhar entre vários aparelhos, configure o Firebase no arquivo <code>firebase-config.js</code> — o passo a passo está no README.md do projeto."}
-        </p>
-        <p>Total de registros: <strong>${state.pafs.length}</strong></p>
-        <div class="modal-actions">
-          <button class="btn btn-ghost" id="backupExportBtn">Exportar backup (JSON)</button>
-          <button class="btn btn-primary" id="settingsCloseBtn">Fechar</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById("settingsCloseBtn").addEventListener("click", () => root.innerHTML = "");
-  document.getElementById("settingsBackdrop").addEventListener("click", e => { if (e.target.id === "settingsBackdrop") root.innerHTML = ""; });
-  document.getElementById("backupExportBtn").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(state.pafs, null, 2)], { type: "application/json" });
-    triggerDownload(blob, `backup-paf-paif-${todayISO()}.json`);
-  });
-}
-
-/* ---------------------------- Handlers globais ---------------------------- */
 
 function attachGlobalHandlers() {
-  // handlers estáticos do topbar já são ligados uma única vez no boot
-}
-document.addEventListener("click", e => {
-  if (!e.target.closest(".export-menu")) {
-    document.querySelectorAll(".export-dropdown").forEach(d => d.style.display = "none");
-  }
-});
-
-document.getElementById("settingsBtn").addEventListener("click", settingsModal);
-
-/* ---------------------------- Exportação: download helper ---------------------------- */
-
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  document.getElementById("railToggleBtn")?.onclick = () => {
+    state.railOpen = !state.railOpen;
+    const rail = document.getElementById("tabRail");
+    if (rail) rail.classList.toggle("open", state.railOpen);
+  };
+  
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".export-menu")) {
+      document.querySelectorAll(".export-dropdown").forEach(d => d.style.display = "none");
+    }
+  });
 }
 
-function safeFileName(paf) {
-  const base = (paf.responsavel || "sem-nome").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return `PAF-${base || "registro"}-${paf.dataInicial || todayISO()}`;
-}
-
-/* ---------------------------- Exportação: PDF ---------------------------- */
+/* ---------------------------- Exportação (PDF e Word) ---------------------------- */
 
 function exportPDF(paf) {
   if (!paf) return;
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const marginX = 44;
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  let y = 50;
+  const doc = new jsPDF();
+  
+  let y = 15;
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("Plano de Acompanhamento Familiar - PAF / PAIF", 10, y);
+  
+  y += 10;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`CRAS: ${paf.crasNome || "—"}`, 10, y);
+  doc.text(`Responsável: ${paf.responsavel || "—"}`, 100, y);
+  
+  y += 6;
+  doc.text(`CPF: ${paf.cpf || "—"}`, 10, y);
+  doc.text(`NIS: ${paf.nis || "—"}`, 100, y);
 
-  function ensureSpace(h) {
-    if (y + h > pageH - 40) { doc.addPage(); y = 50; }
-  }
-  function h1(text) {
-    ensureSpace(30);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(31, 58, 95);
-    doc.text(text, marginX, y); y += 10;
-    doc.setDrawColor(46, 125, 107); doc.setLineWidth(1.2);
-    doc.line(marginX, y, pageW - marginX, y); y += 18;
-  }
-  function h2(text) {
-    ensureSpace(22);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(11.5); doc.setTextColor(31, 58, 95);
-    doc.text(text, marginX, y); y += 16;
-  }
-  function field(label, value) {
-    const val = value && String(value).trim() ? String(value) : "—";
-    const lines = doc.splitTextToSize(val, pageW - marginX * 2 - 140);
-    ensureSpace(14 * Math.max(lines.length, 1) + 4);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(82, 102, 124);
-    doc.text(label.toUpperCase(), marginX, y);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.setTextColor(31, 58, 95);
-    doc.text(lines, marginX + 155, y);
-    y += 14 * Math.max(lines.length, 1) + 6;
-  }
-  function bullet(text, checked) {
-    ensureSpace(13);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(9.7); doc.setTextColor(31, 58, 95);
-    const mark = checked ? "[x] " : "[ ] ";
-    const lines = doc.splitTextToSize(mark + text, pageW - marginX * 2 - 10);
-    doc.text(lines, marginX + 6, y);
-    y += 12.5 * lines.length + 1;
-  }
-  function spacer(n) { y += (n || 10); }
-
-  h1("Plano de Acompanhamento Familiar — PAF / PAIF");
-  field("Nome do CRAS", paf.crasNome);
-  field("Responsável Familiar", paf.responsavel);
-  field("CPF", paf.cpf);
-  field("NIS", paf.nis);
-  field("Endereço", paf.endereco);
-  field("Data inicial do PAF", fmtDateBR(paf.dataInicial));
-  field("Periodicidade", paf.periodicidade);
-  field("Situação do PAF", STATUS_LABELS[paf.situacaoPAF] + (paf.situacaoData ? " em " + fmtDateBR(paf.situacaoData) : ""));
-  spacer(6);
-
-  h2("Membros da Família em Acompanhamento");
-  (paf.membros || []).filter(m => m.nome).forEach(m => bullet(`${m.nome} — nasc. ${fmtDateBR(m.nascimento) || "—"} — ${m.parentesco || "—"}`, true));
-  spacer(6);
-
-  h2("Diagnóstico — Vulnerabilidades da Família");
-  VULNERABILIDADES_FAMILIA.forEach(v => bullet(v, paf.vulnerabilidades.includes(v)));
-  if (paf.vulnerabilidadesOutros) field("Outros", paf.vulnerabilidadesOutros);
-  spacer(6);
-
-  h2("Situações e Riscos Sociais");
-  paf.situacoesSociais.filter(r => r.membros || r.superada).forEach(r => {
-    bullet(`${r.situacao} — ${r.membros || "—"}${r.superada ? " (superada)" : ""}`, true);
+  y += 10;
+  doc.setFont("helvetica", "bold");
+  doc.text("Membros da Família:", 10, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  (paf.membros || []).forEach(m => {
+    if (m.nome) {
+      doc.text(`• ${m.nome} (${m.parentesco || "Parentesco N/A"}) - Nasc: ${fmtDateBR(m.nascimento)}`, 14, y);
+      y += 6;
+    }
   });
-  spacer(6);
 
-  h2("Serviços da Rede Socioassistencial");
-  if (paf.servBasica.length) field("Proteção Social Básica", paf.servBasica.join(", "));
-  if (paf.servMedia.length) field("Média Complexidade", paf.servMedia.join(", "));
-  if (paf.servAlta.length) field("Alta Complexidade", paf.servAlta.join(", "));
-  spacer(6);
-
-  h2("Programas, Projetos e Benefícios");
-  field("Participa de programas/projetos sociais", paf.participaProgramas);
-  if (paf.programasQuais.length) field("Quais programas", paf.programasQuais.join(", "));
-  if (paf.programasMunicipalQual) field("Municipal", paf.programasMunicipalQual);
-  if (paf.programasProjetoQual) field("Projeto social", paf.programasProjetoQual);
-  if (paf.programasOutros) field("Outros programas", paf.programasOutros);
-  field("Recebe outro benefício assistencial/eventual", paf.recebeBeneficio);
-  if (paf.beneficioQuais.length) field("Quais benefícios", paf.beneficioQuais.join(", "));
-  if (paf.beneficioOutro) field("Outro benefício", paf.beneficioOutro);
-  spacer(6);
-
-  h2("Rede de Apoio Institucional do Território");
-  if (paf.redeApoio.length) field("Recursos", paf.redeApoio.join(", "));
-  if (paf.redeApoioOutros) field("Outros recursos", paf.redeApoioOutros);
-  spacer(6);
-
-  h2("Metas, Evolução e Acompanhamento");
-  paf.metas.filter(m => m.prazo || m.resultados).forEach(m => {
-    field(m.meta, `Prazo: ${m.prazo || "—"} · Resultados: ${m.resultados || "—"}`);
+  y += 10;
+  doc.setFont("helvetica", "bold");
+  doc.text("Vulnerabilidades Marcadas:", 10, y);
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  (paf.vulnerabilidades || []).forEach(v => {
+    doc.text(`- ${v}`, 14, y);
+    y += 5;
   });
-  spacer(6);
 
-  h2("Estratégias e Eixos de Intervenção");
-  if (paf.estrategias.length) field("Estratégias", paf.estrategias.join(", "));
-  if (paf.estrategiasOutras) field("Outras estratégias", paf.estrategiasOutras);
-  if (paf.eixos.length) field("Eixos de intervenção", paf.eixos.join(", "));
-  if (paf.eixosOutros) field("Outros eixos", paf.eixosOutros);
-  spacer(6);
-
-  h2("Elaboração do Plano");
-  field("Família participou da construção do Plano", paf.familiaParticipou);
-  field("Prazo de execução do Plano", paf.prazoExecucaoPlano);
-  field("Prazo de avaliação do Plano", paf.prazoAvaliacaoPlano);
-  field("Técnico de Referência", paf.tecnicoReferencia);
-  field("Data de elaboração", fmtDateBR(paf.dataElaboracao));
-
-  if (paf.encerramentoMotivo || paf.encerramentoTecnico) {
-    spacer(6);
-    h2("Encerramento do Acompanhamento Familiar");
-    const motivo = ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo);
-    field("Motivo", motivo ? `(${motivo.v}) ${motivo.label}` : "—");
-    if (paf.encerramentoOutros) field("Observações do motivo", paf.encerramentoOutros);
-    field("Técnico de Referência", paf.encerramentoTecnico);
-    field("Data", fmtDateBR(paf.encerramentoData));
-  }
-
-  if (paf.observacoes) {
-    spacer(6);
-    h2("Observações");
-    field("", paf.observacoes);
-  }
-
-  spacer(20);
-  ensureSpace(60);
-  doc.setDrawColor(215, 224, 230); doc.line(marginX, y, pageW - marginX, y); y += 30;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(82, 102, 124);
-  doc.text("_______________________________________________", marginX, y); y += 14;
-  doc.text("Técnico de Referência", marginX, y); y += 26;
-  doc.text("_______________________________________________", marginX, y); y += 14;
-  doc.text("Assinatura do Responsável Familiar", marginX, y);
-
-  doc.save(safeFileName(paf) + ".pdf");
-  toast("PDF gerado.");
+  doc.save(`PAF_${(paf.responsavel || "Registro").replace(/\s+/g, "_")}.pdf`);
+  toast("PDF gerado com sucesso.");
 }
-
-/* ---------------------------- Exportação: Word (.doc compatível) ---------------------------- */
 
 function exportWord(paf) {
   if (!paf) return;
+  const content = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head><meta charset='utf-8'><title>PAF</title></head>
+    <body style="font-family: Arial, sans-serif;">
+      <h2>Plano de Acompanhamento Familiar - PAF / PAIF</h2>
+      <p><b>CRAS:</b> ${escapeHtml(paf.crasNome)} | <b>Responsável:</b> ${escapeHtml(paf.responsavel)}</p>
+      <p><b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)}</p>
+      <hr>
+      <h3>Membros da Família</h3>
+      <ul>
+        ${(paf.membros || []).map(m => `<li>${escapeHtml(m.nome)} - ${escapeHtml(m.parentesco)} (${fmtDateBR(m.nascimento)})</li>`).join("")}
+      </ul>
+      <h3>Observações</h3>
+      <p>${escapeHtml(paf.observacoes || "Nenhuma observação informada.")}</p>
+    </body>
+    </html>
+  `;
 
-  function row(label, value) {
-    const val = value && String(value).trim() ? escapeHtml(value) : "—";
-    return `<tr><td style="padding:4px 8px;font-weight:bold;color:#1F3A5F;width:220px;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:4px 8px;vertical-align:top;">${val}</td></tr>`;
-  }
-  function sectionTitle(text) {
-    return `<h2 style="color:#1F3A5F;border-bottom:1px solid #2E7D6B;padding-bottom:4px;margin-top:26px;font-size:14pt;">${escapeHtml(text)}</h2>`;
-  }
-  function checklist(items, selected) {
-    return `<ul style="margin:4px 0 10px;padding-left:18px;">` + items.map(it =>
-      `<li>${selected.includes(it) ? "☑" : "☐"} ${escapeHtml(it)}</li>`
-    ).join("") + `</ul>`;
-  }
-
-  let body = "";
-  body += `<h1 style="color:#1F3A5F;font-size:18pt;margin-bottom:2px;">Plano de Acompanhamento Familiar — PAF / PAIF</h1>`;
-  body += `<p style="color:#52667C;margin-top:0;">Serviço de Proteção e Atendimento Integral à Família</p>`;
-  body += `<table style="width:100%;border-collapse:collapse;">`
-    + row("Nome do CRAS", paf.crasNome) + row("Responsável Familiar", paf.responsavel)
-    + row("CPF", paf.cpf) + row("NIS", paf.nis) + row("Endereço", paf.endereco)
-    + row("Data inicial do PAF", fmtDateBR(paf.dataInicial)) + row("Periodicidade", paf.periodicidade)
-    + row("Situação do PAF", STATUS_LABELS[paf.situacaoPAF] + (paf.situacaoData ? " em " + fmtDateBR(paf.situacaoData) : ""))
-    + `</table>`;
-
-  body += sectionTitle("Membros da Família em Acompanhamento");
-  body += `<table style="width:100%;border-collapse:collapse;" border="1" cellpadding="5">
-    <tr style="background:#DEEAE6;"><th>Nome</th><th>Data de nascimento</th><th>Parentesco</th></tr>
-    ${(paf.membros || []).filter(m => m.nome).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.parentesco)}</td></tr>`).join("")}
-  </table>`;
-
-  body += sectionTitle("Diagnóstico — Vulnerabilidades da Família");
-  body += checklist(VULNERABILIDADES_FAMILIA, paf.vulnerabilidades);
-  if (paf.vulnerabilidadesOutros) body += `<p><strong>Outros:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>`;
-
-  body += sectionTitle("Situações e Riscos Sociais");
-  body += `<table style="width:100%;border-collapse:collapse;" border="1" cellpadding="5">
-    <tr style="background:#DEEAE6;"><th>Situação</th><th>Membro(s)</th><th>Superada</th></tr>
-    ${paf.situacoesSociais.filter(r => r.membros || r.superada).map(r => `<tr><td>${escapeHtml(r.situacao)}</td><td>${escapeHtml(r.membros)}</td><td>${r.superada ? "Sim" : "Não"}</td></tr>`).join("")}
-  </table>`;
-
-  body += sectionTitle("Serviços da Rede Socioassistencial");
-  body += `<p><strong>Proteção Social Básica:</strong> ${paf.servBasica.map(escapeHtml).join(", ") || "—"}</p>`;
-  body += `<p><strong>Média Complexidade:</strong> ${paf.servMedia.map(escapeHtml).join(", ") || "—"}</p>`;
-  body += `<p><strong>Alta Complexidade:</strong> ${paf.servAlta.map(escapeHtml).join(", ") || "—"}</p>`;
-
-  body += sectionTitle("Programas, Projetos e Benefícios");
-  body += `<table style="width:100%;border-collapse:collapse;">`
-    + row("Participa de programas/projetos sociais", paf.participaProgramas)
-    + row("Quais programas", paf.programasQuais.join(", "))
-    + row("Municipal", paf.programasMunicipalQual)
-    + row("Projeto social", paf.programasProjetoQual)
-    + row("Outros programas", paf.programasOutros)
-    + row("Recebe outro benefício assistencial/eventual", paf.recebeBeneficio)
-    + row("Quais benefícios", paf.beneficioQuais.join(", "))
-    + row("Outro benefício", paf.beneficioOutro)
-    + `</table>`;
-
-  body += sectionTitle("Rede de Apoio Institucional do Território");
-  body += `<p>${paf.redeApoio.map(escapeHtml).join(", ") || "—"}</p>`;
-  if (paf.redeApoioOutros) body += `<p><strong>Outros:</strong> ${escapeHtml(paf.redeApoioOutros)}</p>`;
-
-  body += sectionTitle("Metas, Evolução e Acompanhamento");
-  body += `<table style="width:100%;border-collapse:collapse;" border="1" cellpadding="5">
-    <tr style="background:#DEEAE6;"><th>Meta</th><th>Prazo</th><th>Resultados</th></tr>
-    ${paf.metas.map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`).join("")}
-  </table>`;
-
-  body += sectionTitle("Estratégias e Eixos de Intervenção");
-  body += `<p><strong>Estratégias:</strong> ${paf.estrategias.map(escapeHtml).join(", ") || "—"}${paf.estrategiasOutras ? " · Outras: " + escapeHtml(paf.estrategiasOutras) : ""}</p>`;
-  body += `<p><strong>Eixos:</strong> ${paf.eixos.map(escapeHtml).join(", ") || "—"}${paf.eixosOutros ? " · Outros: " + escapeHtml(paf.eixosOutros) : ""}</p>`;
-
-  body += sectionTitle("Elaboração do Plano");
-  body += `<table style="width:100%;border-collapse:collapse;">`
-    + row("Família participou da construção do Plano", paf.familiaParticipou)
-    + row("Prazo de execução do Plano", paf.prazoExecucaoPlano)
-    + row("Prazo de avaliação do Plano", paf.prazoAvaliacaoPlano)
-    + row("Técnico de Referência", paf.tecnicoReferencia)
-    + row("Data de elaboração", fmtDateBR(paf.dataElaboracao))
-    + `</table>`;
-
-  if (paf.encerramentoMotivo || paf.encerramentoTecnico) {
-    const motivo = ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo);
-    body += sectionTitle("Encerramento do Acompanhamento Familiar");
-    body += `<table style="width:100%;border-collapse:collapse;">`
-      + row("Motivo", motivo ? `(${motivo.v}) ${motivo.label}` : "—")
-      + row("Observações do motivo", paf.encerramentoOutros)
-      + row("Técnico de Referência", paf.encerramentoTecnico)
-      + row("Data", fmtDateBR(paf.encerramentoData))
-      + `</table>`;
-  }
-
-  if (paf.observacoes) {
-    body += sectionTitle("Observações");
-    body += `<p>${escapeHtml(paf.observacoes).replace(/\n/g, "<br>")}</p>`;
-  }
-
-  body += `<br><br><table style="width:100%;margin-top:40px;">
-    <tr><td style="width:50%;">_______________________________________<br>Técnico de Referência</td>
-    <td style="width:50%;">_______________________________________<br>Assinatura do Responsável Familiar</td></tr>
-  </table>`;
-
-  const html = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-    <head><meta charset="utf-8"><title>${escapeHtml(safeFileName(paf))}</title>
-    <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
-    <style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1F3A5F;} table{border-collapse:collapse;} td,th{border:1px solid #D7E0E6;}</style>
-    </head><body>${body}</body></html>`;
-
-  const blob = new Blob(["\ufeff", html], { type: "application/msword" });
-  triggerDownload(blob, safeFileName(paf) + ".doc");
-  toast("Word gerado (.doc — abre normalmente no Microsoft Word).");
+  const blob = new Blob(['\ufeff' + content], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `PAF_${(paf.responsavel || "Registro").replace(/\s+/g, "_")}.doc`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("Arquivo Word (.doc) gerado com sucesso.");
 }
 
-/* ---------------------------- Boot ---------------------------- */
+/* ---------------------------- Inicialização ---------------------------- */
 
-initStorage();
-renderApp();
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  });
-}
+window.addEventListener("DOMContentLoaded", () => {
+  initStorage();
+});
