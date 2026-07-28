@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Plano de Acompanhamento Familiar - PAF/PAIF</title>
+<meta name="theme-color" content="#1F3A5F">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="seal">P</span>
+      <span>PAF <span style="opacity:.55;font-weight:400">/ PAIF</span></span>
+    </div>
+    <button class="icon-btn rail-toggle" id="railToggleBtn" title="Seções">☰</button>
+    <div class="spacer"></div>
+    <div class="sync-pill local" id="syncPill"><span class="sync-dot"></span><span id="syncLabel">Configurar sincronização</span></div>
+    <button class="icon-btn" id="settingsBtn" title="Configurações">⚙︎ Config</button>
+  </header>
+
+  <main id="mainArea"></main>
+
+  <footer class="app-footer">Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR</footer>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="modalRoot"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
