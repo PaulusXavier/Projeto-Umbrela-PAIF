@@ -126,6 +126,8 @@ const state = {
   railOpen: false
 };
 
+const FIRESTORE_COLLECTION = "pafs";
+
 function uid() {
   return "paf_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9);
 }
@@ -227,9 +229,10 @@ function toast(msg) {
 
 function confirmModal(title, msg, onConfirm) {
   const root = document.getElementById("modalRoot");
+  if (!root) return;
   root.innerHTML = `
     <div class="modal-backdrop">
-      <div class="modal-box">
+      <div class="modal">
         <h3>${escapeHtml(title)}</h3>
         <p>${escapeHtml(msg)}</p>
         <div class="modal-actions">
@@ -248,24 +251,21 @@ function confirmModal(title, msg, onConfirm) {
 /* ---------------------------- Firebase / armazenamento ---------------------------- */
 
 function firebaseConfigured() {
-  return typeof FIREBASE_CONFIG !== "undefined" &&
-    FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "COLE_AQUI" &&
-    FIREBASE_CONFIG.projectId && FIREBASE_CONFIG.projectId !== "COLE_AQUI";
+  return typeof firebase !== "undefined" && firebase.apps.length > 0;
 }
 
 function setSyncPill(kind, label) {
   const pill = document.getElementById("syncPill");
   if (!pill) return;
   pill.className = "sync-pill " + kind;
-  document.getElementById("syncLabel").textContent = label;
+  const labelEl = document.getElementById("syncLabel");
+  if (labelEl) labelEl.textContent = label;
 }
 
 function initStorage() {
   if (firebaseConfigured()) {
     try {
-      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       state.db = firebase.firestore();
-      state.db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
       state.mode = "cloud";
       setSyncPill("ok", "Sincronizado (nuvem)");
       subscribeCloud();
@@ -380,6 +380,7 @@ function newPAF() {
 
 function renderApp() {
   const main = document.getElementById("mainArea");
+  if (!main) return;
   main.innerHTML = state.view === "home" ? renderHomeHTML() : renderEditorHTML();
   attachGlobalHandlers();
   if (state.view === "home") attachHomeHandlers(); else attachEditorHandlers();
@@ -470,6 +471,7 @@ function attachHomeHandlers() {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
       const dd = document.getElementById("exp-" + el.dataset.exportToggle);
+      if (!dd) return;
       const isOpen = dd.style.display === "block";
       document.querySelectorAll(".export-dropdown").forEach(d => d.style.display = "none");
       dd.style.display = isOpen ? "none" : "block";
@@ -697,27 +699,38 @@ function renderSection(id, paf) {
         <div class="radio-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
           ${ENCERRAMENTO_MOTIVOS.map(m => `<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="encerramentoMotivo" data-field="encerramentoMotivo" value="${m.v}" ${paf.encerramentoMotivo === m.v ? "checked" : ""}> (${m.v}) ${m.label}</label>`).join("")}
         </div>
-        <div class="field-grid" style="margin-top:14px">
-          <div class="f c6"><label>Observações do motivo / outros</label><input type="text" data-field="encerramentoOutros" value="${escapeHtml(paf.encerramentoOutros)}"></div>
-          <div class="f c3"><label>Técnico de Referência</label><input type="text" data-field="encerramentoTecnico" value="${escapeHtml(paf.encerramentoTecnico)}"></div>
-          <div class="f c3"><label>Data</label><input type="date" data-field="encerramentoData" value="${escapeHtml(paf.encerramentoData)}"></div>
+        <div class="field-grid" style="margin-top:14px;">
+          <div class="f c12"><label>Outros motivos / Observações do encerramento</label><input type="text" data-field="encerramentoOutros" value="${escapeHtml(paf.encerramentoOutros)}"></div>
+          <div class="f c6"><label>Técnico Responsável</label><input type="text" data-field="encerramentoTecnico" value="${escapeHtml(paf.encerramentoTecnico)}"></div>
+          <div class="f c6"><label>Data de Encerramento</label><input type="date" data-field="encerramentoData" value="${escapeHtml(paf.encerramentoData)}"></div>
         </div>
       </div>`;
 
     case "observacoes": return `
       <div class="section-card">
-        ${sectionHeader("11", "Observações", "")}
-        <div class="f"><textarea data-field="observacoes" rows="8">${escapeHtml(paf.observacoes)}</textarea></div>
+        ${sectionHeader("11", "Observações Gerais", "Anotações complementares técnicas sobre o acompanhamento da família.")}
+        <div class="f">
+          <textarea data-field="observacoes" rows="8" placeholder="Digite aqui observações adicionais...">${escapeHtml(paf.observacoes)}</textarea>
+        </div>
       </div>`;
+
+    default: return "";
   }
 }
 
+/* ---------------------------- Eventos do Editor ---------------------------- */
+
 function attachEditorHandlers() {
   document.getElementById("backHomeBtn")?.addEventListener("click", goHome);
-  document.getElementById("saveBtn")?.addEventListener("click", () => savePAF(state.current));
+  document.getElementById("saveBtn")?.addEventListener("click", () => {
+    savePAF(state.current);
+    renderApp();
+  });
+
   document.getElementById("exportPdfBtn")?.addEventListener("click", () => exportPDF(state.current));
   document.getElementById("exportWordBtn")?.addEventListener("click", () => exportWord(state.current));
 
+  // Troca de Seções (Tabs)
   document.querySelectorAll("[data-section]").forEach(el => {
     el.addEventListener("click", () => {
       state.activeSection = el.dataset.section;
@@ -726,6 +739,7 @@ function attachEditorHandlers() {
     });
   });
 
+  // Troca rápida de status da capa
   document.querySelectorAll("[data-set-status]").forEach(btn => {
     btn.addEventListener("click", () => {
       state.current.situacaoPAF = btn.dataset.setStatus;
@@ -734,55 +748,79 @@ function attachEditorHandlers() {
     });
   });
 
-  document.querySelectorAll("[data-field]").forEach(input => {
-    input.addEventListener("input", e => {
-      setPath(state.current, e.target.dataset.field, e.target.value);
+  // Binding de Inputs Gerais (text, date, select, textarea, radio)
+  const container = document.getElementById("formScroll");
+  if (!container) return;
+
+  container.querySelectorAll("[data-field]").forEach(input => {
+    const path = input.dataset.field;
+    const evt = input.type === "radio" || input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
+    
+    input.addEventListener(evt, () => {
+      if (input.type === "radio") {
+        if (input.checked) setPath(state.current, path, input.value);
+      } else {
+        setPath(state.current, path, input.value);
+      }
       scheduleAutosave();
     });
   });
 
-  document.querySelectorAll("[data-field-check]").forEach(chk => {
-    chk.addEventListener("change", e => {
-      setPath(state.current, e.target.dataset.fieldCheck, e.target.checked);
+  // Binding para Checkboxes de Matrizes Dinâmicas
+  container.querySelectorAll("[data-field-check]").forEach(chk => {
+    chk.addEventListener("change", () => {
+      setPath(state.current, chk.dataset.fieldCheck, chk.checked);
       scheduleAutosave();
     });
   });
 
-  document.querySelectorAll("[data-check-group]").forEach(chk => {
-    chk.addEventListener("change", e => {
-      const grp = e.target.dataset.checkGroup;
-      const val = e.target.dataset.checkValue;
-      if (!Array.isArray(state.current[grp])) state.current[grp] = [];
-      toggleArrayValue(state.current[grp], val);
+  // Binding para Listas de Checkbox (arrays)
+  container.querySelectorAll("[data-check-group]").forEach(chk => {
+    chk.addEventListener("change", () => {
+      const groupName = chk.dataset.checkGroup;
+      const val = chk.dataset.checkValue;
+      let arr = getPath(state.current, groupName) || [];
+      toggleArrayValue(arr, val);
+      setPath(state.current, groupName, arr);
       scheduleAutosave();
     });
   });
 
-  document.querySelectorAll("[data-action='add-membro']").forEach(btn => {
+  // Ações de Tabela Dinâmica (Membros da Família)
+  container.querySelectorAll("[data-action='add-membro']").forEach(btn => {
     btn.addEventListener("click", () => {
       state.current.membros.push({ nome: "", nascimento: "", parentesco: "" });
-      scheduleAutosave();
+      savePAF(state.current, { silent: true });
       renderApp();
     });
   });
 
-  document.querySelectorAll("[data-action='remove-membro']").forEach(btn => {
+  container.querySelectorAll("[data-action='remove-membro']").forEach(btn => {
     btn.addEventListener("click", () => {
       const idx = parseInt(btn.dataset.idx, 10);
       state.current.membros.splice(idx, 1);
-      scheduleAutosave();
+      savePAF(state.current, { silent: true });
       renderApp();
     });
   });
 }
 
+/* ---------------------------- Global Handlers ---------------------------- */
+
 function attachGlobalHandlers() {
-  document.getElementById("railToggleBtn")?.onclick = () => {
-    state.railOpen = !state.railOpen;
-    const rail = document.getElementById("tabRail");
-    if (rail) rail.classList.toggle("open", state.railOpen);
-  };
+  document.getElementById("btnGoHome")?.addEventListener("click", goHome);
+  document.getElementById("btnNewPafHeader")?.addEventListener("click", newPAF);
   
+  const railToggle = document.getElementById("railToggle");
+  if (railToggle) {
+    railToggle.onclick = () => {
+      state.railOpen = !state.railOpen;
+      const rail = document.getElementById("tabRail");
+      if (rail) rail.classList.toggle("open", state.railOpen);
+    };
+  }
+
+  // Fechar dropdowns de exportação ao clicar fora
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".export-menu")) {
       document.querySelectorAll(".export-dropdown").forEach(d => d.style.display = "none");
@@ -790,87 +828,174 @@ function attachGlobalHandlers() {
   });
 }
 
-/* ---------------------------- Exportação (PDF e Word) ---------------------------- */
+/* ---------------------------- Exportação: PDF (Impressão Nativa) ---------------------------- */
 
 function exportPDF(paf) {
   if (!paf) return;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  
-  let y = 15;
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text("Plano de Acompanhamento Familiar - PAF / PAIF", 10, y);
-  
-  y += 10;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`CRAS: ${paf.crasNome || "—"}`, 10, y);
-  doc.text(`Responsável: ${paf.responsavel || "—"}`, 100, y);
-  
-  y += 6;
-  doc.text(`CPF: ${paf.cpf || "—"}`, 10, y);
-  doc.text(`NIS: ${paf.nis || "—"}`, 100, y);
+  const printWin = window.open("", "_blank");
+  if (!printWin) {
+    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
+    return;
+  }
 
-  y += 10;
-  doc.setFont("helvetica", "bold");
-  doc.text("Membros da Família:", 10, y);
-  y += 6;
-  doc.setFont("helvetica", "normal");
-  (paf.membros || []).forEach(m => {
-    if (m.nome) {
-      doc.text(`• ${m.nome} (${m.parentesco || "Parentesco N/A"}) - Nasc: ${fmtDateBR(m.nascimento)}`, 14, y);
-      y += 6;
-    }
-  });
+  const membrosHTML = (paf.membros || []).map(m => `
+    <tr>
+      <td>${escapeHtml(m.nome)}</td>
+      <td>${fmtDateBR(m.nascimento)}</td>
+      <td>${escapeHtml(m.parentesco)}</td>
+    </tr>
+  `).join("") || "<tr><td colspan='3'>Nenhum membro informado</td></tr>";
 
-  y += 10;
-  doc.setFont("helvetica", "bold");
-  doc.text("Vulnerabilidades Marcadas:", 10, y);
-  y += 6;
-  doc.setFont("helvetica", "normal");
-  (paf.vulnerabilidades || []).forEach(v => {
-    doc.text(`- ${v}`, 14, y);
-    y += 5;
-  });
+  const situacoesHTML = (paf.situacoesSociais || [])
+    .filter(s => s.membros || s.superada)
+    .map(s => `<tr><td>${escapeHtml(s.situacao)}</td><td>${escapeHtml(s.membros)}</td><td>${s.superada ? "Sim" : "Não"}</td></tr>`)
+    .join("") || "<tr><td colspan='3'>Nenhuma situação registrada</td></tr>";
 
-  doc.save(`PAF_${(paf.responsavel || "Registro").replace(/\s+/g, "_")}.pdf`);
-  toast("PDF gerado com sucesso.");
+  const metasHTML = (paf.metas || [])
+    .filter(m => m.prazo || m.resultados)
+    .map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`)
+    .join("") || "<tr><td colspan='3'>Nenhuma meta informada</td></tr>";
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>PAF - ${escapeHtml(paf.responsavel)}</title>
+      <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; padding: 20px; line-height: 1.4; }
+        h1 { font-size: 18px; border-bottom: 2px solid #1F3A5F; padding-bottom: 4px; margin-bottom: 4px; }
+        h2 { font-size: 14px; color: #2E7D6B; margin-top: 18px; border-bottom: 1px solid #D7E0E6; padding-bottom: 3px; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px; }
+        .field { margin-bottom: 6px; }
+        .label { font-weight: bold; font-size: 10px; text-transform: uppercase; color: #52667C; display: block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
+        th, td { border: 1px solid #D7E0E6; padding: 6px; text-align: left; }
+        th { background: #F6F8F9; font-weight: bold; }
+        .tag { display: inline-block; background: #DEEAE6; color: #1F5C4E; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin: 2px; }
+        @media print { body { padding: 0; } }
+      </style>
+    </head>
+    <body>
+      <h1>Plano de Acompanhamento Familiar - PAF</h1>
+      <p style="margin-top:0;color:#52667C;">CRAS: ${escapeHtml(paf.crasNome)} · Situação: ${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</p>
+
+      <h2>01. Cabeçalho & Responsável</h2>
+      <div class="grid">
+        <div class="field"><span class="label">Responsável Familiar</span>${escapeHtml(paf.responsavel)}</div>
+        <div class="field"><span class="label">CPF</span>${escapeHtml(paf.cpf)}</div>
+        <div class="field"><span class="label">NIS</span>${escapeHtml(paf.nis)}</div>
+        <div class="field"><span class="label">Data Inicial</span>${fmtDateBR(paf.dataInicial)}</div>
+        <div class="field" style="grid-column: span 2"><span class="label">Endereço</span>${escapeHtml(paf.endereco)}</div>
+      </div>
+
+      <h2>02. Membros da Família</h2>
+      <table>
+        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th></tr></thead>
+        <tbody>${membrosHTML}</tbody>
+      </table>
+
+      <h2>03. Diagnóstico e Vulnerabilidades</h2>
+      <div>${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "Nenhuma selecionada"}</div>
+      ${paf.vulnerabilidadesOutros ? `<p><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
+
+      <h2>04. Situações Sociais Registradas</h2>
+      <table>
+        <thead><tr><th>Situação Social</th><th>Membros</th><th>Superada</th></tr></thead>
+        <tbody>${situacoesHTML}</tbody>
+      </table>
+
+      <h2>05. Metas e Evolução</h2>
+      <table>
+        <thead><tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr></thead>
+        <tbody>${metasHTML}</tbody>
+      </table>
+
+      <h2>06. Elaboração e Encerramento</h2>
+      <div class="grid">
+        <div class="field"><span class="label">Técnico de Referência</span>${escapeHtml(paf.tecnicoReferencia)}</div>
+        <div class="field"><span class="label">Data de Elaboração</span>${fmtDateBR(paf.dataElaboracao)}</div>
+        <div class="field"><span class="label">Motivo de Encerramento</span>${escapeHtml(paf.encerramentoMotivo || "—")}</div>
+        <div class="field"><span class="label">Data de Encerramento</span>${fmtDateBR(paf.encerramentoData) || "—"}</div>
+      </div>
+
+      ${paf.observacoes ? `<h2>07. Observações Gerais</h2><p>${escapeHtml(paf.observacoes)}</p>` : ""}
+
+      <script>
+        window.onload = () => { window.print(); };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
 }
+
+/* ---------------------------- Exportação: Word (.doc) ---------------------------- */
 
 function exportWord(paf) {
   if (!paf) return;
+
   const content = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-    <head><meta charset='utf-8'><title>PAF</title></head>
-    <body style="font-family: Arial, sans-serif;">
-      <h2>Plano de Acompanhamento Familiar - PAF / PAIF</h2>
-      <p><b>CRAS:</b> ${escapeHtml(paf.crasNome)} | <b>Responsável:</b> ${escapeHtml(paf.responsavel)}</p>
-      <p><b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)}</p>
-      <hr>
-      <h3>Membros da Família</h3>
-      <ul>
-        ${(paf.membros || []).map(m => `<li>${escapeHtml(m.nome)} - ${escapeHtml(m.parentesco)} (${fmtDateBR(m.nascimento)})</li>`).join("")}
-      </ul>
-      <h3>Observações</h3>
-      <p>${escapeHtml(paf.observacoes || "Nenhuma observação informada.")}</p>
+    <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.3; }
+      h1 { font-size: 16pt; color: #1F3A5F; }
+      h2 { font-size: 13pt; color: #2E7D6B; margin-top: 15pt; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10pt; }
+      td, th { border: 1px solid #CCCCCC; padding: 5pt; font-size: 10pt; }
+      th { background-color: #F0F4F8; }
+    </style>
+    </head>
+    <body>
+      <h1>Plano de Acompanhamento Familiar - PAF</h1>
+      <p><b>CRAS:</b> ${escapeHtml(paf.crasNome)} | <b>Status:</b> ${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</p>
+      <hr/>
+      <h2>01. Identificação</h2>
+      <p><b>Responsável:</b> ${escapeHtml(paf.responsavel)}<br>
+      <b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)}<br>
+      <b>Endereço:</b> ${escapeHtml(paf.endereco)}<br>
+      <b>Data de Início:</b> ${fmtDateBR(paf.dataInicial)}</p>
+
+      <h2>02. Composição Familiar</h2>
+      <table>
+        <tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th></tr>
+        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.parentesco)}</td></tr>`).join("")}
+      </table>
+
+      <h2>03. Diagnóstico e Vulnerabilidades</h2>
+      <p>${(paf.vulnerabilidades || []).join(", ") || "Nenhuma registrada"}</p>
+
+      <h2>04. Metas e Resultados</h2>
+      <table>
+        <tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr>
+        ${(paf.metas || []).map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`).join("")}
+      </table>
+
+      <h2>05. Encerramento e Validação</h2>
+      <p><b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia)}<br>
+      <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao)}<br>
+      <b>Observações:</b> ${escapeHtml(paf.observacoes)}</p>
     </body>
     </html>
   `;
 
   const blob = new Blob(['\ufeff' + content], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
-  a.download = `PAF_${(paf.responsavel || "Registro").replace(/\s+/g, "_")}.doc`;
+  a.download = `PAF_${(paf.responsavel || "registro").replace(/\s+/g, "_")}.doc`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  toast("Arquivo Word (.doc) gerado com sucesso.");
+  toast("Documento Word gerado.");
 }
 
-/* ---------------------------- Inicialização ---------------------------- */
+/* ---------------------------- Inicialização do App ---------------------------- */
 
 window.addEventListener("DOMContentLoaded", () => {
   initStorage();
