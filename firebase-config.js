@@ -26,3 +26,8 @@ const FIREBASE_CONFIG = {
 
 // Nome da coleção usada no Firestore — pode manter como está.
 const FIRESTORE_COLLECTION = "planos_acompanhamento_familiar";
+
+// Inicializa o Firebase somente se as chaves acima já foram preenchidas.
+if (FIREBASE_CONFIG.apiKey !== "COLE_AQUI") {
+  firebase.initializeApp(FIREBASE_CONFIG);
+}
