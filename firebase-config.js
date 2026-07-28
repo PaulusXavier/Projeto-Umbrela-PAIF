@@ -1,6 +1,8 @@
-// firebase-config.js
+/* =========================================================================
+   firebase-config.js - Configuração e Persistência Offline
+   ========================================================================= */
 
-// Configuração do Firebase com as suas credenciais[cite: 2, 5]
+// Configuração de credenciais do projeto Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyByab3GgZB-9uNjQrguggSYqR7Bxv5pIXE",
   authDomain: "paif-d2ab8.firebaseapp.com",
@@ -11,18 +13,27 @@ const firebaseConfig = {
   measurementId: "G-Y10LF92J1X"
 };
 
-// Inicializa o Firebase[cite: 2, 5]
-firebase.initializeApp(firebaseConfig);
+// Inicializa a aplicação Firebase
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
-// Inicializa o banco de dados Firestore[cite: 2, 5]
+// Inicializa a instância do Firestore
 const db = firebase.firestore();
 
-// Habilita a persistência de dados offline no navegador
+// Ativa a persistência de dados offline (Multi-Tab)
 db.enablePersistence({ synchronizeTabs: true })
+  .then(() => {
+    console.log('Persistência offline do Firestore ativada com sucesso.');
+  })
   .catch((err) => {
     if (err.code === 'failed-precondition') {
-      console.warn('Persistência offline falhou: Múltiplas abas abertas.');
+      // Múltiplas abas abertas simultaneamente podem causar isso em navegadores sem suporte total a lock
+      console.warn('Persistência offline desativada: Ativa apenas na primeira aba aberta.');
     } else if (err.code === 'unimplemented') {
-      console.warn('O navegador atual não suporta persistência offline.');
+      // Navegadores muito antigos ou em modos privados restritivos
+      console.warn('O navegador atual não suporta suporte offline do Firestore.');
+    } else {
+      console.error('Erro ao habilitar persistência do Firestore:', err);
     }
   });
