@@ -121,8 +121,144 @@ const SECTIONS = [
   { id: "estrategias", label: "Estratégias e Eixos" },
   { id: "plano", label: "Elaboração do Plano" },
   { id: "encerramento", label: "Encerramento" },
+  { id: "anexos", label: "Anexos" },
   { id: "observacoes", label: "Observações" }
 ];
+
+/* ---------------------------- Anexos (PDF/imagem) ---------------------------- */
+
+// Limite de referência: um documento no Firestore não pode passar de ~1 MB no total.
+// Por isso comprimimos imagens automaticamente e avisamos quando os anexos de um PAF
+// estiverem ficando grandes demais para sincronizar com segurança na nuvem.
+const ANEXO_AVISO_BYTES = 650 * 1024;   // a partir daqui, mostramos aviso
+const ANEXO_MAX_BYTES = 900 * 1024;     // acima disso, recusamos o anexo (nuvem)
+const ANEXO_IMG_MAX_DIM = 1600;         // redimensiona imagens maiores que isso
+const ANEXO_IMG_QUALIDADE = 0.72;       // qualidade do JPEG comprimido
+
+function fmtBytes(n) {
+  if (!n && n !== 0) return "—";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + " KB";
+  return (n / (1024 * 1024)).toFixed(2) + " MB";
+}
+
+function totalAnexosBytes(paf) {
+  return (paf.anexos || []).reduce((sum, a) => sum + (a.tamanho || 0), 0);
+}
+
+function comprimirImagem(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Falha ao processar a imagem."));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > ANEXO_IMG_MAX_DIM || height > ANEXO_IMG_MAX_DIM) {
+          const escala = ANEXO_IMG_MAX_DIM / Math.max(width, height);
+          width = Math.round(width * escala);
+          height = Math.round(height * escala);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", ANEXO_IMG_QUALIDADE));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function lerArquivoComoDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+function dataURLBytes(dataURL) {
+  const base64 = (dataURL.split(",")[1] || "");
+  return Math.round(base64.length * 0.75);
+}
+
+async function adicionarAnexos(fileList) {
+  const arquivos = Array.from(fileList || []);
+  if (!arquivos.length) return;
+
+  for (const file of arquivos) {
+    const ehImagem = file.type.startsWith("image/");
+    const ehPdf = file.type === "application/pdf";
+    if (!ehImagem && !ehPdf) {
+      toast(`"${file.name}" não é imagem nem PDF — ignorado.`);
+      continue;
+    }
+    try {
+      const dataURL = ehImagem ? await comprimirImagem(file) : await lerArquivoComoDataURL(file);
+      const tamanho = dataURLBytes(dataURL);
+
+      if (tamanho > ANEXO_MAX_BYTES) {
+        toast(`"${file.name}" (${fmtBytes(tamanho)}) é grande demais para anexar com segurança. Use um arquivo menor.`);
+        continue;
+      }
+
+      if (!state.current.anexos) state.current.anexos = [];
+      state.current.anexos.push({
+        id: uid(),
+        nome: file.name,
+        tipo: file.type,
+        tamanho,
+        dataURL,
+        addedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error(err);
+      toast(`Não foi possível anexar "${file.name}".`);
+    }
+  }
+
+  savePAF(state.current, { silent: true });
+  renderApp();
+
+  const totalDepois = totalAnexosBytes(state.current);
+  if (totalDepois > ANEXO_AVISO_BYTES) {
+    toast(`Atenção: os anexos deste PAF somam ${fmtBytes(totalDepois)}. Em modo nuvem, isso pode ultrapassar o limite de sincronização.`);
+  }
+}
+
+function removerAnexo(id) {
+  confirmModal("Remover este anexo?", "O arquivo será apagado deste PAF.", () => {
+    state.current.anexos = (state.current.anexos || []).filter(a => a.id !== id);
+    savePAF(state.current, { silent: true });
+    renderApp();
+  });
+}
+
+function abrirAnexo(anexo) {
+  const win = window.open("");
+  if (!win) { toast("Bloqueador de pop-ups ativo. Permita pop-ups para visualizar."); return; }
+  if (anexo.tipo === "application/pdf") {
+    win.document.write(`<iframe src="${anexo.dataURL}" style="border:none;width:100%;height:100%;"></iframe>`);
+  } else {
+    win.document.write(`<img src="${anexo.dataURL}" style="max-width:100%;">`);
+  }
+}
+
+function baixarAnexo(anexo) {
+  const a = document.createElement("a");
+  a.href = anexo.dataURL;
+  a.download = anexo.nome || "anexo";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 
 /* ---------------------------- Estado ---------------------------- */
 
@@ -195,7 +331,8 @@ function emptyPAF() {
     encerramentoOutros: "",
     encerramentoTecnico: "",
     encerramentoData: "",
-    observacoes: ""
+    observacoes: "",
+    anexos: []
   };
 }
 
@@ -579,7 +716,7 @@ function renderHomeHTML() {
 
   const empty = `
     <div class="empty-state">
-      <div class="glyph">🗂️</div>
+      <div class="empty-seal"><span>PAF</span></div>
       <p>${state.pafs.length === 0 ? "Nenhum Plano de Acompanhamento Familiar cadastrado ainda." : "Nenhum registro corresponde à busca/filtro."}</p>
       ${state.pafs.length === 0 ? '<button class="btn btn-primary" id="emptyNewBtn">+ Novo PAF</button>' : ""}
     </div>`;
@@ -588,6 +725,7 @@ function renderHomeHTML() {
   <div class="home-wrap">
     <div class="home-head">
       <div>
+        <p class="home-eyebrow">Sistema de Prontuários · CRAS</p>
         <h1>Planos de Acompanhamento Familiar</h1>
         <p>PAF · Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
       </div>
@@ -656,6 +794,7 @@ function tabCompleteness(paf) {
     estrategias: paf.estrategias.length > 0,
     plano: !!(paf.tecnicoReferencia && paf.prazoExecucaoPlano),
     encerramento: !!paf.encerramentoMotivo,
+    anexos: (paf.anexos || []).length > 0,
     observacoes: !!paf.observacoes
   };
 }
@@ -678,6 +817,7 @@ function renderEditorHTML() {
       <div class="form-inner">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="backHomeBtn">← Voltar à lista</button>
+          <span class="protocolo-tag">Protocolo Nº ${escapeHtml((paf.id || "").split("_")[1] || "—")}</span>
           <div class="status-picker" style="margin-left:auto">
             ${["andamento", "encaminhado", "concluido", "cancelado"].map(s => `
               <button class="status-opt ${paf.situacaoPAF === s ? "selected " + s : ""}" data-set-status="${s}">${STATUS_LABELS[s]}</button>
@@ -699,6 +839,10 @@ function sectionHeader(num, title, sub) {
   return `<h2><span class="num">${num}</span>${title}</h2>${sub ? `<p class="section-sub">${sub}</p>` : ""}`;
 }
 
+function notaTecnica(html) {
+  return `<div class="nota-tecnica"><span class="marca">Nota técnica</span><p>${html}</p></div>`;
+}
+
 function chkList(groupName, options, selectedArr, cols) {
   return `<div class="check-list ${cols ? "grid2" : ""}">` + options.map(opt => `
     <label class="chk">
@@ -712,6 +856,7 @@ function renderSection(id, paf) {
     case "cabecalho": return `
       <div class="section-card">
         ${sectionHeader("01", "Cabeçalho", "Identificação do CRAS, do responsável familiar e do plano.")}
+        ${notaTecnica("O PAIF acompanha famílias de forma contínua, com caráter preventivo, protetivo e proativo — não se limita a resolver um \"caso\" pontual. Este PAF é o registro desse processo, conforme as Orientações Técnicas do PAIF (MDS) e a Tipificação Nacional de Serviços Socioassistenciais.")}
         <div class="field-grid">
           <div class="f c6"><label>Nome do CRAS</label><input type="text" data-field="crasNome" value="${escapeHtml(paf.crasNome)}"></div>
           <div class="f c6"><label>Responsável Familiar</label><input type="text" data-field="responsavel" value="${escapeHtml(paf.responsavel)}"></div>
@@ -745,6 +890,7 @@ function renderSection(id, paf) {
     case "diagnostico": return `
       <div class="section-card">
         ${sectionHeader("03", "Diagnóstico", "Família inserida em acompanhamento familiar no PAIF para superação da(s) seguinte(s) vulnerabilidade(s):")}
+        ${notaTecnica("Vulnerabilidade, para a PNAS, vai além da renda: é uma leitura dinâmica das situações de desproteção social vividas pela família, moldadas por seus recursos e pelo território — e não um traço fixo ou definitivo de quem é atendido.")}
         ${chkList("vulnerabilidades", VULNERABILIDADES_FAMILIA, paf.vulnerabilidades)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="vulnerabilidadesOutros" value="${escapeHtml(paf.vulnerabilidadesOutros)}"></div>
       </div>`;
@@ -832,6 +978,7 @@ function renderSection(id, paf) {
 
       <div class="section-card">
         ${sectionHeader("07", "Registro de Atendimentos", "Cada visita, contato ou encaminhamento realizado com a família, em ordem cronológica.")}
+        ${notaTecnica("As Orientações Técnicas do PAIF distinguem \"atendimento\" (resposta pontual a uma demanda) de \"acompanhamento\" (processo continuado, com objetivos e prazos pactuados — como este PAF). Ações particularizadas, em especial, devem ser usadas com critério: sempre associadas aos objetivos do Serviço, e nunca como simples \"resolução de caso\".")}
         <div class="timeline">
           ${(paf.atendimentos || []).length === 0 ? `<p class="hint" style="margin:6px 0 14px;">Nenhum atendimento registrado ainda. Clique em "Adicionar atendimento" para começar o histórico.</p>` : ""}
           ${(paf.atendimentos || []).map((a, i) => {
@@ -911,6 +1058,7 @@ function renderSection(id, paf) {
     case "encerramento": return `
       <div class="section-card">
         ${sectionHeader("10", "Encerramento do Acompanhamento Familiar", "")}
+        ${notaTecnica("O PAIF não tem caráter terapêutico ou psicoterápico — demandas de saúde mental devem ser encaminhadas à rede intersetorial. Quando há indício de violação de direitos, o encaminhamento é ao CREAS/PAEFI, que assume o acompanhamento até a situação ser superada.")}
         <div class="radio-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
           ${ENCERRAMENTO_MOTIVOS.map(m => `<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="encerramentoMotivo" data-field="encerramentoMotivo" value="${m.v}" ${paf.encerramentoMotivo === m.v ? "checked" : ""}> (${m.v}) ${m.label}</label>`).join("")}
         </div>
@@ -921,9 +1069,46 @@ function renderSection(id, paf) {
         </div>
       </div>`;
 
+    case "anexos": {
+      const anexos = paf.anexos || [];
+      const total = totalAnexosBytes(paf);
+      const avisoNuvem = state.mode === "cloud" && total > ANEXO_AVISO_BYTES;
+      const cards = anexos.map(a => {
+        const ehImagem = a.tipo.startsWith("image/");
+        const preview = ehImagem
+          ? `<img src="${a.dataURL}" class="anexo-thumb" data-anexo-view="${a.id}">`
+          : `<div class="anexo-thumb anexo-pdf-icon" data-anexo-view="${a.id}">PDF</div>`;
+        return `
+        <div class="anexo-card">
+          ${preview}
+          <div class="anexo-info">
+            <span class="anexo-nome" title="${escapeHtml(a.nome)}">${escapeHtml(a.nome)}</span>
+            <span class="anexo-meta">${fmtBytes(a.tamanho)}</span>
+          </div>
+          <div class="anexo-actions">
+            <button class="btn btn-ghost btn-sm" data-anexo-baixar="${a.id}">Baixar</button>
+            <button class="btn btn-danger btn-sm" data-anexo-remover="${a.id}">Excluir</button>
+          </div>
+        </div>`;
+      }).join("");
+
+      return `
+      <div class="section-card">
+        ${sectionHeader("11", "Anexos", "Anexe fotos, documentos digitalizados ou PDFs relacionados ao acompanhamento desta família.")}
+        <label class="anexo-dropzone" for="anexoInput">
+          <span class="anexo-dropzone-icon">＋</span>
+          <span>Clique para escolher imagens ou PDFs</span>
+          <input type="file" id="anexoInput" accept="image/*,application/pdf" multiple style="display:none">
+        </label>
+        <p class="hint">Imagens são comprimidas automaticamente ao anexar. Tamanho total dos anexos deste PAF: <strong>${fmtBytes(total)}</strong>${state.mode === "cloud" ? " (modo nuvem)" : " (somente neste dispositivo)"}.</p>
+        ${avisoNuvem ? `<p class="anexo-aviso">⚠️ Os anexos estão ficando grandes para o modo nuvem (limite de sincronização por registro). Prefira menos arquivos ou imagens menores.</p>` : ""}
+        ${anexos.length ? `<div class="anexo-grid">${cards}</div>` : `<p class="hint" style="margin-top:10px;">Nenhum anexo adicionado ainda.</p>`}
+      </div>`;
+    }
+
     case "observacoes": return `
       <div class="section-card">
-        ${sectionHeader("11", "Observações Gerais", "Anotações complementares técnicas sobre o acompanhamento da família.")}
+        ${sectionHeader("12", "Observações Gerais", "Anotações complementares técnicas sobre o acompanhamento da família.")}
         <div class="f">
           <textarea data-field="observacoes" rows="8" placeholder="Digite aqui observações adicionais...">${escapeHtml(paf.observacoes)}</textarea>
         </div>
@@ -1039,6 +1224,30 @@ function attachEditorHandlers() {
       });
     });
   });
+
+  // Anexos (PDF/imagem)
+  const anexoInput = document.getElementById("anexoInput");
+  if (anexoInput) {
+    anexoInput.addEventListener("change", (e) => {
+      adicionarAnexos(e.target.files);
+      e.target.value = "";
+    });
+  }
+  container.querySelectorAll("[data-anexo-view]").forEach(el => {
+    el.addEventListener("click", () => {
+      const anexo = (state.current.anexos || []).find(a => a.id === el.dataset.anexoView);
+      if (anexo) abrirAnexo(anexo);
+    });
+  });
+  container.querySelectorAll("[data-anexo-baixar]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const anexo = (state.current.anexos || []).find(a => a.id === btn.dataset.anexoBaixar);
+      if (anexo) baixarAnexo(anexo);
+    });
+  });
+  container.querySelectorAll("[data-anexo-remover]").forEach(btn => {
+    btn.addEventListener("click", () => removerAnexo(btn.dataset.anexoRemover));
+  });
 }
 
 /* ---------------------------- Global Handlers ---------------------------- */
@@ -1121,6 +1330,18 @@ function exportPDF(paf) {
       }).join("")
     : `<p class="muted">Nenhum atendimento registrado.</p>`;
 
+  const anexosImg = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
+  const anexosPdf = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
+  const anexosHTML = (anexosImg.length || anexosPdf.length) ? `
+    <h2>Anexos</h2>
+    ${anexosImg.length ? `<div class="anexos-print-grid">${anexosImg.map(a => `
+      <div class="anexo-print-item">
+        <img src="${a.dataURL}">
+        <span>${escapeHtml(a.nome)}</span>
+      </div>`).join("")}</div>` : ""}
+    ${anexosPdf.length ? `<p class="muted">Documentos PDF anexados (não exibidos aqui — baixe-os separadamente no app): ${anexosPdf.map(a => escapeHtml(a.nome)).join(", ")}</p>` : ""}
+  ` : "";
+
   const html = `
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -1202,6 +1423,11 @@ function exportPDF(paf) {
           font-size: 8.5px; color: #8496A8; text-align: center;
         }
 
+        .anexos-print-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+        .anexo-print-item { width: 140px; text-align: center; page-break-inside: avoid; }
+        .anexo-print-item img { max-width: 100%; max-height: 160px; border: 1px solid #D7E0E6; border-radius: 4px; }
+        .anexo-print-item span { display: block; font-size: 8.5px; color: #52667C; margin-top: 3px; word-break: break-word; }
+
         @media print {
           .capa-header, h2 { page-break-after: avoid; }
         }
@@ -1274,6 +1500,8 @@ function exportPDF(paf) {
       </div>
 
       ${paf.observacoes ? `<h2>Observações Gerais</h2><p>${escapeHtml(paf.observacoes)}</p>` : ""}
+
+      ${anexosHTML}
 
       <div class="assinaturas">
         <div class="assinatura">
@@ -1354,6 +1582,11 @@ function exportWord(paf) {
       <p><b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia)}<br>
       <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao)}<br>
       <b>Observações:</b> ${escapeHtml(paf.observacoes)}</p>
+
+      ${(paf.anexos || []).length ? `
+      <h2>07. Anexos</h2>
+      <p>${(paf.anexos || []).map(a => escapeHtml(a.nome)).join(", ")}<br>
+      <i>Os arquivos de anexo não são incorporados a este documento Word — baixe-os separadamente pelo app (aba "Anexos").</i></p>` : ""}
     </body>
     </html>
   `;
