@@ -902,7 +902,10 @@ function renderHomeHTML() {
         <h1>Planos de Acompanhamento Familiar</h1>
         <p>PAF · Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
       </div>
-      <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
+      <div class="home-actions">
+        <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
+        <button class="btn btn-ghost" id="resumoBtn" title="Exportar resumo estatístico das famílias em acompanhamento">📄 Resumo PDF</button>
+      </div>
     </div>
     <div class="search-row">
       <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF ou CRAS…" value="${escapeHtml(state.search)}">
@@ -915,6 +918,7 @@ function renderHomeHTML() {
 function attachHomeHandlers() {
   document.getElementById("newPafBtn")?.addEventListener("click", newPAF);
   document.getElementById("emptyNewBtn")?.addEventListener("click", newPAF);
+  document.getElementById("resumoBtn")?.addEventListener("click", exportResumoPDF);
   const search = document.getElementById("searchInput");
   search?.addEventListener("input", e => { state.search = e.target.value; renderApp(); focusSearchEnd(); });
 
@@ -1085,15 +1089,37 @@ function renderSection(id, paf) {
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="vulnerabilidadesOutros" value="${escapeHtml(paf.vulnerabilidadesOutros)}"></div>
       </div>`;
 
-    case "grupo": return `
+    case "grupo": {
+      const membrosValidos = (paf.membros || []).filter(m => m.nome && m.nome.trim());
+      return `
       <div class="section-card">
         ${sectionHeader("04", "Sobre o Grupo Familiar", "Vulnerabilidades e riscos sociais a serem superados, gerados pelas múltiplas expressões da questão social.")}
-        ${paf.situacoesSociais.map((row, i) => `
+        ${notaTecnica("Para cada situação, selecione quais integrantes da família — cadastrados na aba \"Membros da Família\" — são especificamente atingidos por ela. Isso ajuda a enxergar como a mesma vulnerabilidade pode afetar cada pessoa do grupo familiar de um jeito diferente.")}
+        ${paf.situacoesSociais.map((row, i) => {
+          const selecionados = (row.membros || "").split(",").map(s => s.trim()).filter(Boolean);
+          return `
           <div class="matrix-row">
             <div class="situ-label">${escapeHtml(row.situacao)}</div>
-            <input type="text" placeholder="Membro(s) da família nesta situação" data-field="situacoesSociais.${i}.membros" value="${escapeHtml(row.membros)}">
+            <div class="membro-picker">
+              <button type="button" class="membro-picker-btn ${selecionados.length ? "" : "empty"}" data-situ-picker-toggle="${i}">
+                <span class="membro-picker-chips">${selecionados.length
+                  ? selecionados.map(n => `<span class="membro-chip">${escapeHtml(n)}</span>`).join("")
+                  : "Selecionar membro(s) da família…"}</span>
+                <span class="picker-caret">▾</span>
+              </button>
+              <div class="membro-picker-dropdown" id="situ-dd-${i}" style="display:none">
+                ${membrosValidos.length
+                  ? membrosValidos.map(m => `
+                      <label class="chk">
+                        <input type="checkbox" data-situ-membro="${i}" data-situ-membro-nome="${escapeHtml(m.nome)}" ${selecionados.includes(m.nome) ? "checked" : ""}>
+                        <span>${escapeHtml(m.nome)}</span>
+                      </label>`).join("")
+                  : `<div class="membro-picker-empty-hint">Cadastre os membros na aba "Membros da Família" para poder selecioná-los aqui.</div>`}
+              </div>
+            </div>
             <label class="chk"><input type="checkbox" data-field-check="situacoesSociais.${i}.superada" ${row.superada ? "checked" : ""}><span>Superada</span></label>
-          </div>`).join("")}
+          </div>`;
+        }).join("")}
       </div>
       <div class="section-card">
         <h2><span class="num">04a</span>Serviços da Rede Socioassistencial</h2>
@@ -1103,6 +1129,7 @@ function renderSection(id, paf) {
           <div class="f c4"><label>Alta Complexidade</label>${chkList("servAlta", SERVICOS_ALTA, paf.servAlta)}</div>
         </div>
       </div>`;
+    }
 
     case "programas": return `
       <div class="section-card">
@@ -1366,6 +1393,38 @@ function attachEditorHandlers() {
     });
   });
 
+  // Binding do seletor de membro(s) por situação (Seção 04 - Grupo Familiar)
+  container.querySelectorAll("[data-situ-picker-toggle]").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const dd = document.getElementById("situ-dd-" + btn.dataset.situPickerToggle);
+      if (!dd) return;
+      const isOpen = dd.style.display === "block";
+      container.querySelectorAll(".membro-picker-dropdown").forEach(d => d.style.display = "none");
+      dd.style.display = isOpen ? "none" : "block";
+    });
+  });
+
+  container.querySelectorAll("[data-situ-membro]").forEach(chk => {
+    chk.addEventListener("change", () => {
+      const i = chk.dataset.situMembro;
+      const dd = chk.closest(".membro-picker-dropdown");
+      const nomes = Array.from(dd.querySelectorAll("[data-situ-membro]"))
+        .filter(c => c.checked)
+        .map(c => c.dataset.situMembroNome);
+      setPath(state.current, `situacoesSociais.${i}.membros`, nomes.join(", "));
+      scheduleAutosave();
+      const btn = container.querySelector(`[data-situ-picker-toggle="${i}"]`);
+      const chips = btn?.querySelector(".membro-picker-chips");
+      if (btn && chips) {
+        btn.classList.toggle("empty", nomes.length === 0);
+        chips.innerHTML = nomes.length
+          ? nomes.map(n => `<span class="membro-chip">${escapeHtml(n)}</span>`).join("")
+          : "Selecionar membro(s) da família…";
+      }
+    });
+  });
+
   // Binding para Listas de Checkbox (arrays)
   container.querySelectorAll("[data-check-group]").forEach(chk => {
     chk.addEventListener("change", () => {
@@ -1472,11 +1531,181 @@ function attachGlobalHandlers() {
       if (!e.target.closest(".export-menu")) {
         document.querySelectorAll(".export-dropdown").forEach(d => d.style.display = "none");
       }
+      if (!e.target.closest(".membro-picker")) {
+        document.querySelectorAll(".membro-picker-dropdown").forEach(d => d.style.display = "none");
+      }
     });
   }
 }
 
 /* ---------------------------- Exportação: PDF (Impressão Nativa) ---------------------------- */
+
+function exportResumoPDF() {
+  const q = state.search.trim().toLowerCase();
+  const list = state.pafs.filter(p => {
+    const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.crasNome || "").toLowerCase().includes(q);
+    const matchesStatus = state.statusFilter === "todos" || p.situacaoPAF === state.statusFilter;
+    return matchesQ && matchesStatus;
+  });
+
+  if (!list.length) {
+    toast("Nenhuma família encontrada para gerar o resumo.");
+    return;
+  }
+
+  const printWin = window.open("", "_blank");
+  if (!printWin) {
+    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
+    return;
+  }
+
+  const porNacionalidade = {};
+  const porSexo = {};
+  const porFaixa = {};
+
+  list.forEach(p => {
+    const nac = (p.nacionalidadeResponsavel || "").trim() || "Não informada";
+    porNacionalidade[nac] = (porNacionalidade[nac] || 0) + 1;
+
+    const sexo = p.sexoResponsavel || "Não informado";
+    porSexo[sexo] = (porSexo[sexo] || 0) + 1;
+
+    const faixa = faixaEtaria(calcularIdade(p.dataNascResponsavel));
+    porFaixa[faixa] = (porFaixa[faixa] || 0) + 1;
+  });
+
+  const ORDEM_FAIXAS = ["Menor de 18", "18 a 29", "30 a 39", "40 a 59", "60 ou mais", "Não informada"];
+
+  function linhasTabela(obj, ordemFixa) {
+    const total = list.length;
+    let chaves = Object.keys(obj);
+    if (ordemFixa) {
+      chaves = ordemFixa.filter(k => obj[k] !== undefined).concat(chaves.filter(k => !ordemFixa.includes(k)));
+    } else {
+      chaves.sort((a, b) => obj[b] - obj[a]);
+    }
+    return chaves.map(k => `
+      <tr>
+        <td>${escapeHtml(k)}</td>
+        <td style="text-align:center">${obj[k]}</td>
+        <td style="text-align:center">${((obj[k] / total) * 100).toFixed(1)}%</td>
+      </tr>`).join("");
+  }
+
+  const statusLabel = state.statusFilter === "todos" ? "Todas as situações" : (STATUS_LABELS[state.statusFilter] || "Todas as situações");
+  const filtroBusca = state.search.trim() ? ` · Busca: "${escapeHtml(state.search.trim())}"` : "";
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Resumo das Famílias em Acompanhamento</title>
+      <style>
+        @page { margin: 16mm 14mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F; line-height: 1.45; margin: 0; padding: 0; }
+
+        .orgao-header {
+          display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
+          padding: 8px 12px; border-radius: 5px 5px 0 0; font-size: 9px; line-height: 1.35;
+        }
+        .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
+        .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
+
+        .capa-header {
+          display: flex; align-items: center; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
+          border-bottom: 2.5px solid #1F3A5F; padding: 10px 12px; margin-bottom: 16px; border-radius: 0 0 5px 5px;
+        }
+        .capa-selo {
+          width: 40px; height: 40px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 18px; color: #B98A34;
+        }
+        .capa-titulos h1 { font-family: Georgia, serif; font-size: 16px; margin: 0; color: #1F3A5F; }
+        .capa-titulos p { margin: 2px 0 0; font-size: 10.5px; color: #52667C; }
+        .capa-meta { margin-left: auto; text-align: right; font-size: 9.5px; color: #8496A8; }
+
+        .resumo-stats { display: flex; gap: 10px; margin-bottom: 20px; }
+        .resumo-stat { flex: 1; text-align: center; background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 8px; padding: 14px 10px; }
+        .resumo-stat .n { display: block; font-family: Georgia, serif; font-size: 26px; font-weight: bold; color: #B98A34; line-height: 1; }
+        .resumo-stat .l { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #52667C; margin-top: 4px; }
+
+        h2 { font-size: 12.5px; color: #2E7D6B; margin: 18px 0 6px; border-bottom: 1px solid #D7E0E6; padding-bottom: 3px; page-break-after: avoid; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; page-break-inside: avoid; }
+        th, td { border: 1px solid #D7E0E6; padding: 5px 8px; text-align: left; vertical-align: top; }
+        th { background: #F6F8F9; font-weight: bold; font-size: 9.5px; text-transform: uppercase; }
+
+        .rodape-print {
+          margin-top: 24px; padding-top: 8px; border-top: 1px solid #D7E0E6;
+          font-size: 8.5px; color: #8496A8; text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="orgao-header">
+        <div class="brasao-mini">
+          <svg viewBox="0 0 48 48" width="22" height="22"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+        </div>
+        <div>
+          <strong>Prefeitura Municipal de Boa Vista</strong>
+          Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
+          Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes
+        </div>
+        <div class="orgao-contato">
+          Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>
+          (95) 98402-6627 · crascentenariosemges@gmail.com
+        </div>
+      </div>
+      <div class="capa-header">
+        <div class="capa-selo">P</div>
+        <div class="capa-titulos">
+          <h1>Resumo das Famílias em Acompanhamento</h1>
+          <p>PAF · PAIF — ${escapeHtml(statusLabel)}${filtroBusca}</p>
+        </div>
+        <div class="capa-meta">
+          Emitido em ${fmtDateBR(todayISO())}
+        </div>
+      </div>
+
+      <div class="resumo-stats">
+        <div class="resumo-stat"><span class="n">${list.length}</span><span class="l">Famílias em acompanhamento</span></div>
+      </div>
+
+      <h2>Nacionalidade do Responsável Familiar</h2>
+      <table>
+        <thead><tr><th>Nacionalidade</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
+        <tbody>${linhasTabela(porNacionalidade)}</tbody>
+      </table>
+
+      <h2>Sexo do Responsável Familiar</h2>
+      <table>
+        <thead><tr><th>Sexo</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
+        <tbody>${linhasTabela(porSexo)}</tbody>
+      </table>
+
+      <h2>Faixa Etária do Responsável Familiar</h2>
+      <table>
+        <thead><tr><th>Faixa Etária</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
+        <tbody>${linhasTabela(porFaixa, ORDEM_FAIXAS)}</tbody>
+      </table>
+
+      <div class="rodape-print">
+        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes — Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
+        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
+      </div>
+
+      <script>
+        window.onload = () => { window.print(); };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
+}
 
 function exportPDF(paf) {
   if (!paf) return;
