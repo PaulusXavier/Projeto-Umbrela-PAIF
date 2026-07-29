@@ -59,9 +59,11 @@ const SERVICOS_BASICA = ["PAIF", "SCFV", "Serviço de Proteção Social Básica 
 const SERVICOS_MEDIA = ["PAEFI", "Medidas Socioeducativas em Meio Aberto", "Para idosos, PCD e suas famílias", "Para pessoas em situação de rua"];
 const SERVICOS_ALTA = ["Acolhimento Institucional", "Acolhimento em República", "Acolhimento em Família Acolhedora"];
 
-const PROGRAMAS_QUAIS = ["Bolsa Família", "BPC - Benefício de Prestação Continuada", "Programa Família que Acolhe (FQA)"];
+const PROGRAMAS_QUAIS = ["Bolsa Família", "BPC - Benefício de Prestação Continuada", "Programa Família que Acolhe (FQA)",
+  "Projeto ArtCanto", "Programa Dedo Verde", "Programa Rumo Certo", "Projeto Cabelos de Prata", "Conviver",
+  "Cesta da Família", "Colo de Mãe"];
 const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte", "Em Pecúnia (dinheiro, cartão, cheque, depósito bancário)"];
-const REDE_APOIO = ["Creches", "Escolas em tempo integral", "Projetos sociais em contraturno escolar", "OSC's e/ou associação de bairro"];
+const REDE_APOIO = ["Creches", "Escolas em tempo integral", "Projetos sociais em contraturno escolar", "OSC's e/ou associação de bairro", "UBS", "CAPS"];
 
 const TIPOS_ATENDIMENTO = ["Atendimento no CRAS", "Visita Domiciliar", "Contato Telefônico", "Encaminhamento", "Reunião de Rede", "Grupo/SCFV", "Outro"];
 
@@ -76,6 +78,7 @@ const TIPO_ATENDIMENTO_COR = {
 };
 
 const MESES_ABREV = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+const MESES_NOMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
 const METAS_FIXAS = [
   "Fortalecer a função protetiva da família",
@@ -110,15 +113,9 @@ const ENCERRAMENTO_MOTIVOS = [
 
 const STATUS_LABELS = { andamento: "Em andamento", encaminhado: "Encaminhado", concluido: "Concluído", cancelado: "Cancelado" };
 
-/* ---- Aproveitado do Prontuário SUAS (MDS): documentação civil, habitação, saúde e encaminhamentos ---- */
+/* ---- Aproveitado do Prontuário SUAS (MDS): habitação, saúde e encaminhamentos ---- */
 
-const DOC_CIVIL_CODES = [
-  { v: "CN", label: "Certidão de Nascimento" },
-  { v: "RG", label: "RG" },
-  { v: "CTPS", label: "Carteira de Trabalho" },
-  { v: "CPF", label: "CPF" },
-  { v: "TE", label: "Título de Eleitor" }
-];
+const NACIONALIDADES = ["Brasileira", "Venezuelana", "Guianense", "Outra"];
 
 const HABITACAO_TIPO = ["Própria", "Alugada", "Cedida", "Ocupada"];
 const HABITACAO_PAREDES = ["Alvenaria ou madeira aparelhada", "Madeira aproveitada, taipa ou outros materiais precários"];
@@ -325,6 +322,9 @@ function emptyPAF() {
     updatedAt: now,
     crasNome: "",
     responsavel: "",
+    responsavelSexo: "",
+    responsavelNacionalidade: "",
+    responsavelNascimento: "",
     apelido: "",
     nomeMae: "",
     cpf: "",
@@ -338,7 +338,7 @@ function emptyPAF() {
     periodicidade: "",
     situacaoPAF: "andamento",
     situacaoData: "",
-    membros: [{ nome: "", nascimento: "", parentesco: "", sexo: "", pcd: false, docPendente: [] }],
+    membros: [{ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", pcd: false }],
     vulnerabilidades: [],
     vulnerabilidadesOutros: "",
     situacoesSociais: SITUACOES_SOCIAIS.map(s => ({ situacao: s, membros: "", superada: false })),
@@ -445,6 +445,25 @@ function mesesEmAcompanhamento(iso) {
   if (hoje.getDate() < inicio.getDate()) meses--;
   return Math.max(0, meses);
 }
+function calcularIdade(iso) {
+  if (!iso) return null;
+  const nasc = new Date(iso + "T00:00:00");
+  if (isNaN(nasc.getTime())) return null;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const aindaNaoFezAniversario = (hoje.getMonth() < nasc.getMonth()) ||
+    (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate());
+  if (aindaNaoFezAniversario) idade--;
+  return idade >= 0 ? idade : null;
+}
+function faixaEtaria(idade) {
+  if (idade == null) return "Não informada";
+  if (idade < 18) return "0 a 17 anos";
+  if (idade < 30) return "18 a 29 anos";
+  if (idade < 45) return "30 a 44 anos";
+  if (idade < 60) return "45 a 59 anos";
+  return "60 anos ou mais";
+}
 
 /* ---------------------------- Modal e Toast ---------------------------- */
 
@@ -523,6 +542,114 @@ function openSettingsModal() {
 
   document.getElementById("settingsCloseBtn").onclick = () => root.innerHTML = "";
   document.getElementById("settingsBackupBtn").onclick = baixarBackupJSON;
+}
+
+/* ---------------------------- Resumo mensal (famílias em acompanhamento) ---------------------------- */
+
+function computeResumoMensal() {
+  const grupos = {};
+  state.pafs.forEach(p => {
+    const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+    if (!base || base.length < 7) return;
+    const ym = base.slice(0, 7);
+    if (!grupos[ym]) grupos[ym] = { quantidade: 0, sexo: {}, nacionalidade: {}, faixas: {}, idades: [] };
+    const g = grupos[ym];
+    g.quantidade++;
+    const sexoLabel = p.responsavelSexo === "F" ? "Feminino" : p.responsavelSexo === "M" ? "Masculino" : "Não informado";
+    g.sexo[sexoLabel] = (g.sexo[sexoLabel] || 0) + 1;
+    const nac = (p.responsavelNacionalidade || "").trim() || "Não informada";
+    g.nacionalidade[nac] = (g.nacionalidade[nac] || 0) + 1;
+    const idade = calcularIdade(p.responsavelNascimento);
+    if (idade != null) g.idades.push(idade);
+    const faixa = faixaEtaria(idade);
+    g.faixas[faixa] = (g.faixas[faixa] || 0) + 1;
+  });
+  return grupos;
+}
+
+function labelYm(ym) {
+  const [y, m] = ym.split("-");
+  return `${MESES_NOMES[parseInt(m, 10) - 1] || m}/${y}`;
+}
+
+function distribuicaoHTML(obj) {
+  const total = Object.values(obj).reduce((a, b) => a + b, 0) || 1;
+  return Object.entries(obj).sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `<div class="resumo-linha"><span>${escapeHtml(k)}</span><span>${v} (${Math.round(v / total * 100)}%)</span></div>`)
+    .join("");
+}
+
+function resumoMensalTabelaHTML(grupos) {
+  const meses = Object.keys(grupos).sort().reverse();
+  if (!meses.length) return `<p class="muted">Nenhum PAF com data inicial preenchida ainda.</p>`;
+  return meses.map(ym => {
+    const g = grupos[ym];
+    const media = g.idades.length ? Math.round(g.idades.reduce((a, b) => a + b, 0) / g.idades.length) : null;
+    return `
+    <div class="resumo-mes">
+      <h3>${labelYm(ym)} <span class="resumo-total">${g.quantidade} família(s)</span></h3>
+      <div class="resumo-cols">
+        <div><strong>Sexo do responsável</strong>${distribuicaoHTML(g.sexo)}</div>
+        <div><strong>Nacionalidade do responsável</strong>${distribuicaoHTML(g.nacionalidade)}</div>
+        <div><strong>Faixa etária do responsável</strong>${distribuicaoHTML(g.faixas)}${media != null ? `<div class="resumo-linha"><span>Idade média</span><span>${media} anos</span></div>` : ""}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function openResumoModal() {
+  const root = document.getElementById("modalRoot");
+  if (!root) return;
+  const grupos = computeResumoMensal();
+  root.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal modal-lg">
+        <h3>Resumo das famílias em acompanhamento</h3>
+        <p class="muted" style="margin-top:-8px;">Quantidade e perfil do responsável familiar (sexo, nacionalidade, idade), agrupados por mês de início do PAF.</p>
+        <div class="resumo-scroll">${resumoMensalTabelaHTML(grupos)}</div>
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="btn btn-ghost" id="resumoCloseBtn">Fechar</button>
+          <button class="btn btn-primary" id="resumoImprimirBtn">Imprimir / Baixar PDF</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("resumoCloseBtn").onclick = () => root.innerHTML = "";
+  document.getElementById("resumoImprimirBtn").onclick = () => imprimirResumoMensal(grupos);
+}
+
+function imprimirResumoMensal(grupos) {
+  const printWin = window.open("", "_blank");
+  if (!printWin) {
+    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
+    return;
+  }
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Resumo mensal - PAF/PAIF</title>
+      <style>
+        @page { margin: 16mm 14mm; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; margin: 0; }
+        h1 { font-size: 16px; margin: 0 0 4px; }
+        .sub { color: #5b7186; font-size: 11px; margin: 0 0 18px; }
+        .resumo-mes { border: 1px solid #d7dee4; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; page-break-inside: avoid; }
+        .resumo-mes h3 { margin: 0 0 8px; font-size: 13px; display: flex; justify-content: space-between; }
+        .resumo-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .resumo-cols strong { display: block; font-size: 11px; margin-bottom: 4px; }
+        .resumo-linha { display: flex; justify-content: space-between; font-size: 11px; padding: 1px 0; }
+      </style>
+    </head>
+    <body>
+      <h1>Resumo das famílias em acompanhamento</h1>
+      <p class="sub">Quantidade e perfil do responsável familiar, por mês de início do PAF · Emitido em ${fmtDateBR(todayISO())}</p>
+      ${resumoMensalTabelaHTML(grupos)}
+      <script>window.onload = () => setTimeout(() => window.print(), 200);<\/script>
+    </body>
+    </html>`;
+  printWin.document.write(html);
+  printWin.document.close();
 }
 
 /* ---------------------------- Firebase / armazenamento ---------------------------- */
@@ -839,7 +966,10 @@ function renderHomeHTML() {
         <h1>Planos de Acompanhamento Familiar</h1>
         <p>PAF · Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
       </div>
-      <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" id="resumoMensalBtn">Resumo mensal</button>
+        <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
+      </div>
     </div>
     <div class="search-row">
       <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF ou CRAS…" value="${escapeHtml(state.search)}">
@@ -852,6 +982,7 @@ function renderHomeHTML() {
 function attachHomeHandlers() {
   document.getElementById("newPafBtn")?.addEventListener("click", newPAF);
   document.getElementById("emptyNewBtn")?.addEventListener("click", newPAF);
+  document.getElementById("resumoMensalBtn")?.addEventListener("click", openResumoModal);
   const search = document.getElementById("searchInput");
   search?.addEventListener("input", e => { state.search = e.target.value; renderApp(); focusSearchEnd(); });
 
@@ -971,6 +1102,19 @@ function renderSection(id, paf) {
         <div class="field-grid">
           <div class="f c6"><label>Nome do CRAS</label><input type="text" data-field="crasNome" value="${escapeHtml(paf.crasNome)}"></div>
           <div class="f c6"><label>Responsável Familiar</label><input type="text" data-field="responsavel" value="${escapeHtml(paf.responsavel)}"></div>
+          <div class="f c3">
+            <label>Sexo (Responsável)</label>
+            <select data-field="responsavelSexo">
+              <option value="" ${!paf.responsavelSexo ? "selected" : ""}>—</option>
+              <option value="F" ${paf.responsavelSexo === "F" ? "selected" : ""}>F</option>
+              <option value="M" ${paf.responsavelSexo === "M" ? "selected" : ""}>M</option>
+            </select>
+          </div>
+          <div class="f c3"><label>Data de nascimento (Responsável)</label><input type="date" data-field="responsavelNascimento" value="${escapeHtml(paf.responsavelNascimento)}"></div>
+          <div class="f c4">
+            <label>Nacionalidade (Responsável)</label>
+            <input type="text" list="nacionalidadesList" data-field="responsavelNacionalidade" value="${escapeHtml(paf.responsavelNacionalidade)}">
+          </div>
           <div class="f c4"><label>Apelido (se relevante)</label><input type="text" data-field="apelido" value="${escapeHtml(paf.apelido)}"></div>
           <div class="f c4"><label>Nome da mãe</label><input type="text" data-field="nomeMae" value="${escapeHtml(paf.nomeMae)}"></div>
           <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
@@ -1010,7 +1154,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
         <table class="dyn-table">
-          <thead><tr><th style="width:24%">Nome</th><th style="width:14%">Nascimento</th><th style="width:8%">Sexo</th><th style="width:16%">Parentesco</th><th style="width:8%">PCD</th><th>Documentação pendente</th><th></th></tr></thead>
+          <thead><tr><th style="width:20%">Nome</th><th style="width:12%">Nascimento</th><th style="width:7%">Sexo</th><th style="width:14%">Parentesco</th><th style="width:16%">Nacionalidade</th><th style="width:7%">PCD</th><th></th></tr></thead>
           <tbody>
             ${paf.membros.map((m, i) => `
               <tr>
@@ -1024,22 +1168,13 @@ function renderSection(id, paf) {
                   </select>
                 </td>
                 <td><input type="text" data-field="membros.${i}.parentesco" value="${escapeHtml(m.parentesco)}"></td>
+                <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade)}"></td>
                 <td style="text-align:center"><input type="checkbox" data-field-check="membros.${i}.pcd" ${m.pcd ? "checked" : ""}></td>
-                <td>
-                  <div class="doc-chips">
-                    ${DOC_CIVIL_CODES.map(d => `
-                      <label class="chk chk-mini">
-                        <input type="checkbox" data-check-group="membros.${i}.docPendente" data-check-value="${d.v}" ${(m.docPendente || []).includes(d.v) ? "checked" : ""}>
-                        <span>${d.v}</span>
-                      </label>`).join("")}
-                  </div>
-                </td>
                 <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover">✕</button></td>
               </tr>`).join("")}
           </tbody>
         </table>
         <button class="add-row-btn" data-action="add-membro">+ Adicionar membro</button>
-        <p class="hint" style="margin-top:8px;">Documentação pendente: marque os documentos que este membro ainda precisa providenciar (CN=Certidão de Nascimento, CTPS=Carteira de Trabalho, TE=Título de Eleitor).</p>
       </div>`;
 
     case "diagnostico": {
@@ -1451,7 +1586,7 @@ function attachEditorHandlers() {
   // Ações de Tabela Dinâmica (Membros da Família)
   container.querySelectorAll("[data-action='add-membro']").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", sexo: "", pcd: false, docPendente: [] });
+      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", pcd: false });
       savePAF(state.current, { silent: true });
       renderApp();
     });
@@ -1594,8 +1729,8 @@ function exportPDF(paf) {
       <td>${fmtDateBR(m.nascimento)}</td>
       <td>${escapeHtml(m.sexo)}</td>
       <td>${escapeHtml(m.parentesco)}</td>
+      <td>${escapeHtml(m.nacionalidade) || "—"}</td>
       <td>${m.pcd ? "Sim" : "—"}</td>
-      <td>${(m.docPendente || []).join(", ") || "—"}</td>
     </tr>
   `).join("") || "<tr><td colspan='6'>Nenhum membro informado</td></tr>";
 
@@ -1782,6 +1917,8 @@ function exportPDF(paf) {
         <div class="id-grid">
           <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
           <div><span class="k">NIS</span><span class="v">${escapeHtml(paf.nis) || "—"}</span></div>
+          <div><span class="k">Sexo</span><span class="v">${escapeHtml(paf.responsavelSexo) || "—"}</span></div>
+          <div><span class="k">Nacionalidade</span><span class="v">${escapeHtml(paf.responsavelNacionalidade) || "—"}</span></div>
           <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
           <div><span class="k">Endereço</span><span class="v">${escapeHtml(enderecoCompleto(paf)) || "—"}</span></div>
           <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
@@ -1796,7 +1933,7 @@ function exportPDF(paf) {
 
       <h2>Membros da Família</h2>
       <table>
-        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>PCD</th><th>Doc. pendente</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>PCD</th></tr></thead>
         <tbody>${membrosHTML}</tbody>
       </table>
 
@@ -2006,6 +2143,7 @@ function exportWord(paf) {
       <h2>01. Identificação</h2>
       <p><b>Responsável:</b> ${escapeHtml(paf.responsavel)} ${paf.apelido ? "(" + escapeHtml(paf.apelido) + ")" : ""}<br>
       <b>Nome da mãe:</b> ${escapeHtml(paf.nomeMae) || "—"}<br>
+      <b>Sexo:</b> ${escapeHtml(paf.responsavelSexo) || "—"} | <b>Nacionalidade:</b> ${escapeHtml(paf.responsavelNacionalidade) || "—"}<br>
       <b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)} | <b>RG:</b> ${escapeHtml(paf.rg)} ${escapeHtml(paf.rgOrgao)}/${escapeHtml(paf.rgUf)}<br>
       <b>Endereço:</b> ${escapeHtml(enderecoCompleto(paf))}${paf.localizacaoDomicilio ? " (" + escapeHtml(paf.localizacaoDomicilio) + ")" : ""}<br>
       <b>Ponto de referência:</b> ${escapeHtml(paf.pontoReferencia) || "—"} | <b>Telefones:</b> ${escapeHtml(paf.telefones) || "—"}<br>
@@ -2013,8 +2151,8 @@ function exportWord(paf) {
 
       <h2>02. Composição Familiar</h2>
       <table>
-        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>PCD</th><th>Doc. pendente</th></tr>
-        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${m.pcd ? "Sim" : "—"}</td><td>${(m.docPendente || []).join(", ") || "—"}</td></tr>`).join("")}
+        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>PCD</th></tr>
+        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade) || "—"}</td><td>${m.pcd ? "Sim" : "—"}</td></tr>`).join("")}
       </table>
 
       <h2>03. Diagnóstico e Vulnerabilidades</h2>
