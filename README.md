@@ -82,8 +82,25 @@ os registros só para si (não compartilha com os outros).
   e filtro por situação (Em andamento, Encaminhado, Concluído, Cancelado).
 - **+ Novo PAF**: abre um formulário dividido em seções (aba lateral), replicando o
   documento original: Cabeçalho, Membros da Família, Diagnóstico, Situações e Serviços,
-  Programas e Benefícios, Rede do Território, Metas e Evolução, Estratégias e Eixos,
-  Elaboração do Plano, Encerramento e Observações.
+  Encaminhamentos, Programas e Benefícios, Rede do Território, Metas e Evolução,
+  Estratégias e Eixos, Elaboração do Plano, Encerramento e Observações.
+- **Identificação e endereço completos** (seção Cabeçalho): além de nome/CPF/NIS, agora
+  também há apelido, nome da mãe, RG (com órgão emissor/UF/data) e um endereço estruturado
+  (rua, número, complemento, bairro, CEP, ponto de referência, telefones, urbano/rural) —
+  aproveitado do Prontuário SUAS (MDS). O campo "Endereço resumido" continua existindo
+  para registros antigos ou preenchimento rápido.
+- **Composição familiar detalhada** (seção Membros da Família): cada membro agora também
+  registra sexo, se é pessoa com deficiência (PCD) e quais documentos civis ainda estão
+  pendentes (Certidão de Nascimento, RG, Carteira de Trabalho, CPF, Título de Eleitor).
+- **Diagnóstico socioeconômico** (dentro da seção Diagnóstico): blocos objetivos de
+  Condições Habitacionais, Condições Educacionais, Condições de Trabalho e Renda e
+  Condições de Saúde, no mesmo padrão do Prontuário SUAS — mais rápidos de preencher do
+  que texto livre.
+- **Encaminhamentos** (nova seção): registre encaminhamentos feitos a outros órgãos
+  (Saúde, Educação, INSS, Habitação, Defensoria Pública etc.), com objetivo, profissional
+  responsável e telefone. Cada encaminhamento pode ser impresso individualmente no modelo
+  de Formulário de Encaminhamento do SUAS, com canhoto de protocolo e espaço para anotar
+  a contra-referência (retorno) recebida do outro órgão.
 - O preenchimento é salvo automaticamente (nuvem ou local, conforme o passo 1).
 - **Baixar PDF** / **Baixar Word (.doc)**: geram o arquivo preenchido pronto para
   impressão/assinatura, tanto na tela do formulário quanto no menu "Exportar" de cada
