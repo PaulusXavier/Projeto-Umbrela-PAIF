@@ -55,6 +55,11 @@ const SITUACOES_SOCIAIS = [
   "Outras situações"
 ];
 
+const NACIONALIDADES = [
+  "Brasileira", "Brasileira (naturalizada)", "Venezuelana", "Guianense", "Haitiana",
+  "Colombiana", "Cubana", "Boliviana", "Peruana", "Argentina", "Angolana", "Senegalesa"
+];
+
 const SERVICOS_BASICA = ["PAIF", "SCFV", "Serviço de Proteção Social Básica no Domicílio para Pessoas com Deficiência e Idosas"];
 const SERVICOS_MEDIA = ["PAEFI", "Medidas Socioeducativas em Meio Aberto", "Para idosos, PCD e suas famílias", "Para pessoas em situação de rua"];
 const SERVICOS_ALTA = ["Acolhimento Institucional", "Acolhimento em República", "Acolhimento em Família Acolhedora"];
@@ -311,7 +316,7 @@ function emptyPAF() {
     periodicidade: "",
     situacaoPAF: "andamento",
     situacaoData: "",
-    membros: [{ nome: "", nascimento: "", parentesco: "" }],
+    membros: [{ nome: "", nascimento: "", parentesco: "", nacionalidade: "" }],
     vulnerabilidades: [],
     vulnerabilidadesOutros: "",
     situacoesSociais: SITUACOES_SOCIAIS.map(s => ({ situacao: s, membros: "", superada: false })),
@@ -929,17 +934,21 @@ function renderSection(id, paf) {
       <div class="section-card">
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
         <table class="dyn-table">
-          <thead><tr><th style="width:40%">Nome</th><th style="width:25%">Data de nascimento</th><th>Parentesco</th><th></th></tr></thead>
+          <thead><tr><th style="width:30%">Nome</th><th style="width:18%">Data de nascimento</th><th style="width:17%">Parentesco</th><th style="width:20%">Nacionalidade</th><th></th></tr></thead>
           <tbody>
             ${paf.membros.map((m, i) => `
               <tr>
                 <td><input type="text" data-field="membros.${i}.nome" value="${escapeHtml(m.nome)}"></td>
                 <td><input type="date" data-field="membros.${i}.nascimento" value="${escapeHtml(m.nascimento)}"></td>
                 <td><input type="text" data-field="membros.${i}.parentesco" value="${escapeHtml(m.parentesco)}"></td>
+                <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade || "")}" placeholder="Brasileira"></td>
                 <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover">✕</button></td>
               </tr>`).join("")}
           </tbody>
         </table>
+        <datalist id="nacionalidadesList">
+          ${NACIONALIDADES.map(n => `<option value="${escapeHtml(n)}">`).join("")}
+        </datalist>
         <button class="add-row-btn" data-action="add-membro">+ Adicionar membro</button>
       </div>`;
 
@@ -1245,7 +1254,7 @@ function attachEditorHandlers() {
   // Ações de Tabela Dinâmica (Membros da Família)
   container.querySelectorAll("[data-action='add-membro']").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.current.membros.push({ nome: "", nascimento: "", parentesco: "" });
+      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", nacionalidade: "" });
       savePAF(state.current, { silent: true });
       renderApp();
     });
@@ -1355,8 +1364,9 @@ function exportPDF(paf) {
       <td>${escapeHtml(m.nome)}</td>
       <td>${fmtDateBR(m.nascimento)}</td>
       <td>${escapeHtml(m.parentesco)}</td>
+      <td>${escapeHtml(m.nacionalidade || "")}</td>
     </tr>
-  `).join("") || "<tr><td colspan='3'>Nenhum membro informado</td></tr>";
+  `).join("") || "<tr><td colspan='4'>Nenhum membro informado</td></tr>";
 
   const situacoesHTML = (paf.situacoesSociais || [])
     .filter(s => s.membros || s.superada)
@@ -1555,7 +1565,7 @@ function exportPDF(paf) {
 
       <h2>Membros da Família</h2>
       <table>
-        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th><th>Nacionalidade</th></tr></thead>
         <tbody>${membrosHTML}</tbody>
       </table>
 
@@ -1660,8 +1670,8 @@ function exportWord(paf) {
 
       <h2>02. Composição Familiar</h2>
       <table>
-        <tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th></tr>
-        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.parentesco)}</td></tr>`).join("")}
+        <tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th><th>Nacionalidade</th></tr>
+        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade || "")}</td></tr>`).join("")}
       </table>
 
       <h2>03. Diagnóstico e Vulnerabilidades</h2>
