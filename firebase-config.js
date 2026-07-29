@@ -1,19 +1,6 @@
-/*
-  CONFIGURAÇÃO DO FIREBASE — leia o README.md para o passo a passo completo (leva ~5 minutos).
-
-  1. Crie um projeto gratuito em https://console.firebase.google.com
-  2. No menu lateral, ative "Firestore Database" (modo produção) e depois cole as regras
-     que estão no README.md em Firestore > Regras.
-  3. Em "Configurações do projeto" (ícone de engrenagem) > aba "Geral" > "Seus apps",
-     crie um app da Web (</>) e copie o objeto de configuração para dentro do objeto abaixo.
-
-  Depois de preencher e publicar no GitHub Pages, TODOS os dispositivos que abrirem
-  este mesmo link vão compartilhar automaticamente os mesmos Planos de Acompanhamento
-  Familiar salvos — não é preciso configurar nada em cada aparelho.
-
-  Enquanto os campos abaixo estiverem como "COLE_AQUI", o app funciona normalmente,
-  mas guarda os PAFs apenas no aparelho atual (sem sincronizar com outros dispositivos).
-*/
+/* ==========================================================================
+   1. CONFIGURAÇÃO DO FIREBASE E FIRESTORE
+   ========================================================================== */
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyByab3GgZB-9uNjQrguggSYqR7Bxv5pIXE",
@@ -24,10 +11,109 @@ const FIREBASE_CONFIG = {
   appId: "1:477546152425:web:05a6265f23028e4f468b78"
 };
 
-// Nome da coleção usada no Firestore — pode manter como está.
+// Coleção no Firestore e chave do localStorage
 const FIRESTORE_COLLECTION = "planos_acompanhamento_familiar";
+const LOCAL_STORAGE_KEY = "paf_dados_locais";
 
-// Inicializa o Firebase somente se as chaves acima já foram preenchidas.
-if (FIREBASE_CONFIG.apiKey !== "COLE_AQUI") {
-  firebase.initializeApp(FIREBASE_CONFIG);
+let db = null;
+let firebaseAtivo = false;
+
+// Inicializa o Firebase se a apiKey for válida
+if (typeof firebase !== "undefined" && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "COLE_AQUI") {
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    firebaseAtivo = true;
+    console.log("Firebase inicializado com sucesso.");
+  } catch (error) {
+    console.error("Erro ao inicializar o Firebase:", error);
+  }
+} else {
+  console.warn("Firebase não inicializado. O aplicativo usará o armazenamento local (localStorage).");
+}
+
+
+/* ==========================================================================
+   2. FUNÇÕES DE MANIPULAÇÃO DOS DADOS (FIRESTORE + LOCALSTORAGE)
+   ========================================================================== */
+
+/**
+ * Salva ou atualiza um Plano de Acompanhamento Familiar (PAF).
+ * @param {Object} pafData - Objeto contendo os dados do PAF (deve conter um id único).
+ */
+async function salvarPAF(pafData) {
+  if (!pafData.id) {
+    pafData.id = "paf_" + Date.now();
+  }
+
+  pafData.atualizadoEm = new Date().toISOString();
+
+  if (firebaseAtivo && db) {
+    try {
+      await db.collection(FIRESTORE_COLLECTION).doc(pafData.id).set(pafData, { merge: true });
+      console.log("PAF salvo no Firestore com sucesso:", pafData.id);
+      return pafData;
+    } catch (error) {
+      console.error("Erro ao salvar no Firestore. Salvando localmente...", error);
+    }
+  }
+
+  // Fallback: Armazenamento local no localStorage
+  const listaLocal = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");
+  const index = listaLocal.findIndex(item => item.id === pafData.id);
+
+  if (index >= 0) {
+    listaLocal[index] = pafData;
+  } else {
+    listaLocal.push(pafData);
+  }
+
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(listaLocal));
+  console.log("PAF salvo no localStorage localmente:", pafData.id);
+  return pafData;
+}
+
+/**
+ * Busca todos os PAFs cadastrados.
+ * @returns {Promise<Array>} Lista com todos os PAFs.
+ */
+async function carregarPAFs() {
+  if (firebaseAtivo && db) {
+    try {
+      const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
+      const pafs = [];
+      snapshot.forEach(doc => {
+        pafs.push({ id: doc.id, ...doc.data() });
+      });
+      return pafs;
+    } catch (error) {
+      console.error("Erro ao carregar do Firestore. Buscando no localStorage...", error);
+    }
+  }
+
+  // Fallback: Busca do localStorage
+  return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");
+}
+
+/**
+ * Escuta alterações em tempo real no Firestore (sincronização automática em todos os dispositivos).
+ * @param {Function} callback - Função que recebe a lista atualizada de PAFs.
+ */
+function escutarPAFs(callback) {
+  if (firebaseAtivo && db) {
+    return db.collection(FIRESTORE_COLLECTION).onSnapshot(snapshot => {
+      const pafs = [];
+      snapshot.forEach(doc => {
+        pafs.push({ id: doc.id, ...doc.data() });
+      });
+      callback(pafs);
+    }, error => {
+      console.error("Erro na escuta do Firestore:", error);
+      callback(JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]"));
+    });
+  } else {
+    // Retorna os dados locais se o Firebase não estiver ativo
+    callback(JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]"));
+    return () => {}; // Função vazia para unsubscribe
+  }
 }
