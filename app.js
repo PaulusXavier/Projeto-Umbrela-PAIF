@@ -1,6 +1,10 @@
 /* =========================================================================
    Plano de Acompanhamento Familiar - PAF / PAIF
    Lógica do aplicativo: dados, telas, sincronização e exportação.
+   Versão mesclada: base no formulário estendido (diagnóstico socioeconômico,
+   encaminhamentos formais, endereço detalhado) + recursos da versão anterior
+   (nacionalidade/sexo/nascimento do responsável, seletor de membros por
+   situação social e relatórios de Resumo Estatístico das Famílias).
    ========================================================================= */
 
 /* ---------------------------- Registro do Service Worker (Offline/PWA) ---------------------------- */
@@ -115,11 +119,32 @@ const ENCERRAMENTO_MOTIVOS = [
 
 const STATUS_LABELS = { andamento: "Em andamento", encaminhado: "Encaminhado", concluido: "Concluído", cancelado: "Cancelado" };
 
+/* ---- Aproveitado do Prontuário SUAS (MDS): documentação civil, habitação, saúde e encaminhamentos ---- */
+
+const DOC_CIVIL_CODES = [
+  { v: "CN", label: "Certidão de Nascimento" },
+  { v: "RG", label: "RG" },
+  { v: "CTPS", label: "Carteira de Trabalho" },
+  { v: "CPF", label: "CPF" },
+  { v: "TE", label: "Título de Eleitor" }
+];
+
+const HABITACAO_TIPO = ["Própria", "Alugada", "Cedida", "Ocupada"];
+const HABITACAO_PAREDES = ["Alvenaria ou madeira aparelhada", "Madeira aproveitada, taipa ou outros materiais precários"];
+const HABITACAO_ENERGIA = ["Com medidor próprio", "Com medidor compartilhado", "Sem medidor", "Não possui energia elétrica"];
+const HABITACAO_ESGOTO = ["Rede coletora de esgoto ou pluvial", "Fossa séptica", "Fossa rudimentar", "Direto para vala, rio, lago ou mar", "Domicílio sem banheiro"];
+const HABITACAO_LIXO = ["Coleta direta", "Coleta indireta", "Não possui coleta"];
+
+const ENCAMINHAMENTO_AREAS = [
+  "Outra Unidade/Serviço da Assistência Social", "Saúde", "Educação", "INSS", "Habitação", "Defensoria Pública", "Outra"
+];
+
 const SECTIONS = [
   { id: "cabecalho", label: "Cabeçalho" },
   { id: "familia", label: "Membros da Família" },
   { id: "diagnostico", label: "Diagnóstico" },
   { id: "grupo", label: "Situações e Serviços" },
+  { id: "encaminhamentos", label: "Encaminhamentos" },
   { id: "programas", label: "Programas e Benefícios" },
   { id: "rede", label: "Rede do Território" },
   { id: "metas", label: "Metas e Evolução" },
@@ -309,21 +334,39 @@ function emptyPAF() {
     updatedAt: now,
     crasNome: "",
     responsavel: "",
+    apelido: "",
+    nomeMae: "",
     sexoResponsavel: "",
     dataNascResponsavel: "",
     nacionalidadeResponsavel: "",
     cpf: "",
     nis: "",
+    rg: "", rgOrgao: "", rgUf: "", rgDataEmissao: "",
     endereco: "",
+    enderecoRua: "", enderecoNumero: "", enderecoComplemento: "", enderecoBairro: "",
+    enderecoMunicipio: "Boa Vista", enderecoUf: "RR", enderecoCep: "",
+    pontoReferencia: "", telefones: "", localizacaoDomicilio: "",
     dataInicial: todayISO(),
     periodicidade: "",
     situacaoPAF: "andamento",
     situacaoData: "",
-    membros: [{ nome: "", nascimento: "", parentesco: "", nacionalidade: "" }],
+    membros: [{ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", pcd: false, docPendente: [] }],
     vulnerabilidades: [],
     vulnerabilidadesOutros: "",
     situacoesSociais: SITUACOES_SOCIAIS.map(s => ({ situacao: s, membros: "", superada: false })),
     servBasica: [], servMedia: [], servAlta: [],
+    // Diagnóstico socioeconômico (aproveitado do Prontuário SUAS)
+    habitacaoTipo: "", habitacaoParedes: "", habitacaoEnergia: "", habitacaoAgua: "",
+    habitacaoEsgoto: "", habitacaoLixo: "", habitacaoComodos: "", habitacaoDormitorios: "",
+    habitacaoAreaRisco: "", habitacaoObs: "",
+    eduForaEscola06: "", eduForaEscola614: "", eduForaEscola1517: "",
+    eduAnalfabetismo1017: "", eduAnalfabetismo1859: "", eduAnalfabetismo60mais: "", eduObs: "",
+    rendaTotal: "", rendaPerCapita: "", rendaObs: "",
+    saudePcdQtd: "", saudeDoencaGrave: "", saudeDoencaGraveQuem: "",
+    saudeMedicacaoControlada: "", saudeMedicacaoQuem: "",
+    saudeAlcool: "", saudeAlcoolQuem: "", saudeDrogas: "", saudeDrogasQuem: "",
+    saudeGestante: "", saudeGestanteQuem: "", saudeObs: "",
+    encaminhamentosForm: [],
     participaProgramas: "",
     programasQuais: [],
     programasMunicipalQual: "",
@@ -373,6 +416,21 @@ function toggleArrayValue(arr, value) {
   const i = arr.indexOf(value);
   if (i === -1) arr.push(value); else arr.splice(i, 1);
   return arr;
+}
+function enderecoCompleto(paf) {
+  const partes = [];
+  if (paf.enderecoRua) {
+    let linha = paf.enderecoRua;
+    if (paf.enderecoNumero) linha += ", " + paf.enderecoNumero;
+    if (paf.enderecoComplemento) linha += " - " + paf.enderecoComplemento;
+    partes.push(linha);
+  }
+  if (paf.enderecoBairro) partes.push(paf.enderecoBairro);
+  const cidadeUf = [paf.enderecoMunicipio, paf.enderecoUf].filter(Boolean).join("/");
+  if (cidadeUf) partes.push(cidadeUf);
+  if (paf.enderecoCep) partes.push("CEP " + paf.enderecoCep);
+  const montado = partes.join(" — ");
+  return montado || paf.endereco || "";
 }
 function escapeHtml(str) {
   return String(str == null ? "" : str)
@@ -452,7 +510,7 @@ function confirmModal(title, msg, onConfirm) {
   };
 }
 
-/* ---------------------------- Config / Backup ---------------------------- */
+/* ---------------------------- Config / Backup / Resumo Estatístico ---------------------------- */
 
 function baixarBackupJSON() {
   const payload = {
@@ -553,6 +611,173 @@ function exportResumoFamilias() {
   <footer>Relatório agregado e anonimizado — não identifica famílias individualmente. Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR.</footer>
   <script>window.onload = () => setTimeout(() => window.print(), 200);</script>
 </body></html>`;
+
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
+}
+
+function exportResumoPDF() {
+  const q = state.search.trim().toLowerCase();
+  const list = state.pafs.filter(p => {
+    const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || (p.apelido || "").toLowerCase().includes(q) || (p.crasNome || "").toLowerCase().includes(q);
+    const matchesStatus = state.statusFilter === "todos" || p.situacaoPAF === state.statusFilter;
+    return matchesQ && matchesStatus;
+  });
+
+  if (!list.length) {
+    toast("Nenhuma família encontrada para gerar o resumo.");
+    return;
+  }
+
+  const printWin = window.open("", "_blank");
+  if (!printWin) {
+    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
+    return;
+  }
+
+  const porNacionalidade = {};
+  const porSexo = {};
+  const porFaixa = {};
+
+  list.forEach(p => {
+    const nac = (p.nacionalidadeResponsavel || "").trim() || "Não informada";
+    porNacionalidade[nac] = (porNacionalidade[nac] || 0) + 1;
+
+    const sexo = p.sexoResponsavel || "Não informado";
+    porSexo[sexo] = (porSexo[sexo] || 0) + 1;
+
+    const faixa = faixaEtaria(calcularIdade(p.dataNascResponsavel));
+    porFaixa[faixa] = (porFaixa[faixa] || 0) + 1;
+  });
+
+  const ORDEM_FAIXAS = ["Menor de 18", "18 a 29", "30 a 39", "40 a 59", "60 ou mais", "Não informada"];
+
+  function linhasTabela(obj, ordemFixa) {
+    const total = list.length;
+    let chaves = Object.keys(obj);
+    if (ordemFixa) {
+      chaves = ordemFixa.filter(k => obj[k] !== undefined).concat(chaves.filter(k => !ordemFixa.includes(k)));
+    } else {
+      chaves.sort((a, b) => obj[b] - obj[a]);
+    }
+    return chaves.map(k => `
+      <tr>
+        <td>${escapeHtml(k)}</td>
+        <td style="text-align:center">${obj[k]}</td>
+        <td style="text-align:center">${((obj[k] / total) * 100).toFixed(1)}%</td>
+      </tr>`).join("");
+  }
+
+  const statusLabel = state.statusFilter === "todos" ? "Todas as situações" : (STATUS_LABELS[state.statusFilter] || "Todas as situações");
+  const filtroBusca = state.search.trim() ? ` · Busca: "${escapeHtml(state.search.trim())}"` : "";
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Resumo das Famílias em Acompanhamento</title>
+      <style>
+        @page { margin: 16mm 14mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F; line-height: 1.45; margin: 0; padding: 0; }
+
+        .orgao-header {
+          display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
+          padding: 8px 12px; border-radius: 5px 5px 0 0; font-size: 9px; line-height: 1.35;
+        }
+        .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
+        .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
+
+        .capa-header {
+          display: flex; align-items: center; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
+          border-bottom: 2.5px solid #1F3A5F; padding: 10px 12px; margin-bottom: 16px; border-radius: 0 0 5px 5px;
+        }
+        .capa-selo {
+          width: 40px; height: 40px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 18px; color: #B98A34;
+        }
+        .capa-titulos h1 { font-family: Georgia, serif; font-size: 16px; margin: 0; color: #1F3A5F; }
+        .capa-titulos p { margin: 2px 0 0; font-size: 10.5px; color: #52667C; }
+        .capa-meta { margin-left: auto; text-align: right; font-size: 9.5px; color: #8496A8; }
+
+        .resumo-stats { display: flex; gap: 10px; margin-bottom: 20px; }
+        .resumo-stat { flex: 1; text-align: center; background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 8px; padding: 14px 10px; }
+        .resumo-stat .n { display: block; font-family: Georgia, serif; font-size: 26px; font-weight: bold; color: #B98A34; line-height: 1; }
+        .resumo-stat .l { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #52667C; margin-top: 4px; }
+
+        h2 { font-size: 12.5px; color: #2E7D6B; margin: 18px 0 6px; border-bottom: 1px solid #D7E0E6; padding-bottom: 3px; page-break-after: avoid; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; page-break-inside: avoid; }
+        th, td { border: 1px solid #D7E0E6; padding: 5px 8px; text-align: left; vertical-align: top; }
+        th { background: #F6F8F9; font-weight: bold; font-size: 9.5px; text-transform: uppercase; }
+
+        .rodape-print {
+          margin-top: 24px; padding-top: 8px; border-top: 1px solid #D7E0E6;
+          font-size: 8.5px; color: #8496A8; text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="orgao-header">
+        <div class="brasao-mini">
+          <svg viewBox="0 0 48 48" width="22" height="22"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+        </div>
+        <div>
+          <strong>Prefeitura Municipal de Boa Vista</strong>
+          Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
+          Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes
+        </div>
+        <div class="orgao-contato">
+          Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>
+          (95) 98402-6627 · crascentenariosemges@gmail.com
+        </div>
+      </div>
+      <div class="capa-header">
+        <div class="capa-selo">P</div>
+        <div class="capa-titulos">
+          <h1>Resumo das Famílias em Acompanhamento</h1>
+          <p>PAF · PAIF — ${escapeHtml(statusLabel)}${filtroBusca}</p>
+        </div>
+        <div class="capa-meta">
+          Emitido em ${fmtDateBR(todayISO())}
+        </div>
+      </div>
+
+      <div class="resumo-stats">
+        <div class="resumo-stat"><span class="n">${list.length}</span><span class="l">Famílias em acompanhamento</span></div>
+      </div>
+
+      <h2>Nacionalidade do Responsável Familiar</h2>
+      <table>
+        <thead><tr><th>Nacionalidade</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
+        <tbody>${linhasTabela(porNacionalidade)}</tbody>
+      </table>
+
+      <h2>Sexo do Responsável Familiar</h2>
+      <table>
+        <thead><tr><th>Sexo</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
+        <tbody>${linhasTabela(porSexo)}</tbody>
+      </table>
+
+      <h2>Faixa Etária do Responsável Familiar</h2>
+      <table>
+        <thead><tr><th>Faixa Etária</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
+        <tbody>${linhasTabela(porFaixa, ORDEM_FAIXAS)}</tbody>
+      </table>
+
+      <div class="rodape-print">
+        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes — Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
+        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
+      </div>
+
+      <script>
+        window.onload = () => { window.print(); };
+      </script>
+    </body>
+    </html>
+  `;
 
   printWin.document.open();
   printWin.document.write(html);
@@ -853,7 +1078,7 @@ function renderApp() {
 function renderHomeHTML() {
   const q = state.search.trim().toLowerCase();
   let list = state.pafs.filter(p => {
-    const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.crasNome || "").toLowerCase().includes(q);
+    const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || (p.apelido || "").toLowerCase().includes(q) || (p.crasNome || "").toLowerCase().includes(q);
     const matchesStatus = state.statusFilter === "todos" || p.situacaoPAF === state.statusFilter;
     return matchesQ && matchesStatus;
   }).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
@@ -908,7 +1133,7 @@ function renderHomeHTML() {
       </div>
     </div>
     <div class="search-row">
-      <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF ou CRAS…" value="${escapeHtml(state.search)}">
+      <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF, NIS ou CRAS…" value="${escapeHtml(state.search)}">
       ${chips}
     </div>
     ${list.length ? `<div class="paf-grid">${cards}</div>` : empty}
@@ -965,6 +1190,7 @@ function tabCompleteness(paf) {
     familia: paf.membros.some(m => m.nome),
     diagnostico: paf.vulnerabilidades.length > 0,
     grupo: paf.situacoesSociais.some(s => s.membros) || paf.servBasica.length || paf.servMedia.length || paf.servAlta.length,
+    encaminhamentos: (paf.encaminhamentosForm || []).length > 0,
     programas: !!paf.participaProgramas,
     rede: paf.redeApoio.length > 0,
     metas: paf.metas.some(m => m.prazo || m.resultados) || (paf.atendimentos || []).length > 0,
@@ -1037,6 +1263,8 @@ function renderSection(id, paf) {
         <div class="field-grid">
           <div class="f c6"><label>Nome do CRAS</label><input type="text" data-field="crasNome" value="${escapeHtml(paf.crasNome)}"></div>
           <div class="f c6"><label>Responsável Familiar</label><input type="text" data-field="responsavel" value="${escapeHtml(paf.responsavel)}"></div>
+          <div class="f c3"><label>Apelido (se relevante)</label><input type="text" data-field="apelido" value="${escapeHtml(paf.apelido)}"></div>
+          <div class="f c3"><label>Nome da mãe</label><input type="text" data-field="nomeMae" value="${escapeHtml(paf.nomeMae)}"></div>
           <div class="f c3"><label>Sexo do Responsável</label>
             <select data-field="sexoResponsavel">
               <option value="" ${!paf.sexoResponsavel ? "selected" : ""}>Não informado</option>
@@ -1046,16 +1274,40 @@ function renderSection(id, paf) {
             </select>
           </div>
           <div class="f c3"><label>Data de nascimento do Responsável</label><input type="date" data-field="dataNascResponsavel" value="${escapeHtml(paf.dataNascResponsavel || "")}"></div>
-          <div class="f c3"><label>Nacionalidade do Responsável</label><input type="text" list="nacionalidadesList" data-field="nacionalidadeResponsavel" value="${escapeHtml(paf.nacionalidadeResponsavel || "")}" placeholder="Brasileira"></div>
+          <div class="f c4"><label>Nacionalidade do Responsável</label><input type="text" list="nacionalidadesList" data-field="nacionalidadeResponsavel" value="${escapeHtml(paf.nacionalidadeResponsavel || "")}" placeholder="Brasileira"></div>
           <datalist id="nacionalidadesList">
             ${NACIONALIDADES.map(n => `<option value="${escapeHtml(n)}">`).join("")}
           </datalist>
-          <div class="f c3"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
+          <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
           <div class="f c4"><label>NIS</label><input type="text" data-field="nis" value="${escapeHtml(paf.nis)}"></div>
-          <div class="f c4"><label>Data inicial do PAF</label><input type="date" data-field="dataInicial" value="${escapeHtml(paf.dataInicial)}"></div>
-          <div class="f c8"><label>Endereço</label><input type="text" data-field="endereco" value="${escapeHtml(paf.endereco)}"></div>
+          <div class="f c2"><label>RG</label><input type="text" data-field="rg" value="${escapeHtml(paf.rg)}"></div>
+          <div class="f c2"><label>Órgão</label><input type="text" data-field="rgOrgao" value="${escapeHtml(paf.rgOrgao)}"></div>
+          <div class="f c2"><label>UF (RG)</label><input type="text" data-field="rgUf" maxlength="2" value="${escapeHtml(paf.rgUf)}"></div>
+          <div class="f c3"><label>Data de emissão (RG)</label><input type="date" data-field="rgDataEmissao" value="${escapeHtml(paf.rgDataEmissao)}"></div>
+          <div class="f c3"><label>Data inicial do PAF</label><input type="date" data-field="dataInicial" value="${escapeHtml(paf.dataInicial)}"></div>
           <div class="f c4"><label>Periodicidade de acompanhamento</label><input type="text" data-field="periodicidade" placeholder="Ex.: mensal, quinzenal…" value="${escapeHtml(paf.periodicidade)}"></div>
           <div class="f c4"><label>Data da situação atual</label><input type="date" data-field="situacaoData" value="${escapeHtml(paf.situacaoData)}"></div>
+        </div>
+      </div>
+      <div class="section-card">
+        <h2><span class="num">01a</span>Endereço</h2>
+        <div class="field-grid">
+          <div class="f c8"><label>Rua/Avenida</label><input type="text" data-field="enderecoRua" value="${escapeHtml(paf.enderecoRua)}"></div>
+          <div class="f c4"><label>Número</label><input type="text" data-field="enderecoNumero" value="${escapeHtml(paf.enderecoNumero)}"></div>
+          <div class="f c4"><label>Complemento</label><input type="text" data-field="enderecoComplemento" value="${escapeHtml(paf.enderecoComplemento)}"></div>
+          <div class="f c4"><label>Bairro</label><input type="text" data-field="enderecoBairro" value="${escapeHtml(paf.enderecoBairro)}"></div>
+          <div class="f c4"><label>CEP</label><input type="text" data-field="enderecoCep" placeholder="00000-000" value="${escapeHtml(paf.enderecoCep)}"></div>
+          <div class="f c4"><label>Município</label><input type="text" data-field="enderecoMunicipio" value="${escapeHtml(paf.enderecoMunicipio)}"></div>
+          <div class="f c2"><label>UF</label><input type="text" data-field="enderecoUf" maxlength="2" value="${escapeHtml(paf.enderecoUf)}"></div>
+          <div class="f c6"><label>Ponto de referência</label><input type="text" data-field="pontoReferencia" value="${escapeHtml(paf.pontoReferencia)}"></div>
+          <div class="f c6"><label>Telefones de contato</label><input type="text" data-field="telefones" value="${escapeHtml(paf.telefones)}"></div>
+          <div class="f c12">
+            <label>Localização do domicílio</label>
+            <div class="radio-row">
+              ${["Urbano", "Rural"].map(v => `<label><input type="radio" name="localizacaoDomicilio" data-field="localizacaoDomicilio" value="${v}" ${paf.localizacaoDomicilio === v ? "checked" : ""}> ${v}</label>`).join("")}
+            </div>
+          </div>
+          <div class="f c12"><label>Endereço resumido (usado na listagem e nos documentos, caso o detalhamento acima não seja preenchido)</label><input type="text" data-field="endereco" value="${escapeHtml(paf.endereco)}"></div>
         </div>
       </div>`;
 
@@ -1063,14 +1315,40 @@ function renderSection(id, paf) {
       <div class="section-card">
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
         <table class="dyn-table">
-          <thead><tr><th style="width:30%">Nome</th><th style="width:18%">Data de nascimento</th><th style="width:17%">Parentesco</th><th style="width:20%">Nacionalidade</th><th></th></tr></thead>
+          <thead><tr>
+            <th style="width:19%">Nome</th>
+            <th style="width:11%">Nascimento</th>
+            <th style="width:6%">Sexo</th>
+            <th style="width:13%">Parentesco</th>
+            <th style="width:14%">Nacionalidade</th>
+            <th style="width:6%">PCD</th>
+            <th>Documentação pendente</th>
+            <th></th>
+          </tr></thead>
           <tbody>
             ${paf.membros.map((m, i) => `
               <tr>
                 <td><input type="text" data-field="membros.${i}.nome" value="${escapeHtml(m.nome)}"></td>
                 <td><input type="date" data-field="membros.${i}.nascimento" value="${escapeHtml(m.nascimento)}"></td>
+                <td>
+                  <select data-field="membros.${i}.sexo">
+                    <option value="" ${!m.sexo ? "selected" : ""}>—</option>
+                    <option value="F" ${m.sexo === "F" ? "selected" : ""}>F</option>
+                    <option value="M" ${m.sexo === "M" ? "selected" : ""}>M</option>
+                  </select>
+                </td>
                 <td><input type="text" data-field="membros.${i}.parentesco" value="${escapeHtml(m.parentesco)}"></td>
                 <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade || "")}" placeholder="Brasileira"></td>
+                <td style="text-align:center"><input type="checkbox" data-field-check="membros.${i}.pcd" ${m.pcd ? "checked" : ""}></td>
+                <td>
+                  <div class="doc-chips">
+                    ${DOC_CIVIL_CODES.map(d => `
+                      <label class="chk chk-mini">
+                        <input type="checkbox" data-check-group="membros.${i}.docPendente" data-check-value="${d.v}" ${(m.docPendente || []).includes(d.v) ? "checked" : ""}>
+                        <span>${d.v}</span>
+                      </label>`).join("")}
+                  </div>
+                </td>
                 <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover">✕</button></td>
               </tr>`).join("")}
           </tbody>
@@ -1079,15 +1357,88 @@ function renderSection(id, paf) {
           ${NACIONALIDADES.map(n => `<option value="${escapeHtml(n)}">`).join("")}
         </datalist>
         <button class="add-row-btn" data-action="add-membro">+ Adicionar membro</button>
+        <p class="hint" style="margin-top:8px;">Documentação pendente: marque os documentos que este membro ainda precisa providenciar (CN=Certidão de Nascimento, CTPS=Carteira de Trabalho, TE=Título de Eleitor).</p>
       </div>`;
 
-    case "diagnostico": return `
+    case "diagnostico": {
+      const simNao = (field, val, quemField, quemVal) => `
+        <div class="f c6">
+          <label>${{
+            habitacaoAreaRisco: "Domicílio em área de risco (desabamento/alagamento)?",
+            saudeDoencaGrave: "Algum membro é portador de doença grave?",
+            saudeMedicacaoControlada: "Uso de remédios controlados (tarja preta)?",
+            saudeAlcool: "Uso abusivo de álcool?",
+            saudeDrogas: "Uso abusivo de outras drogas (crack, cocaína, maconha etc)?",
+            saudeGestante: "Há gestante(s) na família?"
+          }[field] || ""}</label>
+          <div class="radio-row">
+            ${["Sim", "Não"].map(v => `<label><input type="radio" name="${field}" data-field="${field}" value="${v}" ${val === v ? "checked" : ""}> ${v}</label>`).join("")}
+          </div>
+        </div>
+        ${quemField ? `<div class="f c6"><label>Se sim, nome(s) do(s) membro(s)</label><input type="text" data-field="${quemField}" value="${escapeHtml(quemVal)}"></div>` : ""}`;
+
+      return `
       <div class="section-card">
         ${sectionHeader("03", "Diagnóstico", "Família inserida em acompanhamento familiar no PAIF para superação da(s) seguinte(s) vulnerabilidade(s):")}
         ${notaTecnica("Vulnerabilidade, para a PNAS, vai além da renda: é uma leitura dinâmica das situações de desproteção social vividas pela família, moldadas por seus recursos e pelo território — e não um traço fixo ou definitivo de quem é atendido.")}
         ${chkList("vulnerabilidades", VULNERABILIDADES_FAMILIA, paf.vulnerabilidades)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="vulnerabilidadesOutros" value="${escapeHtml(paf.vulnerabilidadesOutros)}"></div>
+      </div>
+
+      <div class="section-card">
+        <h2><span class="num">03a</span>Condições Habitacionais</h2>
+        <div class="field-grid">
+          <div class="f c3"><label>Tipo de residência</label><select data-field="habitacaoTipo"><option value="">—</option>${HABITACAO_TIPO.map(v => `<option value="${v}" ${paf.habitacaoTipo === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+          <div class="f c5"><label>Material das paredes externas</label><select data-field="habitacaoParedes"><option value="">—</option>${HABITACAO_PAREDES.map(v => `<option value="${v}" ${paf.habitacaoParedes === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+          <div class="f c4"><label>Acesso a energia elétrica</label><select data-field="habitacaoEnergia"><option value="">—</option>${HABITACAO_ENERGIA.map(v => `<option value="${v}" ${paf.habitacaoEnergia === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+          <div class="f c3">
+            <label>Possui água canalizada?</label>
+            <div class="radio-row">${["Sim", "Não"].map(v => `<label><input type="radio" name="habitacaoAgua" data-field="habitacaoAgua" value="${v}" ${paf.habitacaoAgua === v ? "checked" : ""}> ${v}</label>`).join("")}</div>
+          </div>
+          <div class="f c5"><label>Escoamento sanitário</label><select data-field="habitacaoEsgoto"><option value="">—</option>${HABITACAO_ESGOTO.map(v => `<option value="${v}" ${paf.habitacaoEsgoto === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+          <div class="f c4"><label>Coleta de lixo</label><select data-field="habitacaoLixo"><option value="">—</option>${HABITACAO_LIXO.map(v => `<option value="${v}" ${paf.habitacaoLixo === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+          <div class="f c3"><label>Nº total de cômodos</label><input type="text" data-field="habitacaoComodos" value="${escapeHtml(paf.habitacaoComodos)}"></div>
+          <div class="f c3"><label>Nº de dormitórios</label><input type="text" data-field="habitacaoDormitorios" value="${escapeHtml(paf.habitacaoDormitorios)}"></div>
+          ${simNao("habitacaoAreaRisco", paf.habitacaoAreaRisco)}
+          <div class="f c12"><label>Observações sobre a habitação</label><textarea rows="2" data-field="habitacaoObs">${escapeHtml(paf.habitacaoObs)}</textarea></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h2><span class="num">03b</span>Condições Educacionais</h2>
+        <div class="field-grid">
+          <div class="f c4"><label>Qtd. de pessoas entre 0-5 anos fora da escola/creche</label><input type="text" data-field="eduForaEscola06" value="${escapeHtml(paf.eduForaEscola06)}"></div>
+          <div class="f c4"><label>Qtd. entre 6-14 anos fora da escola</label><input type="text" data-field="eduForaEscola614" value="${escapeHtml(paf.eduForaEscola614)}"></div>
+          <div class="f c4"><label>Qtd. entre 15-17 anos fora da escola</label><input type="text" data-field="eduForaEscola1517" value="${escapeHtml(paf.eduForaEscola1517)}"></div>
+          <div class="f c4"><label>Qtd. entre 10-17 anos que não sabem ler/escrever</label><input type="text" data-field="eduAnalfabetismo1017" value="${escapeHtml(paf.eduAnalfabetismo1017)}"></div>
+          <div class="f c4"><label>Qtd. entre 18-59 anos que não sabem ler/escrever</label><input type="text" data-field="eduAnalfabetismo1859" value="${escapeHtml(paf.eduAnalfabetismo1859)}"></div>
+          <div class="f c4"><label>Qtd. com 60 anos ou mais que não sabem ler/escrever</label><input type="text" data-field="eduAnalfabetismo60mais" value="${escapeHtml(paf.eduAnalfabetismo60mais)}"></div>
+          <div class="f c12"><label>Observações sobre educação</label><textarea rows="2" data-field="eduObs">${escapeHtml(paf.eduObs)}</textarea></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h2><span class="num">03c</span>Condições de Trabalho e Renda</h2>
+        <div class="field-grid">
+          <div class="f c6"><label>Renda total da família (sem programas sociais)</label><input type="text" data-field="rendaTotal" placeholder="R$" value="${escapeHtml(paf.rendaTotal)}"></div>
+          <div class="f c6"><label>Renda familiar per capita (sem programas sociais)</label><input type="text" data-field="rendaPerCapita" placeholder="R$" value="${escapeHtml(paf.rendaPerCapita)}"></div>
+          <div class="f c12"><label>Observações sobre trabalho e renda</label><textarea rows="2" data-field="rendaObs">${escapeHtml(paf.rendaObs)}</textarea></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h2><span class="num">03d</span>Condições de Saúde</h2>
+        <div class="field-grid">
+          ${simNao("saudeDoencaGrave", paf.saudeDoencaGrave, "saudeDoencaGraveQuem", paf.saudeDoencaGraveQuem)}
+          ${simNao("saudeMedicacaoControlada", paf.saudeMedicacaoControlada, "saudeMedicacaoQuem", paf.saudeMedicacaoQuem)}
+          ${simNao("saudeAlcool", paf.saudeAlcool, "saudeAlcoolQuem", paf.saudeAlcoolQuem)}
+          ${simNao("saudeDrogas", paf.saudeDrogas, "saudeDrogasQuem", paf.saudeDrogasQuem)}
+          ${simNao("saudeGestante", paf.saudeGestante, "saudeGestanteQuem", paf.saudeGestanteQuem)}
+          <div class="f c12"><label>Observações sobre saúde</label><textarea rows="2" data-field="saudeObs">${escapeHtml(paf.saudeObs)}</textarea></div>
+        </div>
+        <p class="hint">A presença de PCD e cuidados constantes já é registrada na tabela de "Membros da Família" (coluna PCD) e na lista de vulnerabilidades acima.</p>
       </div>`;
+    }
 
     case "grupo": {
       const membrosValidos = (paf.membros || []).filter(m => m.nome && m.nome.trim());
@@ -1131,9 +1482,44 @@ function renderSection(id, paf) {
       </div>`;
     }
 
+    case "encaminhamentos": return `
+      <div class="section-card">
+        ${sectionHeader("05", "Encaminhamentos", "Registre e imprima formulários de encaminhamento (modelo SUAS) para outros órgãos/serviços, com canhoto de protocolo e espaço para contra-referência.")}
+        ${notaTecnica("Sempre que possível, registre também o retorno (contra-referência) do órgão para o qual a família foi encaminhada — isso evita que o acompanhamento perca o fio da meada quando a família passa por vários serviços.")}
+        <table class="dyn-table">
+          <thead><tr><th style="width:11%">Data</th><th style="width:18%">Área</th><th style="width:16%">Órgão/Unidade</th><th style="width:22%">Objetivo/Motivo</th><th style="width:14%">Profissional</th><th style="width:11%">Telefone</th><th></th></tr></thead>
+          <tbody>
+            ${(paf.encaminhamentosForm || []).map((e, i) => `
+              <tr>
+                <td><input type="date" data-field="encaminhamentosForm.${i}.data" value="${escapeHtml(e.data)}"></td>
+                <td>
+                  <select data-field="encaminhamentosForm.${i}.area">
+                    <option value="">—</option>
+                    ${ENCAMINHAMENTO_AREAS.map(a => `<option value="${a}" ${e.area === a ? "selected" : ""}>${a}</option>`).join("")}
+                  </select>
+                </td>
+                <td><input type="text" data-field="encaminhamentosForm.${i}.orgaoDestino" value="${escapeHtml(e.orgaoDestino)}"></td>
+                <td><textarea rows="1" data-field="encaminhamentosForm.${i}.objetivo">${escapeHtml(e.objetivo)}</textarea></td>
+                <td><input type="text" data-field="encaminhamentosForm.${i}.profissionalOrigem" value="${escapeHtml(e.profissionalOrigem)}" placeholder="${escapeHtml(paf.tecnicoReferencia) || ''}"></td>
+                <td><input type="text" data-field="encaminhamentosForm.${i}.telefoneOrigem" value="${escapeHtml(e.telefoneOrigem)}"></td>
+                <td style="white-space:nowrap;">
+                  <button class="btn btn-ghost btn-sm" data-action="imprimir-encaminhamento" data-idx="${i}" title="Gerar e imprimir">🖨️</button>
+                  <button class="row-del" data-action="remove-encaminhamento" data-idx="${i}" title="Remover">✕</button>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="7" style="padding-top:0;">
+                  <input type="text" data-field="encaminhamentosForm.${i}.contraReferencia" placeholder="Contra-referência / retorno recebido do órgão (o que foi respondido, quando)" value="${escapeHtml(e.contraReferencia)}">
+                </td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+        <button class="add-row-btn" data-action="add-encaminhamento">+ Adicionar encaminhamento</button>
+      </div>`;
+
     case "programas": return `
       <div class="section-card">
-        ${sectionHeader("05", "Programas, Projetos, Serviços e Benefícios Socioassistenciais", "")}
+        ${sectionHeader("06", "Programas, Projetos, Serviços e Benefícios Socioassistenciais", "")}
         <div class="field-grid">
           <div class="f c6">
             <label>a) Participa de programas, projetos sociais ou de geração de renda?</label>
@@ -1160,7 +1546,7 @@ function renderSection(id, paf) {
 
     case "rede": return `
       <div class="section-card">
-        ${sectionHeader("06", "Recursos que o Território Possui (Articulação da Rede)", "Rede de Apoio Institucional (recursos institucionais).")}
+        ${sectionHeader("07", "Recursos que o Território Possui (Articulação da Rede)", "Rede de Apoio Institucional (recursos institucionais).")}
         ${chkList("redeApoio", REDE_APOIO, paf.redeApoio, true)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="redeApoioOutros" value="${escapeHtml(paf.redeApoioOutros)}"></div>
       </div>`;
@@ -1196,7 +1582,7 @@ function renderSection(id, paf) {
       </div>
 
       <div class="section-card">
-        ${sectionHeader("07", "Registro de Atendimentos", "Cada visita, contato ou encaminhamento realizado com a família, em ordem cronológica.")}
+        ${sectionHeader("08", "Registro de Atendimentos", "Cada visita, contato ou encaminhamento realizado com a família, em ordem cronológica.")}
         ${notaTecnica("As Orientações Técnicas do PAIF distinguem \"atendimento\" (resposta pontual a uma demanda) de \"acompanhamento\" (processo continuado, com objetivos e prazos pactuados — como este PAF). Ações particularizadas, em especial, devem ser usadas com critério: sempre associadas aos objetivos do Serviço, e nunca como simples \"resolução de caso\".")}
         <div class="timeline">
           ${(paf.atendimentos || []).length === 0 ? `<p class="hint" style="margin:6px 0 14px;">Nenhum atendimento registrado ainda. Clique em "Adicionar atendimento" para começar o histórico.</p>` : ""}
@@ -1231,7 +1617,7 @@ function renderSection(id, paf) {
       </div>
 
       <div class="section-card">
-        <h2><span class="num">07a</span>Metas, Evolução e Resultados</h2>
+        <h2><span class="num">08a</span>Metas, Evolução e Resultados</h2>
         <p class="section-sub">Equipe técnica.</p>
         <div class="meta-row" style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
           <div>Meta</div><div>Prazo de execução</div><div>Resultados alcançados</div>
@@ -1247,19 +1633,19 @@ function renderSection(id, paf) {
 
     case "estrategias": return `
       <div class="section-card">
-        ${sectionHeader("08", "Estratégias a serem adotadas para superação das vulnerabilidades", "")}
+        ${sectionHeader("09", "Estratégias a serem adotadas para superação das vulnerabilidades", "")}
         ${chkList("estrategias", ESTRATEGIAS, paf.estrategias, true)}
         <div class="f" style="margin-top:12px"><label>Outras</label><input type="text" data-field="estrategiasOutras" value="${escapeHtml(paf.estrategiasOutras)}"></div>
       </div>
       <div class="section-card">
-        <h2><span class="num">08a</span>Eixos de intervenção</h2>
+        <h2><span class="num">09a</span>Eixos de intervenção</h2>
         ${chkList("eixos", EIXOS, paf.eixos, true)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="eixosOutros" value="${escapeHtml(paf.eixosOutros)}"></div>
       </div>`;
 
     case "plano": return `
       <div class="section-card">
-        ${sectionHeader("09", "Elaboração do Plano", "")}
+        ${sectionHeader("10", "Elaboração do Plano", "")}
         <div class="field-grid">
           <div class="f c6">
             <label>A família participou da construção do Plano de Acompanhamento?</label>
@@ -1276,7 +1662,7 @@ function renderSection(id, paf) {
 
     case "encerramento": return `
       <div class="section-card">
-        ${sectionHeader("10", "Encerramento do Acompanhamento Familiar", "")}
+        ${sectionHeader("11", "Encerramento do Acompanhamento Familiar", "")}
         ${notaTecnica("O PAIF não tem caráter terapêutico ou psicoterápico — demandas de saúde mental devem ser encaminhadas à rede intersetorial. Quando há indício de violação de direitos, o encaminhamento é ao CREAS/PAEFI, que assume o acompanhamento até a situação ser superada.")}
         <div class="radio-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
           ${ENCERRAMENTO_MOTIVOS.map(m => `<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="encerramentoMotivo" data-field="encerramentoMotivo" value="${m.v}" ${paf.encerramentoMotivo === m.v ? "checked" : ""}> (${m.v}) ${m.label}</label>`).join("")}
@@ -1313,7 +1699,7 @@ function renderSection(id, paf) {
 
       return `
       <div class="section-card">
-        ${sectionHeader("11", "Anexos", "Anexe fotos, documentos digitalizados ou PDFs relacionados ao acompanhamento desta família.")}
+        ${sectionHeader("12", "Anexos", "Anexe fotos, documentos digitalizados ou PDFs relacionados ao acompanhamento desta família.")}
         <label class="anexo-dropzone" for="anexoInput">
           <span class="anexo-dropzone-icon">＋</span>
           <span>Clique para escolher imagens ou PDFs</span>
@@ -1327,7 +1713,7 @@ function renderSection(id, paf) {
 
     case "observacoes": return `
       <div class="section-card">
-        ${sectionHeader("12", "Observações Gerais", "Anotações complementares técnicas sobre o acompanhamento da família.")}
+        ${sectionHeader("13", "Observações Gerais", "Anotações complementares técnicas sobre o acompanhamento da família.")}
         <div class="f">
           <textarea data-field="observacoes" rows="8" placeholder="Digite aqui observações adicionais...">${escapeHtml(paf.observacoes)}</textarea>
         </div>
@@ -1440,7 +1826,7 @@ function attachEditorHandlers() {
   // Ações de Tabela Dinâmica (Membros da Família)
   container.querySelectorAll("[data-action='add-membro']").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", nacionalidade: "" });
+      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", pcd: false, docPendente: [] });
       savePAF(state.current, { silent: true });
       renderApp();
     });
@@ -1452,6 +1838,38 @@ function attachEditorHandlers() {
       state.current.membros.splice(idx, 1);
       savePAF(state.current, { silent: true });
       renderApp();
+    });
+  });
+
+  // Ações da tabela de Encaminhamentos
+  container.querySelectorAll("[data-action='add-encaminhamento']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!state.current.encaminhamentosForm) state.current.encaminhamentosForm = [];
+      state.current.encaminhamentosForm.push({
+        data: todayISO(), area: "", orgaoDestino: "", objetivo: "",
+        profissionalOrigem: state.current.tecnicoReferencia || "", telefoneOrigem: "", contraReferencia: ""
+      });
+      savePAF(state.current, { silent: true });
+      renderApp();
+    });
+  });
+
+  container.querySelectorAll("[data-action='remove-encaminhamento']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      confirmModal("Remover este encaminhamento?", "Este registro será apagado.", () => {
+        state.current.encaminhamentosForm.splice(idx, 1);
+        savePAF(state.current, { silent: true });
+        renderApp();
+      });
+    });
+  });
+
+  container.querySelectorAll("[data-action='imprimir-encaminhamento']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      const enc = (state.current.encaminhamentosForm || [])[idx];
+      if (enc) imprimirEncaminhamento(state.current, enc);
     });
   });
 
@@ -1522,7 +1940,7 @@ function attachGlobalHandlers() {
   const settingsBtn = document.getElementById("settingsBtn");
   if (settingsBtn) settingsBtn.onclick = openSettingsModal;
 
-  // Fechar dropdowns de exportação ao clicar fora.
+  // Fechar dropdowns de exportação e do seletor de membros ao clicar fora.
   // Anexado apenas uma vez (renderApp roda a cada interação e chamava isto de novo,
   // empilhando um novo listener no document a cada render).
   if (!state._globalClickBound) {
@@ -1540,173 +1958,6 @@ function attachGlobalHandlers() {
 
 /* ---------------------------- Exportação: PDF (Impressão Nativa) ---------------------------- */
 
-function exportResumoPDF() {
-  const q = state.search.trim().toLowerCase();
-  const list = state.pafs.filter(p => {
-    const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.crasNome || "").toLowerCase().includes(q);
-    const matchesStatus = state.statusFilter === "todos" || p.situacaoPAF === state.statusFilter;
-    return matchesQ && matchesStatus;
-  });
-
-  if (!list.length) {
-    toast("Nenhuma família encontrada para gerar o resumo.");
-    return;
-  }
-
-  const printWin = window.open("", "_blank");
-  if (!printWin) {
-    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
-    return;
-  }
-
-  const porNacionalidade = {};
-  const porSexo = {};
-  const porFaixa = {};
-
-  list.forEach(p => {
-    const nac = (p.nacionalidadeResponsavel || "").trim() || "Não informada";
-    porNacionalidade[nac] = (porNacionalidade[nac] || 0) + 1;
-
-    const sexo = p.sexoResponsavel || "Não informado";
-    porSexo[sexo] = (porSexo[sexo] || 0) + 1;
-
-    const faixa = faixaEtaria(calcularIdade(p.dataNascResponsavel));
-    porFaixa[faixa] = (porFaixa[faixa] || 0) + 1;
-  });
-
-  const ORDEM_FAIXAS = ["Menor de 18", "18 a 29", "30 a 39", "40 a 59", "60 ou mais", "Não informada"];
-
-  function linhasTabela(obj, ordemFixa) {
-    const total = list.length;
-    let chaves = Object.keys(obj);
-    if (ordemFixa) {
-      chaves = ordemFixa.filter(k => obj[k] !== undefined).concat(chaves.filter(k => !ordemFixa.includes(k)));
-    } else {
-      chaves.sort((a, b) => obj[b] - obj[a]);
-    }
-    return chaves.map(k => `
-      <tr>
-        <td>${escapeHtml(k)}</td>
-        <td style="text-align:center">${obj[k]}</td>
-        <td style="text-align:center">${((obj[k] / total) * 100).toFixed(1)}%</td>
-      </tr>`).join("");
-  }
-
-  const statusLabel = state.statusFilter === "todos" ? "Todas as situações" : (STATUS_LABELS[state.statusFilter] || "Todas as situações");
-  const filtroBusca = state.search.trim() ? ` · Busca: "${escapeHtml(state.search.trim())}"` : "";
-
-  const html = `
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-      <meta charset="UTF-8">
-      <title>Resumo das Famílias em Acompanhamento</title>
-      <style>
-        @page { margin: 16mm 14mm; }
-        * { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F; line-height: 1.45; margin: 0; padding: 0; }
-
-        .orgao-header {
-          display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
-          padding: 8px 12px; border-radius: 5px 5px 0 0; font-size: 9px; line-height: 1.35;
-        }
-        .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
-        .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
-
-        .capa-header {
-          display: flex; align-items: center; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
-          border-bottom: 2.5px solid #1F3A5F; padding: 10px 12px; margin-bottom: 16px; border-radius: 0 0 5px 5px;
-        }
-        .capa-selo {
-          width: 40px; height: 40px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 18px; color: #B98A34;
-        }
-        .capa-titulos h1 { font-family: Georgia, serif; font-size: 16px; margin: 0; color: #1F3A5F; }
-        .capa-titulos p { margin: 2px 0 0; font-size: 10.5px; color: #52667C; }
-        .capa-meta { margin-left: auto; text-align: right; font-size: 9.5px; color: #8496A8; }
-
-        .resumo-stats { display: flex; gap: 10px; margin-bottom: 20px; }
-        .resumo-stat { flex: 1; text-align: center; background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 8px; padding: 14px 10px; }
-        .resumo-stat .n { display: block; font-family: Georgia, serif; font-size: 26px; font-weight: bold; color: #B98A34; line-height: 1; }
-        .resumo-stat .l { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #52667C; margin-top: 4px; }
-
-        h2 { font-size: 12.5px; color: #2E7D6B; margin: 18px 0 6px; border-bottom: 1px solid #D7E0E6; padding-bottom: 3px; page-break-after: avoid; }
-        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; page-break-inside: avoid; }
-        th, td { border: 1px solid #D7E0E6; padding: 5px 8px; text-align: left; vertical-align: top; }
-        th { background: #F6F8F9; font-weight: bold; font-size: 9.5px; text-transform: uppercase; }
-
-        .rodape-print {
-          margin-top: 24px; padding-top: 8px; border-top: 1px solid #D7E0E6;
-          font-size: 8.5px; color: #8496A8; text-align: center;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="orgao-header">
-        <div class="brasao-mini">
-          <svg viewBox="0 0 48 48" width="22" height="22"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
-        </div>
-        <div>
-          <strong>Prefeitura Municipal de Boa Vista</strong>
-          Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
-          Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes
-        </div>
-        <div class="orgao-contato">
-          Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>
-          (95) 98402-6627 · crascentenariosemges@gmail.com
-        </div>
-      </div>
-      <div class="capa-header">
-        <div class="capa-selo">P</div>
-        <div class="capa-titulos">
-          <h1>Resumo das Famílias em Acompanhamento</h1>
-          <p>PAF · PAIF — ${escapeHtml(statusLabel)}${filtroBusca}</p>
-        </div>
-        <div class="capa-meta">
-          Emitido em ${fmtDateBR(todayISO())}
-        </div>
-      </div>
-
-      <div class="resumo-stats">
-        <div class="resumo-stat"><span class="n">${list.length}</span><span class="l">Famílias em acompanhamento</span></div>
-      </div>
-
-      <h2>Nacionalidade do Responsável Familiar</h2>
-      <table>
-        <thead><tr><th>Nacionalidade</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
-        <tbody>${linhasTabela(porNacionalidade)}</tbody>
-      </table>
-
-      <h2>Sexo do Responsável Familiar</h2>
-      <table>
-        <thead><tr><th>Sexo</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
-        <tbody>${linhasTabela(porSexo)}</tbody>
-      </table>
-
-      <h2>Faixa Etária do Responsável Familiar</h2>
-      <table>
-        <thead><tr><th>Faixa Etária</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
-        <tbody>${linhasTabela(porFaixa, ORDEM_FAIXAS)}</tbody>
-      </table>
-
-      <div class="rodape-print">
-        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes — Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
-        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
-      </div>
-
-      <script>
-        window.onload = () => { window.print(); };
-      </script>
-    </body>
-    </html>
-  `;
-
-  printWin.document.open();
-  printWin.document.write(html);
-  printWin.document.close();
-}
-
 function exportPDF(paf) {
   if (!paf) return;
   const printWin = window.open("", "_blank");
@@ -1719,10 +1970,13 @@ function exportPDF(paf) {
     <tr>
       <td>${escapeHtml(m.nome)}</td>
       <td>${fmtDateBR(m.nascimento)}</td>
+      <td>${escapeHtml(m.sexo)}</td>
       <td>${escapeHtml(m.parentesco)}</td>
       <td>${escapeHtml(m.nacionalidade || "")}</td>
+      <td>${m.pcd ? "Sim" : "—"}</td>
+      <td>${(m.docPendente || []).join(", ") || "—"}</td>
     </tr>
-  `).join("") || "<tr><td colspan='4'>Nenhum membro informado</td></tr>";
+  `).join("") || "<tr><td colspan='7'>Nenhum membro informado</td></tr>";
 
   const situacoesHTML = (paf.situacoesSociais || [])
     .filter(s => s.membros || s.superada)
@@ -1908,7 +2162,7 @@ function exportPDF(paf) {
           <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
           <div><span class="k">NIS</span><span class="v">${escapeHtml(paf.nis) || "—"}</span></div>
           <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
-          <div><span class="k">Endereço</span><span class="v">${escapeHtml(paf.endereco) || "—"}</span></div>
+          <div><span class="k">Endereço</span><span class="v">${escapeHtml(enderecoCompleto(paf)) || "—"}</span></div>
           <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
           <div><span class="k">Periodicidade</span><span class="v">${escapeHtml(paf.periodicidade) || "—"}</span></div>
         </div>
@@ -1921,13 +2175,31 @@ function exportPDF(paf) {
 
       <h2>Membros da Família</h2>
       <table>
-        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th><th>Nacionalidade</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>PCD</th><th>Doc. pendente</th></tr></thead>
         <tbody>${membrosHTML}</tbody>
       </table>
 
       <h2>Diagnóstico e Vulnerabilidades</h2>
       <div>${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
       ${paf.vulnerabilidadesOutros ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
+
+      <h2>Diagnóstico Socioeconômico</h2>
+      <div class="grid">
+        <div class="field"><span class="label">Habitação</span>${escapeHtml(paf.habitacaoTipo) || "—"}${paf.habitacaoAreaRisco === "Sim" ? " · Em área de risco" : ""}</div>
+        <div class="field"><span class="label">Saneamento</span>${escapeHtml(paf.habitacaoEsgoto) || "—"}</div>
+        <div class="field"><span class="label">Crianças/adolesc. fora da escola</span>${[paf.eduForaEscola06, paf.eduForaEscola614, paf.eduForaEscola1517].filter(Boolean).join(" / ") || "—"}</div>
+        <div class="field"><span class="label">Renda total / per capita</span>${[paf.rendaTotal, paf.rendaPerCapita].filter(Boolean).join(" / ") || "—"}</div>
+        <div class="field"><span class="label">Doença grave na família</span>${paf.saudeDoencaGrave || "—"}${paf.saudeDoencaGraveQuem ? " (" + escapeHtml(paf.saudeDoencaGraveQuem) + ")" : ""}</div>
+        <div class="field"><span class="label">Gestante(s) na família</span>${paf.saudeGestante || "—"}${paf.saudeGestanteQuem ? " (" + escapeHtml(paf.saudeGestanteQuem) + ")" : ""}</div>
+      </div>
+      ${[paf.habitacaoObs, paf.eduObs, paf.rendaObs, paf.saudeObs].filter(Boolean).map(o => `<p class="muted" style="margin:4px 0;">${escapeHtml(o)}</p>`).join("")}
+
+      ${(paf.encaminhamentosForm || []).length ? `
+      <h2>Encaminhamentos Realizados</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Área</th><th>Órgão/Unidade</th><th>Objetivo</th><th>Contra-referência</th></tr></thead>
+        <tbody>${paf.encaminhamentosForm.map(e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td>${escapeHtml(e.objetivo)}</td><td>${escapeHtml(e.contraReferencia) || "—"}</td></tr>`).join("")}</tbody>
+      </table>` : ""}
 
       <h2>Situações Sociais Registradas</h2>
       <table>
@@ -1984,6 +2256,98 @@ function exportPDF(paf) {
   printWin.document.close();
 }
 
+/* ---------------------------- Impressão: Formulário de Encaminhamento (modelo SUAS) ---------------------------- */
+
+function imprimirEncaminhamento(paf, enc) {
+  const printWin = window.open("", "_blank");
+  if (!printWin) {
+    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
+    return;
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Formulário de Encaminhamento - ${escapeHtml(paf.responsavel)}</title>
+      <style>
+        @page { margin: 16mm 14mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; line-height: 1.45; margin: 0; }
+        .orgao-header { display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE; padding: 8px 12px; border-radius: 5px; font-size: 9px; margin-bottom: 14px; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
+        .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
+        h1 { font-family: Georgia, serif; font-size: 15px; color: #1F3A5F; border-bottom: 2px solid #1F3A5F; padding-bottom: 6px; }
+        .canhoto { border: 1px dashed #8496A8; border-radius: 6px; padding: 10px 12px; margin-bottom: 18px; font-size: 10.5px; }
+        .canhoto b { color: #52667C; }
+        .corpo { border: 1px solid #D7E0E6; border-radius: 6px; padding: 14px 16px; }
+        .linha { margin: 0 0 10px; }
+        .campo-preenchido { border-bottom: 1px solid #1F3A5F; padding: 0 2px; }
+        .contra { margin-top: 30px; border-top: 2px dashed #8496A8; padding-top: 14px; }
+        .contra h2 { font-size: 12px; color: #2E7D6B; margin: 0 0 8px; }
+        .contra .campo { border: 1px solid #D7E0E6; border-radius: 6px; min-height: 70px; padding: 8px; font-size: 10.5px; }
+        .assinaturas { display: flex; gap: 40px; margin-top: 34px; }
+        .assinatura { flex: 1; text-align: center; }
+        .assinatura .linha-ass { border-top: 1px solid #1F3A5F; margin-bottom: 4px; padding-top: 4px; }
+        .assinatura .titulo { font-size: 9.5px; color: #52667C; }
+        .rodape-print { margin-top: 24px; padding-top: 8px; border-top: 1px solid #D7E0E6; font-size: 8.5px; color: #8496A8; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="orgao-header">
+        <div>
+          <strong>Prefeitura Municipal de Boa Vista</strong>
+          Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
+          Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes
+        </div>
+        <div class="orgao-contato">Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>(95) 98402-6627 · crascentenariosemges@gmail.com</div>
+      </div>
+
+      <h1>Formulário de Encaminhamento — SUAS</h1>
+
+      <div class="canhoto">
+        <b>Canhoto de protocolo</b> — Área: ${escapeHtml(enc.area) || "—"} · Data: ${fmtDateBR(enc.data) || "—"}<br>
+        Objetivo/Motivo: ${escapeHtml(enc.objetivo) || "—"}<br>
+        Registre no verso o resumo do acompanhamento deste encaminhamento.
+      </div>
+
+      <div class="corpo">
+        <p class="linha">Encaminho o(a) Sr(a) <span class="campo-preenchido">${escapeHtml(paf.responsavel) || "________________________"}</span>
+        e solicito atenção para seu atendimento, no(a) <span class="campo-preenchido">${escapeHtml(enc.orgaoDestino) || "________________________"}</span>
+        (${escapeHtml(enc.area) || "área não especificada"}), tendo em consideração as necessidades identificadas pela Assistência Social e expostas a seguir:</p>
+        <p class="linha">${escapeHtml(enc.objetivo) || "—"}</p>
+        <p class="linha"><b>Data:</b> ${fmtDateBR(enc.data) || "—"}</p>
+        <p class="linha"><b>Nome da Unidade de origem:</b> ${escapeHtml(paf.crasNome) || "—"}</p>
+        <p class="linha"><b>Telefone para contato:</b> ${escapeHtml(enc.telefoneOrigem) || "—"}</p>
+        <p class="linha"><b>Nome do Profissional:</b> ${escapeHtml(enc.profissionalOrigem) || escapeHtml(paf.tecnicoReferencia) || "—"}</p>
+      </div>
+
+      <div class="contra">
+        <h2>Anotações de Contra-Referência / Acompanhamento do Encaminhamento</h2>
+        <div class="campo">${escapeHtml(enc.contraReferencia) || ""}</div>
+      </div>
+
+      <div class="assinaturas">
+        <div class="assinatura"><div class="linha-ass">&nbsp;</div><div class="titulo">Assinatura do Profissional Responsável</div></div>
+        <div class="assinatura"><div class="linha-ass">&nbsp;</div><div class="titulo">Carimbo/Recebido pela Unidade de Destino</div></div>
+      </div>
+
+      <div class="rodape-print">
+        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes — Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
+        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
+      </div>
+
+      <script>window.onload = () => { window.print(); };</script>
+    </body>
+    </html>
+  `;
+
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
+}
+
 /* ---------------------------- Exportação: Word (.doc) ---------------------------- */
 
 function exportWord(paf) {
@@ -2019,25 +2383,42 @@ function exportWord(paf) {
       <p><b>CRAS:</b> ${escapeHtml(paf.crasNome)} | <b>Status:</b> ${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</p>
       <hr/>
       <h2>01. Identificação</h2>
-      <p><b>Responsável:</b> ${escapeHtml(paf.responsavel)}<br>
-      <b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)}<br>
-      <b>Endereço:</b> ${escapeHtml(paf.endereco)}<br>
+      <p><b>Responsável:</b> ${escapeHtml(paf.responsavel)} ${paf.apelido ? "(" + escapeHtml(paf.apelido) + ")" : ""}<br>
+      <b>Nome da mãe:</b> ${escapeHtml(paf.nomeMae) || "—"}<br>
+      <b>Sexo:</b> ${escapeHtml(paf.sexoResponsavel) || "—"} | <b>Nascimento:</b> ${fmtDateBR(paf.dataNascResponsavel) || "—"} | <b>Nacionalidade:</b> ${escapeHtml(paf.nacionalidadeResponsavel) || "—"}<br>
+      <b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)} | <b>RG:</b> ${escapeHtml(paf.rg)} ${escapeHtml(paf.rgOrgao)}/${escapeHtml(paf.rgUf)}<br>
+      <b>Endereço:</b> ${escapeHtml(enderecoCompleto(paf))}${paf.localizacaoDomicilio ? " (" + escapeHtml(paf.localizacaoDomicilio) + ")" : ""}<br>
+      <b>Ponto de referência:</b> ${escapeHtml(paf.pontoReferencia) || "—"} | <b>Telefones:</b> ${escapeHtml(paf.telefones) || "—"}<br>
       <b>Data de Início:</b> ${fmtDateBR(paf.dataInicial)}</p>
 
       <h2>02. Composição Familiar</h2>
       <table>
-        <tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th><th>Nacionalidade</th></tr>
-        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade || "")}</td></tr>`).join("")}
+        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>PCD</th><th>Doc. pendente</th></tr>
+        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade || "")}</td><td>${m.pcd ? "Sim" : "—"}</td><td>${(m.docPendente || []).join(", ") || "—"}</td></tr>`).join("")}
       </table>
 
       <h2>03. Diagnóstico e Vulnerabilidades</h2>
       <p>${(paf.vulnerabilidades || []).join(", ") || "Nenhuma registrada"}</p>
+
+      <h2>03a. Diagnóstico Socioeconômico</h2>
+      <p>
+      <b>Habitação:</b> ${escapeHtml(paf.habitacaoTipo) || "—"} | ${escapeHtml(paf.habitacaoParedes) || "—"} | Energia: ${escapeHtml(paf.habitacaoEnergia) || "—"} | Esgoto: ${escapeHtml(paf.habitacaoEsgoto) || "—"} | Área de risco: ${escapeHtml(paf.habitacaoAreaRisco) || "—"}<br>
+      <b>Educação:</b> Fora da escola (0-5/6-14/15-17): ${escapeHtml(paf.eduForaEscola06) || "0"}/${escapeHtml(paf.eduForaEscola614) || "0"}/${escapeHtml(paf.eduForaEscola1517) || "0"}<br>
+      <b>Trabalho e Renda:</b> Renda total: ${escapeHtml(paf.rendaTotal) || "—"} | Per capita: ${escapeHtml(paf.rendaPerCapita) || "—"}<br>
+      <b>Saúde:</b> Doença grave: ${escapeHtml(paf.saudeDoencaGrave) || "—"} | Medicação controlada: ${escapeHtml(paf.saudeMedicacaoControlada) || "—"} | Uso de álcool: ${escapeHtml(paf.saudeAlcool) || "—"} | Uso de drogas: ${escapeHtml(paf.saudeDrogas) || "—"} | Gestante: ${escapeHtml(paf.saudeGestante) || "—"}</p>
 
       <h2>04. Registro de Atendimentos</h2>
       <table>
         <tr><th>Data</th><th>Tipo</th><th>Técnico</th><th>Evolução</th><th>Encaminhamentos</th></tr>
         ${(paf.atendimentos || []).map(a => `<tr><td>${fmtDateBR(a.data)}</td><td>${escapeHtml(a.tipo)}</td><td>${escapeHtml(a.tecnico)}</td><td>${escapeHtml(a.evolucao)}</td><td>${escapeHtml(a.encaminhamentos)}</td></tr>`).join("") || "<tr><td colspan='5'>Nenhum atendimento registrado</td></tr>"}
       </table>
+
+      ${(paf.encaminhamentosForm || []).length ? `
+      <h2>04a. Encaminhamentos Formais (Formulário SUAS)</h2>
+      <table>
+        <tr><th>Data</th><th>Área</th><th>Órgão/Unidade</th><th>Objetivo</th><th>Contra-referência</th></tr>
+        ${paf.encaminhamentosForm.map(e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td>${escapeHtml(e.objetivo)}</td><td>${escapeHtml(e.contraReferencia) || "—"}</td></tr>`).join("")}
+      </table>` : ""}
 
       <h2>05. Metas e Resultados</h2>
       <table>
