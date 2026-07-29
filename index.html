@@ -44,7 +44,67 @@
     <button class="icon-btn" id="settingsBtn" title="Configurações">⚙︎ Config</button>
   </header>
 
-  <main id="mainArea"></main>
+  <main id="mainArea">
+    <!-- Seção: Dados Adicionais do Acompanhamento Familiar -->
+    <section class="paf-section" id="sectionDadosAdicionais">
+      <h2>Dados Adicionais da Família</h2>
+
+      <div class="form-grid">
+        <!-- Situação Habitacional e Renda -->
+        <div class="f">
+          <label for="tipoMoradia">Tipo de Moradia</label>
+          <select id="tipoMoradia" name="tipoMoradia">
+            <option value="">Selecione...</option>
+            <option value="Propria">Própria</option>
+            <option value="Alugada">Alugada</option>
+            <option value="Cedida">Cedida</option>
+            <option value="Ocupacao">Ocupação / Área Irregular</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+
+        <div class="f">
+          <label for="rendaFamiliar">Renda Familiar Total (R$)</label>
+          <input type="number" step="0.01" id="rendaFamiliar" placeholder="Ex: 1412.00">
+        </div>
+
+        <!-- Benefícios e Identificação Social -->
+        <div class="f">
+          <label for="beneficiosSociais">Benefícios Sociais Recebidos</label>
+          <select id="beneficiosSociais" name="beneficiosSociais">
+            <option value="">Nenhum</option>
+            <option value="Bolsa Familia">Bolsa Família</option>
+            <option value="BPC Idoso">BPC - Idoso</option>
+            <option value="BPC PCD">BPC - Pessoa com Deficiência</option>
+            <option value="Outros">Outros Benefícios</option>
+          </select>
+        </div>
+
+        <div class="f">
+          <label for="numNIS">Número do NIS (Responsável)</label>
+          <input type="text" id="numNIS" placeholder="000.00000.00-0" maxlength="14">
+        </div>
+
+        <!-- Vulnerabilidades e Riscos -->
+        <div class="f full-width">
+          <label>Fatores de Vulnerabilidade e Risco Detectados</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" name="vulnerabilidades" value="Desemprego"> Desemprego / Trabalho Informal</label>
+            <label><input type="checkbox" name="vulnerabilidades" value="Violencia"> Violência Doméstica / Intrafamiliar</label>
+            <label><input type="checkbox" name="vulnerabilidades" value="Trabalho Infantil"> Trabalho Infantil</label>
+            <label><input type="checkbox" name="vulnerabilidades" value="Uso Substancias"> Uso prejudicial de Álcool/Outras Drogas</label>
+            <label><input type="checkbox" name="vulnerabilidades" value="PCD/Idoso Sem Apoio"> PCD ou Idoso sem rede de apoio</label>
+          </div>
+        </div>
+
+        <!-- Observações e Parecer Complementar -->
+        <div class="f full-width">
+          <label for="observacoesAdicionais">Observações e Informações Complementares</label>
+          <textarea id="observacoesAdicionais" rows="4" placeholder="Registre informações adicionais relevantes sobre o contexto familiar ou histórico de atendimentos..."></textarea>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <footer class="app-footer">
     <div class="app-footer-inner">
