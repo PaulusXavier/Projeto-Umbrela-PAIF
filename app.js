@@ -63,6 +63,20 @@ const PROGRAMAS_QUAIS = ["Bolsa Família", "BPC - Benefício de Prestação Cont
 const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte", "Em Pecúnia (dinheiro, cartão, cheque, depósito bancário)"];
 const REDE_APOIO = ["Creches", "Escolas em tempo integral", "Projetos sociais em contraturno escolar", "OSC's e/ou associação de bairro"];
 
+const TIPOS_ATENDIMENTO = ["Atendimento no CRAS", "Visita Domiciliar", "Contato Telefônico", "Encaminhamento", "Reunião de Rede", "Grupo/SCFV", "Outro"];
+
+const TIPO_ATENDIMENTO_COR = {
+  "Atendimento no CRAS": "#2E7D6B",
+  "Visita Domiciliar": "#B98A34",
+  "Contato Telefônico": "#3E6B8A",
+  "Encaminhamento": "#B5473F",
+  "Reunião de Rede": "#6B5B95",
+  "Grupo/SCFV": "#1F5C4E",
+  "Outro": "#8496A8"
+};
+
+const MESES_ABREV = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
 const METAS_FIXAS = [
   "Fortalecer a função protetiva da família",
   "Prevenir a ruptura de vínculos",
@@ -123,7 +137,9 @@ const state = {
   db: null,
   unsub: null,
   saveTimer: null,
-  railOpen: false
+  railOpen: false,
+  currentUser: null,         // usuário autenticado (Firebase Auth) ou null
+  authError: ""
 };
 
 function uid() {
@@ -165,6 +181,7 @@ function emptyPAF() {
     redeApoio: [],
     redeApoioOutros: "",
     metas: METAS_FIXAS.map(m => ({ meta: m, prazo: "", resultados: "" })),
+    atendimentos: [],
     estrategias: [],
     estrategiasOutras: "",
     eixos: [],
@@ -211,6 +228,21 @@ function fmtDateBR(iso) {
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
+}
+function dateBadgeParts(iso) {
+  if (!iso) return { dia: "—", mes: "" };
+  const [, m, d] = iso.split("-");
+  if (!m || !d) return { dia: "—", mes: "" };
+  return { dia: d, mes: MESES_ABREV[parseInt(m, 10) - 1] || "" };
+}
+function mesesEmAcompanhamento(iso) {
+  if (!iso) return null;
+  const inicio = new Date(iso + "T00:00:00");
+  if (isNaN(inicio.getTime())) return null;
+  const hoje = new Date();
+  let meses = (hoje.getFullYear() - inicio.getFullYear()) * 12 + (hoje.getMonth() - inicio.getMonth());
+  if (hoje.getDate() < inicio.getDate()) meses--;
+  return Math.max(0, meses);
 }
 
 /* ---------------------------- Modal e Toast ---------------------------- */
@@ -259,6 +291,128 @@ function setSyncPill(kind, label) {
   const labelEl = document.getElementById("syncLabel");
   if (labelEl) labelEl.textContent = label;
 }
+
+/* ---------------------------- Autenticação (Firebase Auth) ---------------------------- */
+
+function showAuthScreen() {
+  const el = document.getElementById("authScreen");
+  if (el) el.style.display = "flex";
+}
+
+function hideAuthScreen() {
+  const el = document.getElementById("authScreen");
+  if (el) el.style.display = "none";
+}
+
+function authError(msg) {
+  const el = document.getElementById("authError");
+  if (!el) return;
+  if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function translateAuthError(code) {
+  const map = {
+    "auth/invalid-email": "E-mail inválido.",
+    "auth/user-disabled": "Este usuário foi desativado.",
+    "auth/user-not-found": "E-mail ou senha incorretos.",
+    "auth/wrong-password": "E-mail ou senha incorretos.",
+    "auth/invalid-credential": "E-mail ou senha incorretos.",
+    "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    "auth/network-request-failed": "Sem conexão com a internet."
+  };
+  return map[code] || "Não foi possível entrar. Verifique os dados e tente novamente.";
+}
+
+function attachAuthHandlers() {
+  const form = () => ({
+    email: document.getElementById("authEmail")?.value.trim() || "",
+    password: document.getElementById("authPassword")?.value || ""
+  });
+
+  const submit = () => {
+    const { email, password } = form();
+    authError(null);
+    if (!email || !password) { authError("Preencha e-mail e senha."); return; }
+    const btn = document.getElementById("authSubmitBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Entrando…"; }
+    firebase.auth().signInWithEmailAndPassword(email, password)
+      .catch(err => {
+        console.error(err);
+        authError(translateAuthError(err.code));
+      })
+      .finally(() => {
+        if (btn) { btn.disabled = false; btn.textContent = "Entrar"; }
+      });
+  };
+
+  document.getElementById("authSubmitBtn")?.addEventListener("click", submit);
+  document.getElementById("authPassword")?.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  document.getElementById("authEmail")?.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+
+  document.getElementById("forgotPasswordLink")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    const email = form().email;
+    if (!email) { authError("Digite seu e-mail acima e clique em \"Esqueci minha senha\" novamente."); return; }
+    firebase.auth().sendPasswordResetEmail(email)
+      .then(() => { authError(null); toast("E-mail de redefinição enviado para " + email + "."); })
+      .catch(err => { console.error(err); authError(translateAuthError(err.code)); });
+  });
+}
+
+function updateUserPill(user) {
+  const pill = document.getElementById("userPill");
+  const label = document.getElementById("userEmailLabel");
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (user) {
+    if (label) label.textContent = user.email;
+    if (pill) pill.style.display = "flex";
+    if (logoutBtn) logoutBtn.style.display = "inline-flex";
+  } else {
+    if (label) label.textContent = "";
+    if (pill) pill.style.display = "none";
+    if (logoutBtn) logoutBtn.style.display = "none";
+  }
+}
+
+function handleLogout() {
+  confirmModal("Sair da conta?", "Você precisará entrar novamente com seu e-mail e senha para acessar os registros.", () => {
+    if (state.unsub) { state.unsub(); state.unsub = null; }
+    firebase.auth().signOut();
+  });
+}
+
+function initAuth() {
+  attachAuthHandlers();
+
+  if (!firebaseConfigured()) {
+    // Sem Firebase configurado: não há login, o app roda 100% local.
+    initStorage();
+    return;
+  }
+
+  firebase.auth().onAuthStateChanged(user => {
+    state.currentUser = user;
+    updateUserPill(user);
+    if (user) {
+      hideAuthScreen();
+      authError(null);
+      const pwField = document.getElementById("authPassword");
+      if (pwField) pwField.value = "";
+      if (!state.unsub) initStorage();
+    } else {
+      if (state.unsub) { state.unsub(); state.unsub = null; }
+      state.db = null;
+      state.mode = "local";
+      state.pafs = [];
+      state.view = "home";
+      showAuthScreen();
+    }
+  });
+}
+
+/* ---------------------------- Armazenamento (Firestore / local) ---------------------------- */
 
 function initStorage() {
   if (firebaseConfigured()) {
@@ -498,7 +652,7 @@ function tabCompleteness(paf) {
     grupo: paf.situacoesSociais.some(s => s.membros) || paf.servBasica.length || paf.servMedia.length || paf.servAlta.length,
     programas: !!paf.participaProgramas,
     rede: paf.redeApoio.length > 0,
-    metas: paf.metas.some(m => m.prazo || m.resultados),
+    metas: paf.metas.some(m => m.prazo || m.resultados) || (paf.atendimentos || []).length > 0,
     estrategias: paf.estrategias.length > 0,
     plano: !!(paf.tecnicoReferencia && paf.prazoExecucaoPlano),
     encerramento: !!paf.encerramentoMotivo,
@@ -648,9 +802,71 @@ function renderSection(id, paf) {
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="redeApoioOutros" value="${escapeHtml(paf.redeApoioOutros)}"></div>
       </div>`;
 
-    case "metas": return `
+    case "metas": {
+      const ultimoAtendimento = (paf.atendimentos || [])
+        .filter(a => a.data)
+        .sort((a, b) => b.data.localeCompare(a.data))[0];
+      const meses = mesesEmAcompanhamento(paf.dataInicial);
+      return `
+      <div class="section-card prontuario-header">
+        <div class="prontuario-avatar">${escapeHtml((paf.responsavel || "?").trim().charAt(0).toUpperCase() || "?")}</div>
+        <div class="prontuario-info">
+          <h2 class="prontuario-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</h2>
+          <div class="prontuario-tags">
+            <span class="stamp ${paf.situacaoPAF}" style="position:static;transform:none;display:inline-block;">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
+          </div>
+          <div class="prontuario-fields">
+            <div><span class="k">CRAS</span><span class="v">${escapeHtml(paf.crasNome) || "—"}</span></div>
+            <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
+            <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
+            <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
+            <div><span class="k">Periodicidade</span><span class="v">${escapeHtml(paf.periodicidade) || "—"}</span></div>
+          </div>
+        </div>
+        <div class="prontuario-stats">
+          <div class="stat-box"><span class="stat-num">${(paf.atendimentos || []).length}</span><span class="stat-label">Atendimentos</span></div>
+          <div class="stat-box"><span class="stat-num">${meses === null ? "—" : meses}</span><span class="stat-label">Meses em acompanhamento</span></div>
+          <div class="stat-box"><span class="stat-num" style="font-size:14px;">${ultimoAtendimento ? fmtDateBR(ultimoAtendimento.data) : "—"}</span><span class="stat-label">Último atendimento</span></div>
+        </div>
+      </div>
+
       <div class="section-card">
-        ${sectionHeader("07", "Metas, Evolução e Acompanhamento", "Equipe técnica.")}
+        ${sectionHeader("07", "Registro de Atendimentos", "Cada visita, contato ou encaminhamento realizado com a família, em ordem cronológica.")}
+        <div class="timeline">
+          ${(paf.atendimentos || []).length === 0 ? `<p class="hint" style="margin:6px 0 14px;">Nenhum atendimento registrado ainda. Clique em "Adicionar atendimento" para começar o histórico.</p>` : ""}
+          ${(paf.atendimentos || []).map((a, i) => {
+            const cor = TIPO_ATENDIMENTO_COR[a.tipo] || TIPO_ATENDIMENTO_COR["Outro"];
+            const badge = dateBadgeParts(a.data);
+            return `
+            <div class="timeline-item" style="--tipo-cor:${cor}">
+              <div class="timeline-date-badge">
+                <span class="dia">${escapeHtml(badge.dia)}</span>
+                <span class="mes">${escapeHtml(badge.mes)}</span>
+              </div>
+              <div class="timeline-card">
+                <button class="row-del" data-action="remove-atendimento" data-idx="${i}" title="Remover este atendimento">✕</button>
+                <div class="timeline-row">
+                  <div class="f"><label>Data</label><input type="date" data-field="atendimentos.${i}.data" value="${escapeHtml(a.data)}"></div>
+                  <div class="f"><label>Tipo de Atendimento</label>
+                    <select data-field="atendimentos.${i}.tipo" class="tipo-select" style="border-color:${cor};color:${cor};background:${cor}14;">
+                      <option value="">Selecione…</option>
+                      ${TIPOS_ATENDIMENTO.map(t => `<option value="${escapeHtml(t)}" ${a.tipo === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}
+                    </select>
+                  </div>
+                  <div class="f"><label>Técnico Responsável</label><input type="text" data-field="atendimentos.${i}.tecnico" value="${escapeHtml(a.tecnico)}" placeholder="${escapeHtml(paf.tecnicoReferencia) || 'Nome do técnico'}"></div>
+                </div>
+                <div class="f" style="margin-top:10px"><label>Evolução / Observações do Atendimento</label><textarea data-field="atendimentos.${i}.evolucao" rows="3" placeholder="O que foi discutido, observado ou trabalhado neste atendimento...">${escapeHtml(a.evolucao)}</textarea></div>
+                <div class="f" style="margin-top:10px"><label>Encaminhamentos Realizados</label><input type="text" data-field="atendimentos.${i}.encaminhamentos" value="${escapeHtml(a.encaminhamentos)}" placeholder="Ex.: encaminhado ao CREAS, agendada nova visita..."></div>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+        <button class="add-row-btn" data-action="add-atendimento">+ Adicionar atendimento</button>
+      </div>
+
+      <div class="section-card">
+        <h2><span class="num">07a</span>Metas, Evolução e Resultados</h2>
+        <p class="section-sub">Equipe técnica.</p>
         <div class="meta-row" style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
           <div>Meta</div><div>Prazo de execução</div><div>Resultados alcançados</div>
         </div>
@@ -661,6 +877,7 @@ function renderSection(id, paf) {
             <input type="text" placeholder="Resultados" data-field="metas.${i}.resultados" value="${escapeHtml(row.resultados)}">
           </div>`).join("")}
       </div>`;
+    }
 
     case "estrategias": return `
       <div class="section-card">
@@ -801,6 +1018,27 @@ function attachEditorHandlers() {
       renderApp();
     });
   });
+
+  // Ações da Linha do Tempo de Atendimentos (Registro de Acompanhamento)
+  container.querySelectorAll("[data-action='add-atendimento']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!state.current.atendimentos) state.current.atendimentos = [];
+      state.current.atendimentos.unshift({ data: todayISO(), tipo: "", tecnico: state.current.tecnicoReferencia || "", evolucao: "", encaminhamentos: "" });
+      savePAF(state.current, { silent: true });
+      renderApp();
+    });
+  });
+
+  container.querySelectorAll("[data-action='remove-atendimento']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      confirmModal("Remover este atendimento?", "Este registro do histórico de acompanhamento será apagado.", () => {
+        state.current.atendimentos.splice(idx, 1);
+        savePAF(state.current, { silent: true });
+        renderApp();
+      });
+    });
+  });
 }
 
 /* ---------------------------- Global Handlers ---------------------------- */
@@ -809,7 +1047,7 @@ function attachGlobalHandlers() {
   document.getElementById("btnGoHome")?.addEventListener("click", goHome);
   document.getElementById("btnNewPafHeader")?.addEventListener("click", newPAF);
   
-  const railToggle = document.getElementById("railToggle");
+  const railToggle = document.getElementById("railToggleBtn");
   if (railToggle) {
     railToggle.onclick = () => {
       state.railOpen = !state.railOpen;
@@ -817,6 +1055,9 @@ function attachGlobalHandlers() {
       if (rail) rail.classList.toggle("open", state.railOpen);
     };
   }
+
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.onclick = handleLogout;
 
   // Fechar dropdowns de exportação ao clicar fora
   document.addEventListener("click", (e) => {
@@ -854,70 +1095,200 @@ function exportPDF(paf) {
     .map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`)
     .join("") || "<tr><td colspan='3'>Nenhuma meta informada</td></tr>";
 
+  const atendimentosOrdenados = [...(paf.atendimentos || [])].sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  const meses = mesesEmAcompanhamento(paf.dataInicial);
+  const ultimoAtendimento = atendimentosOrdenados.find(a => a.data);
+
+  const atendimentosHTML = atendimentosOrdenados.length
+    ? atendimentosOrdenados.map(a => {
+        const cor = TIPO_ATENDIMENTO_COR[a.tipo] || TIPO_ATENDIMENTO_COR["Outro"];
+        const badge = dateBadgeParts(a.data);
+        return `
+        <div class="reg-item" style="border-left-color:${cor}">
+          <div class="reg-badge" style="border-color:${cor};color:${cor}">
+            <span class="dia">${escapeHtml(badge.dia)}</span>
+            <span class="mes">${escapeHtml(badge.mes)}</span>
+          </div>
+          <div class="reg-body">
+            <div class="reg-top">
+              <span class="reg-tipo" style="background:${cor}1a;color:${cor}">${escapeHtml(a.tipo) || "Atendimento"}</span>
+              <span class="reg-tecnico">${escapeHtml(a.tecnico) || escapeHtml(paf.tecnicoReferencia) || "Técnico não informado"}</span>
+            </div>
+            ${a.evolucao ? `<p class="reg-evolucao">${escapeHtml(a.evolucao)}</p>` : `<p class="reg-evolucao muted">Sem observações registradas.</p>`}
+            ${a.encaminhamentos ? `<p class="reg-encam"><strong>↳ Encaminhamentos:</strong> ${escapeHtml(a.encaminhamentos)}</p>` : ""}
+          </div>
+        </div>`;
+      }).join("")
+    : `<p class="muted">Nenhum atendimento registrado.</p>`;
+
   const html = `
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <title>PAF - ${escapeHtml(paf.responsavel)}</title>
+      <title>Prontuário PAF - ${escapeHtml(paf.responsavel)}</title>
       <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; padding: 20px; line-height: 1.4; }
-        h1 { font-size: 18px; border-bottom: 2px solid #1F3A5F; padding-bottom: 4px; margin-bottom: 4px; }
-        h2 { font-size: 14px; color: #2E7D6B; margin-top: 18px; border-bottom: 1px solid #D7E0E6; padding-bottom: 3px; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px; }
-        .field { margin-bottom: 6px; }
-        .label { font-weight: bold; font-size: 10px; text-transform: uppercase; color: #52667C; display: block; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
-        th, td { border: 1px solid #D7E0E6; padding: 6px; text-align: left; }
-        th { background: #F6F8F9; font-weight: bold; }
-        .tag { display: inline-block; background: #DEEAE6; color: #1F5C4E; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin: 2px; }
-        @media print { body { padding: 0; } }
+        @page { margin: 16mm 14mm; }
+        * { box-sizing: border-box; }
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F;
+          line-height: 1.45; margin: 0; padding: 0;
+        }
+        .brasao { font-family: Georgia, 'Times New Roman', serif; }
+
+        .capa-header {
+          display: flex; align-items: center; gap: 14px; border-bottom: 2.5px solid #1F3A5F; padding-bottom: 10px; margin-bottom: 14px;
+        }
+        .capa-selo {
+          width: 40px; height: 40px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 18px; color: #B98A34;
+        }
+        .capa-titulos h1 { font-family: Georgia, serif; font-size: 16px; margin: 0; color: #1F3A5F; }
+        .capa-titulos p { margin: 2px 0 0; font-size: 10.5px; color: #52667C; }
+        .capa-meta { margin-left: auto; text-align: right; font-size: 9.5px; color: #8496A8; }
+
+        .id-band {
+          background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px;
+          display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+        }
+        .id-nome-wrap { flex: 1 1 200px; }
+        .id-nome { font-family: Georgia, serif; font-size: 15px; font-weight: bold; margin: 0 0 4px; }
+        .id-status {
+          display: inline-block; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold;
+          padding: 2px 8px; border-radius: 999px; border: 1.2px solid #2E7D6B; color: #2E7D6B;
+        }
+        .id-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 20px; flex: 2 1 380px; font-size: 10.5px; }
+        .id-grid .k { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; }
+        .id-grid .v { display: block; font-weight: 600; }
+        .id-stats { display: flex; gap: 8px; flex: 0 0 auto; }
+        .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-radius: 6px; padding: 6px 10px; min-width: 58px; }
+        .id-stat .n { display: block; font-family: Georgia, serif; font-size: 16px; font-weight: bold; color: #B98A34; line-height: 1; }
+        .id-stat .l { display: block; font-size: 7.5px; text-transform: uppercase; color: #8496A8; margin-top: 2px; }
+
+        h2 { font-size: 12.5px; color: #2E7D6B; margin: 18px 0 6px; border-bottom: 1px solid #D7E0E6; padding-bottom: 3px; page-break-after: avoid; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; margin-bottom: 6px; }
+        .field { margin-bottom: 4px; }
+        .label { font-weight: bold; font-size: 9px; text-transform: uppercase; color: #52667C; display: block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; }
+        th, td { border: 1px solid #D7E0E6; padding: 5px 6px; text-align: left; vertical-align: top; }
+        th { background: #F6F8F9; font-weight: bold; font-size: 9.5px; text-transform: uppercase; }
+        .tag { display: inline-block; background: #DEEAE6; color: #1F5C4E; padding: 2px 7px; border-radius: 4px; font-size: 9.5px; margin: 2px 4px 2px 0; }
+        .muted { color: #8496A8; font-style: italic; }
+
+        .reg-item {
+          display: flex; gap: 10px; border: 1px solid #D7E0E6; border-left-width: 3px; border-radius: 6px;
+          padding: 8px 10px; margin-bottom: 8px; page-break-inside: avoid;
+        }
+        .reg-badge {
+          flex-shrink: 0; width: 42px; height: 42px; border-radius: 6px; border: 1.4px solid;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .reg-badge .dia { font-family: Georgia, serif; font-size: 14px; font-weight: bold; line-height: 1; }
+        .reg-badge .mes { font-size: 7px; text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
+        .reg-body { flex: 1; min-width: 0; }
+        .reg-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .reg-tipo { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; padding: 2px 7px; border-radius: 999px; }
+        .reg-tecnico { font-size: 9.5px; color: #52667C; }
+        .reg-evolucao { margin: 0 0 4px; font-size: 10.5px; }
+        .reg-encam { margin: 0; font-size: 10px; color: #52667C; }
+
+        .assinaturas { display: flex; gap: 40px; margin-top: 40px; page-break-inside: avoid; }
+        .assinatura { flex: 1; text-align: center; }
+        .assinatura .linha { border-top: 1px solid #1F3A5F; margin-bottom: 4px; padding-top: 4px; }
+        .assinatura .titulo { font-size: 9.5px; color: #52667C; }
+
+        .rodape-print {
+          margin-top: 24px; padding-top: 8px; border-top: 1px solid #D7E0E6;
+          font-size: 8.5px; color: #8496A8; text-align: center;
+        }
+
+        @media print {
+          .capa-header, h2 { page-break-after: avoid; }
+        }
       </style>
     </head>
     <body>
-      <h1>Plano de Acompanhamento Familiar - PAF</h1>
-      <p style="margin-top:0;color:#52667C;">CRAS: ${escapeHtml(paf.crasNome)} · Situação: ${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</p>
-
-      <h2>01. Cabeçalho & Responsável</h2>
-      <div class="grid">
-        <div class="field"><span class="label">Responsável Familiar</span>${escapeHtml(paf.responsavel)}</div>
-        <div class="field"><span class="label">CPF</span>${escapeHtml(paf.cpf)}</div>
-        <div class="field"><span class="label">NIS</span>${escapeHtml(paf.nis)}</div>
-        <div class="field"><span class="label">Data Inicial</span>${fmtDateBR(paf.dataInicial)}</div>
-        <div class="field" style="grid-column: span 2"><span class="label">Endereço</span>${escapeHtml(paf.endereco)}</div>
+      <div class="capa-header">
+        <div class="capa-selo">P</div>
+        <div class="capa-titulos">
+          <h1>Plano de Acompanhamento Familiar — Prontuário</h1>
+          <p>Serviço de Proteção e Atendimento Integral à Família (PAIF) ${paf.crasNome ? "· " + escapeHtml(paf.crasNome) : ""}</p>
+        </div>
+        <div class="capa-meta">
+          Ficha nº ${escapeHtml((paf.id || "").split("_")[1] || "—")}<br>
+          Emitido em ${fmtDateBR(todayISO())}
+        </div>
       </div>
 
-      <h2>02. Membros da Família</h2>
+      <div class="id-band">
+        <div class="id-nome-wrap">
+          <p class="id-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</p>
+          <span class="id-status">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
+        </div>
+        <div class="id-grid">
+          <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
+          <div><span class="k">NIS</span><span class="v">${escapeHtml(paf.nis) || "—"}</span></div>
+          <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
+          <div><span class="k">Endereço</span><span class="v">${escapeHtml(paf.endereco) || "—"}</span></div>
+          <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
+          <div><span class="k">Periodicidade</span><span class="v">${escapeHtml(paf.periodicidade) || "—"}</span></div>
+        </div>
+        <div class="id-stats">
+          <div class="id-stat"><span class="n">${(paf.atendimentos || []).length}</span><span class="l">Atendimentos</span></div>
+          <div class="id-stat"><span class="n">${meses === null ? "—" : meses}</span><span class="l">Meses</span></div>
+          <div class="id-stat"><span class="n" style="font-size:11px;">${ultimoAtendimento ? fmtDateBR(ultimoAtendimento.data) : "—"}</span><span class="l">Último atend.</span></div>
+        </div>
+      </div>
+
+      <h2>Membros da Família</h2>
       <table>
         <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Parentesco</th></tr></thead>
         <tbody>${membrosHTML}</tbody>
       </table>
 
-      <h2>03. Diagnóstico e Vulnerabilidades</h2>
-      <div>${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "Nenhuma selecionada"}</div>
-      ${paf.vulnerabilidadesOutros ? `<p><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
+      <h2>Diagnóstico e Vulnerabilidades</h2>
+      <div>${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
+      ${paf.vulnerabilidadesOutros ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
 
-      <h2>04. Situações Sociais Registradas</h2>
+      <h2>Situações Sociais Registradas</h2>
       <table>
         <thead><tr><th>Situação Social</th><th>Membros</th><th>Superada</th></tr></thead>
         <tbody>${situacoesHTML}</tbody>
       </table>
 
-      <h2>05. Metas e Evolução</h2>
+      <h2>Registro de Atendimentos</h2>
+      ${atendimentosHTML}
+
+      <h2>Metas e Evolução</h2>
       <table>
         <thead><tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr></thead>
         <tbody>${metasHTML}</tbody>
       </table>
 
-      <h2>06. Elaboração e Encerramento</h2>
+      <h2>Elaboração e Encerramento</h2>
       <div class="grid">
-        <div class="field"><span class="label">Técnico de Referência</span>${escapeHtml(paf.tecnicoReferencia)}</div>
-        <div class="field"><span class="label">Data de Elaboração</span>${fmtDateBR(paf.dataElaboracao)}</div>
-        <div class="field"><span class="label">Motivo de Encerramento</span>${escapeHtml(paf.encerramentoMotivo || "—")}</div>
+        <div class="field"><span class="label">Técnico de Referência</span>${escapeHtml(paf.tecnicoReferencia) || "—"}</div>
+        <div class="field"><span class="label">Data de Elaboração</span>${fmtDateBR(paf.dataElaboracao) || "—"}</div>
+        <div class="field"><span class="label">Motivo de Encerramento</span>${escapeHtml(ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo)?.label) || "—"}</div>
         <div class="field"><span class="label">Data de Encerramento</span>${fmtDateBR(paf.encerramentoData) || "—"}</div>
       </div>
 
-      ${paf.observacoes ? `<h2>07. Observações Gerais</h2><p>${escapeHtml(paf.observacoes)}</p>` : ""}
+      ${paf.observacoes ? `<h2>Observações Gerais</h2><p>${escapeHtml(paf.observacoes)}</p>` : ""}
+
+      <div class="assinaturas">
+        <div class="assinatura">
+          <div class="linha">${escapeHtml(paf.tecnicoReferencia) || "Técnico de Referência"}</div>
+          <div class="titulo">Assinatura do Técnico de Referência</div>
+        </div>
+        <div class="assinatura">
+          <div class="linha">${escapeHtml(paf.responsavel) || "Responsável Familiar"}</div>
+          <div class="titulo">Assinatura do Responsável Familiar</div>
+        </div>
+      </div>
+
+      <div class="rodape-print">
+        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR
+      </div>
 
       <script>
         window.onload = () => { window.print(); };
@@ -967,13 +1338,19 @@ function exportWord(paf) {
       <h2>03. Diagnóstico e Vulnerabilidades</h2>
       <p>${(paf.vulnerabilidades || []).join(", ") || "Nenhuma registrada"}</p>
 
-      <h2>04. Metas e Resultados</h2>
+      <h2>04. Registro de Atendimentos</h2>
+      <table>
+        <tr><th>Data</th><th>Tipo</th><th>Técnico</th><th>Evolução</th><th>Encaminhamentos</th></tr>
+        ${(paf.atendimentos || []).map(a => `<tr><td>${fmtDateBR(a.data)}</td><td>${escapeHtml(a.tipo)}</td><td>${escapeHtml(a.tecnico)}</td><td>${escapeHtml(a.evolucao)}</td><td>${escapeHtml(a.encaminhamentos)}</td></tr>`).join("") || "<tr><td colspan='5'>Nenhum atendimento registrado</td></tr>"}
+      </table>
+
+      <h2>05. Metas e Resultados</h2>
       <table>
         <tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr>
         ${(paf.metas || []).map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`).join("")}
       </table>
 
-      <h2>05. Encerramento e Validação</h2>
+      <h2>06. Encerramento e Validação</h2>
       <p><b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia)}<br>
       <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao)}<br>
       <b>Observações:</b> ${escapeHtml(paf.observacoes)}</p>
@@ -996,5 +1373,5 @@ function exportWord(paf) {
 /* ---------------------------- Inicialização do App ---------------------------- */
 
 window.addEventListener("DOMContentLoaded", () => {
-  initStorage();
+  initAuth();
 });
