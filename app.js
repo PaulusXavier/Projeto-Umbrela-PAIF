@@ -1,10 +1,6 @@
 /* =========================================================================
    Plano de Acompanhamento Familiar - PAF / PAIF
    Lógica do aplicativo: dados, telas, sincronização e exportação.
-   Versão mesclada: base no formulário estendido (diagnóstico socioeconômico,
-   encaminhamentos formais, endereço detalhado) + recursos da versão anterior
-   (nacionalidade/sexo/nascimento do responsável, seletor de membros por
-   situação social e relatórios de Resumo Estatístico das Famílias).
    ========================================================================= */
 
 /* ---------------------------- Registro do Service Worker (Offline/PWA) ---------------------------- */
@@ -57,11 +53,6 @@ const SITUACOES_SOCIAIS = [
   "Crianças pequenas que permanecem períodos do dia em casa sem a companhia de um adulto",
   "Família que reside a pouco tempo na cidade",
   "Outras situações"
-];
-
-const NACIONALIDADES = [
-  "Brasileira", "Brasileira (naturalizada)", "Venezuelana", "Guianense", "Haitiana",
-  "Colombiana", "Cubana", "Boliviana", "Peruana", "Argentina", "Angolana", "Senegalesa"
 ];
 
 const SERVICOS_BASICA = ["PAIF", "SCFV", "Serviço de Proteção Social Básica no Domicílio para Pessoas com Deficiência e Idosas"];
@@ -336,9 +327,6 @@ function emptyPAF() {
     responsavel: "",
     apelido: "",
     nomeMae: "",
-    sexoResponsavel: "",
-    dataNascResponsavel: "",
-    nacionalidadeResponsavel: "",
     cpf: "",
     nis: "",
     rg: "", rgOrgao: "", rgUf: "", rgDataEmissao: "",
@@ -350,7 +338,7 @@ function emptyPAF() {
     periodicidade: "",
     situacaoPAF: "andamento",
     situacaoData: "",
-    membros: [{ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", pcd: false, docPendente: [] }],
+    membros: [{ nome: "", nascimento: "", parentesco: "", sexo: "", pcd: false, docPendente: [] }],
     vulnerabilidades: [],
     vulnerabilidadesOutros: "",
     situacoesSociais: SITUACOES_SOCIAIS.map(s => ({ situacao: s, membros: "", superada: false })),
@@ -457,25 +445,6 @@ function mesesEmAcompanhamento(iso) {
   if (hoje.getDate() < inicio.getDate()) meses--;
   return Math.max(0, meses);
 }
-function calcularIdade(iso) {
-  if (!iso) return null;
-  const nasc = new Date(iso + "T00:00:00");
-  if (isNaN(nasc.getTime())) return null;
-  const hoje = new Date();
-  let idade = hoje.getFullYear() - nasc.getFullYear();
-  const aindaNaoFezAniversario = (hoje.getMonth() < nasc.getMonth()) ||
-    (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate());
-  if (aindaNaoFezAniversario) idade--;
-  return idade >= 0 ? idade : null;
-}
-function faixaEtaria(idade) {
-  if (idade == null) return "Não informada";
-  if (idade < 18) return "Menor de 18";
-  if (idade <= 29) return "18 a 29";
-  if (idade <= 39) return "30 a 39";
-  if (idade <= 59) return "40 a 59";
-  return "60 ou mais";
-}
 
 /* ---------------------------- Modal e Toast ---------------------------- */
 
@@ -510,7 +479,7 @@ function confirmModal(title, msg, onConfirm) {
   };
 }
 
-/* ---------------------------- Config / Backup / Resumo Estatístico ---------------------------- */
+/* ---------------------------- Config / Backup ---------------------------- */
 
 function baixarBackupJSON() {
   const payload = {
@@ -530,260 +499,6 @@ function baixarBackupJSON() {
   toast("Backup baixado.");
 }
 
-function exportResumoFamilias() {
-  const printWin = window.open("", "_blank");
-  if (!printWin) {
-    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
-    return;
-  }
-
-  const pafs = state.pafs || [];
-  const total = pafs.length;
-
-  const porStatus = {};
-  pafs.forEach(p => {
-    const label = STATUS_LABELS[p.situacaoPAF] || "Em andamento";
-    porStatus[label] = (porStatus[label] || 0) + 1;
-  });
-
-  const porNacionalidade = {};
-  pafs.forEach(p => {
-    const nac = (p.nacionalidadeResponsavel || "").trim() || "Não informada";
-    porNacionalidade[nac] = (porNacionalidade[nac] || 0) + 1;
-  });
-
-  const porSexo = {};
-  pafs.forEach(p => {
-    const sexo = (p.sexoResponsavel || "").trim() || "Não informado";
-    porSexo[sexo] = (porSexo[sexo] || 0) + 1;
-  });
-
-  const porFaixaEtaria = {};
-  pafs.forEach(p => {
-    const faixa = faixaEtaria(calcularIdade(p.dataNascResponsavel));
-    porFaixaEtaria[faixa] = (porFaixaEtaria[faixa] || 0) + 1;
-  });
-
-  const ordemFaixas = ["Menor de 18", "18 a 29", "30 a 39", "40 a 59", "60 ou mais", "Não informada"];
-
-  const linhasTabela = (obj, ordem) => {
-    const chaves = ordem ? ordem.filter(k => obj[k] !== undefined) : Object.keys(obj).sort((a, b) => obj[b] - obj[a]);
-    return chaves.map(k => `
-      <tr><td>${escapeHtml(k)}</td><td style="text-align:center">${obj[k]}</td><td style="text-align:center">${total ? ((obj[k] / total) * 100).toFixed(1) : "0.0"}%</td></tr>
-    `).join("") || "<tr><td colspan='3'>Sem dados</td></tr>";
-  };
-
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8">
-<title>Resumo das Famílias em Acompanhamento</title>
-<style>
-  body { font-family: Arial, Helvetica, sans-serif; color:#1b2733; margin:32px; }
-  h1 { font-size:20px; margin-bottom:2px; }
-  .sub { color:#52667C; font-size:12px; margin-bottom:20px; }
-  .total-box { display:inline-block; background:#EEF2F4; border:1px solid #C9D3DA; border-radius:8px; padding:14px 22px; margin-bottom:24px; }
-  .total-box .n { font-size:28px; font-weight:700; display:block; }
-  .total-box .l { font-size:12px; color:#52667C; }
-  h2 { font-size:14px; margin:22px 0 8px; border-bottom:1px solid #C9D3DA; padding-bottom:4px; }
-  table { width:100%; border-collapse:collapse; margin-bottom:6px; }
-  th, td { border:1px solid #C9D3DA; padding:6px 10px; font-size:12.5px; text-align:left; }
-  th { background:#EEF2F4; }
-  footer { margin-top:30px; font-size:10.5px; color:#7A8A99; }
-  @media print { body { margin:12mm; } }
-</style></head>
-<body>
-  <h1>Resumo das Famílias em Acompanhamento — PAF/PAIF</h1>
-  <div class="sub">CRAS Cristiana Vicente Nunes · SEMADS · Prefeitura Municipal de Boa Vista — gerado em ${fmtDateBR(todayISO())}</div>
-
-  <div class="total-box"><span class="n">${total}</span><span class="l">Família(s) cadastrada(s)</span></div>
-
-  <h2>Quantitativo por situação</h2>
-  <table><thead><tr><th>Situação</th><th>Qtd.</th><th>%</th></tr></thead><tbody>${linhasTabela(porStatus)}</tbody></table>
-
-  <h2>Nacionalidade do Responsável Familiar</h2>
-  <table><thead><tr><th>Nacionalidade</th><th>Qtd.</th><th>%</th></tr></thead><tbody>${linhasTabela(porNacionalidade)}</tbody></table>
-
-  <h2>Sexo do Responsável Familiar</h2>
-  <table><thead><tr><th>Sexo</th><th>Qtd.</th><th>%</th></tr></thead><tbody>${linhasTabela(porSexo)}</tbody></table>
-
-  <h2>Faixa Etária do Responsável Familiar</h2>
-  <table><thead><tr><th>Faixa etária</th><th>Qtd.</th><th>%</th></tr></thead><tbody>${linhasTabela(porFaixaEtaria, ordemFaixas)}</tbody></table>
-
-  <footer>Relatório agregado e anonimizado — não identifica famílias individualmente. Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR.</footer>
-  <script>window.onload = () => setTimeout(() => window.print(), 200);</script>
-</body></html>`;
-
-  printWin.document.open();
-  printWin.document.write(html);
-  printWin.document.close();
-}
-
-function exportResumoPDF() {
-  const q = state.search.trim().toLowerCase();
-  const list = state.pafs.filter(p => {
-    const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || (p.apelido || "").toLowerCase().includes(q) || (p.crasNome || "").toLowerCase().includes(q);
-    const matchesStatus = state.statusFilter === "todos" || p.situacaoPAF === state.statusFilter;
-    return matchesQ && matchesStatus;
-  });
-
-  if (!list.length) {
-    toast("Nenhuma família encontrada para gerar o resumo.");
-    return;
-  }
-
-  const printWin = window.open("", "_blank");
-  if (!printWin) {
-    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
-    return;
-  }
-
-  const porNacionalidade = {};
-  const porSexo = {};
-  const porFaixa = {};
-
-  list.forEach(p => {
-    const nac = (p.nacionalidadeResponsavel || "").trim() || "Não informada";
-    porNacionalidade[nac] = (porNacionalidade[nac] || 0) + 1;
-
-    const sexo = p.sexoResponsavel || "Não informado";
-    porSexo[sexo] = (porSexo[sexo] || 0) + 1;
-
-    const faixa = faixaEtaria(calcularIdade(p.dataNascResponsavel));
-    porFaixa[faixa] = (porFaixa[faixa] || 0) + 1;
-  });
-
-  const ORDEM_FAIXAS = ["Menor de 18", "18 a 29", "30 a 39", "40 a 59", "60 ou mais", "Não informada"];
-
-  function linhasTabela(obj, ordemFixa) {
-    const total = list.length;
-    let chaves = Object.keys(obj);
-    if (ordemFixa) {
-      chaves = ordemFixa.filter(k => obj[k] !== undefined).concat(chaves.filter(k => !ordemFixa.includes(k)));
-    } else {
-      chaves.sort((a, b) => obj[b] - obj[a]);
-    }
-    return chaves.map(k => `
-      <tr>
-        <td>${escapeHtml(k)}</td>
-        <td style="text-align:center">${obj[k]}</td>
-        <td style="text-align:center">${((obj[k] / total) * 100).toFixed(1)}%</td>
-      </tr>`).join("");
-  }
-
-  const statusLabel = state.statusFilter === "todos" ? "Todas as situações" : (STATUS_LABELS[state.statusFilter] || "Todas as situações");
-  const filtroBusca = state.search.trim() ? ` · Busca: "${escapeHtml(state.search.trim())}"` : "";
-
-  const html = `
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-      <meta charset="UTF-8">
-      <title>Resumo das Famílias em Acompanhamento</title>
-      <style>
-        @page { margin: 16mm 14mm; }
-        * { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F; line-height: 1.45; margin: 0; padding: 0; }
-
-        .orgao-header {
-          display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
-          padding: 8px 12px; border-radius: 5px 5px 0 0; font-size: 9px; line-height: 1.35;
-        }
-        .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
-        .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
-
-        .capa-header {
-          display: flex; align-items: center; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
-          border-bottom: 2.5px solid #1F3A5F; padding: 10px 12px; margin-bottom: 16px; border-radius: 0 0 5px 5px;
-        }
-        .capa-selo {
-          width: 40px; height: 40px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 18px; color: #B98A34;
-        }
-        .capa-titulos h1 { font-family: Georgia, serif; font-size: 16px; margin: 0; color: #1F3A5F; }
-        .capa-titulos p { margin: 2px 0 0; font-size: 10.5px; color: #52667C; }
-        .capa-meta { margin-left: auto; text-align: right; font-size: 9.5px; color: #8496A8; }
-
-        .resumo-stats { display: flex; gap: 10px; margin-bottom: 20px; }
-        .resumo-stat { flex: 1; text-align: center; background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 8px; padding: 14px 10px; }
-        .resumo-stat .n { display: block; font-family: Georgia, serif; font-size: 26px; font-weight: bold; color: #B98A34; line-height: 1; }
-        .resumo-stat .l { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #52667C; margin-top: 4px; }
-
-        h2 { font-size: 12.5px; color: #2E7D6B; margin: 18px 0 6px; border-bottom: 1px solid #D7E0E6; padding-bottom: 3px; page-break-after: avoid; }
-        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; page-break-inside: avoid; }
-        th, td { border: 1px solid #D7E0E6; padding: 5px 8px; text-align: left; vertical-align: top; }
-        th { background: #F6F8F9; font-weight: bold; font-size: 9.5px; text-transform: uppercase; }
-
-        .rodape-print {
-          margin-top: 24px; padding-top: 8px; border-top: 1px solid #D7E0E6;
-          font-size: 8.5px; color: #8496A8; text-align: center;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="orgao-header">
-        <div class="brasao-mini">
-          <svg viewBox="0 0 48 48" width="22" height="22"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
-        </div>
-        <div>
-          <strong>Prefeitura Municipal de Boa Vista</strong>
-          Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
-          Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes
-        </div>
-        <div class="orgao-contato">
-          Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>
-          (95) 98402-6627 · crascentenariosemges@gmail.com
-        </div>
-      </div>
-      <div class="capa-header">
-        <div class="capa-selo">P</div>
-        <div class="capa-titulos">
-          <h1>Resumo das Famílias em Acompanhamento</h1>
-          <p>PAF · PAIF — ${escapeHtml(statusLabel)}${filtroBusca}</p>
-        </div>
-        <div class="capa-meta">
-          Emitido em ${fmtDateBR(todayISO())}
-        </div>
-      </div>
-
-      <div class="resumo-stats">
-        <div class="resumo-stat"><span class="n">${list.length}</span><span class="l">Famílias em acompanhamento</span></div>
-      </div>
-
-      <h2>Nacionalidade do Responsável Familiar</h2>
-      <table>
-        <thead><tr><th>Nacionalidade</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
-        <tbody>${linhasTabela(porNacionalidade)}</tbody>
-      </table>
-
-      <h2>Sexo do Responsável Familiar</h2>
-      <table>
-        <thead><tr><th>Sexo</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
-        <tbody>${linhasTabela(porSexo)}</tbody>
-      </table>
-
-      <h2>Faixa Etária do Responsável Familiar</h2>
-      <table>
-        <thead><tr><th>Faixa Etária</th><th style="text-align:center">Qtd.</th><th style="text-align:center">%</th></tr></thead>
-        <tbody>${linhasTabela(porFaixa, ORDEM_FAIXAS)}</tbody>
-      </table>
-
-      <div class="rodape-print">
-        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes — Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
-        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
-      </div>
-
-      <script>
-        window.onload = () => { window.print(); };
-      </script>
-    </body>
-    </html>
-  `;
-
-  printWin.document.open();
-  printWin.document.write(html);
-  printWin.document.close();
-}
-
 function openSettingsModal() {
   const root = document.getElementById("modalRoot");
   if (!root) return;
@@ -799,10 +514,8 @@ function openSettingsModal() {
         ${emailLinha}
         <div class="settings-field" style="margin-bottom:18px;"><span class="k">Registros salvos</span><span class="v">${state.pafs.length} PAF(s)</span></div>
         <p>Baixe uma cópia de segurança de todos os PAFs cadastrados em um único arquivo JSON.</p>
-        <p>Ou exporte um resumo agregado (quantitativo, nacionalidade, sexo e faixa etária dos responsáveis) para impressão/PDF — sem identificar as famílias individualmente.</p>
-        <div class="modal-actions" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div class="modal-actions" style="justify-content:space-between;">
           <button class="btn btn-ghost" id="settingsCloseBtn">Fechar</button>
-          <button class="btn btn-ghost" id="settingsResumoBtn">Resumo das famílias (PDF)</button>
           <button class="btn btn-primary" id="settingsBackupBtn">Baixar backup (JSON)</button>
         </div>
       </div>
@@ -810,7 +523,6 @@ function openSettingsModal() {
 
   document.getElementById("settingsCloseBtn").onclick = () => root.innerHTML = "";
   document.getElementById("settingsBackupBtn").onclick = baixarBackupJSON;
-  document.getElementById("settingsResumoBtn").onclick = exportResumoFamilias;
 }
 
 /* ---------------------------- Firebase / armazenamento ---------------------------- */
@@ -1127,13 +839,10 @@ function renderHomeHTML() {
         <h1>Planos de Acompanhamento Familiar</h1>
         <p>PAF · Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
       </div>
-      <div class="home-actions">
-        <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
-        <button class="btn btn-ghost" id="resumoBtn" title="Exportar resumo estatístico das famílias em acompanhamento">📄 Resumo PDF</button>
-      </div>
+      <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
     </div>
     <div class="search-row">
-      <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF, NIS ou CRAS…" value="${escapeHtml(state.search)}">
+      <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF ou CRAS…" value="${escapeHtml(state.search)}">
       ${chips}
     </div>
     ${list.length ? `<div class="paf-grid">${cards}</div>` : empty}
@@ -1143,7 +852,6 @@ function renderHomeHTML() {
 function attachHomeHandlers() {
   document.getElementById("newPafBtn")?.addEventListener("click", newPAF);
   document.getElementById("emptyNewBtn")?.addEventListener("click", newPAF);
-  document.getElementById("resumoBtn")?.addEventListener("click", exportResumoPDF);
   const search = document.getElementById("searchInput");
   search?.addEventListener("input", e => { state.search = e.target.value; renderApp(); focusSearchEnd(); });
 
@@ -1263,30 +971,17 @@ function renderSection(id, paf) {
         <div class="field-grid">
           <div class="f c6"><label>Nome do CRAS</label><input type="text" data-field="crasNome" value="${escapeHtml(paf.crasNome)}"></div>
           <div class="f c6"><label>Responsável Familiar</label><input type="text" data-field="responsavel" value="${escapeHtml(paf.responsavel)}"></div>
-          <div class="f c3"><label>Apelido (se relevante)</label><input type="text" data-field="apelido" value="${escapeHtml(paf.apelido)}"></div>
-          <div class="f c3"><label>Nome da mãe</label><input type="text" data-field="nomeMae" value="${escapeHtml(paf.nomeMae)}"></div>
-          <div class="f c3"><label>Sexo do Responsável</label>
-            <select data-field="sexoResponsavel">
-              <option value="" ${!paf.sexoResponsavel ? "selected" : ""}>Não informado</option>
-              <option value="Feminino" ${paf.sexoResponsavel === "Feminino" ? "selected" : ""}>Feminino</option>
-              <option value="Masculino" ${paf.sexoResponsavel === "Masculino" ? "selected" : ""}>Masculino</option>
-              <option value="Outro" ${paf.sexoResponsavel === "Outro" ? "selected" : ""}>Outro</option>
-            </select>
-          </div>
-          <div class="f c3"><label>Data de nascimento do Responsável</label><input type="date" data-field="dataNascResponsavel" value="${escapeHtml(paf.dataNascResponsavel || "")}"></div>
-          <div class="f c4"><label>Nacionalidade do Responsável</label><input type="text" list="nacionalidadesList" data-field="nacionalidadeResponsavel" value="${escapeHtml(paf.nacionalidadeResponsavel || "")}" placeholder="Brasileira"></div>
-          <datalist id="nacionalidadesList">
-            ${NACIONALIDADES.map(n => `<option value="${escapeHtml(n)}">`).join("")}
-          </datalist>
+          <div class="f c4"><label>Apelido (se relevante)</label><input type="text" data-field="apelido" value="${escapeHtml(paf.apelido)}"></div>
+          <div class="f c4"><label>Nome da mãe</label><input type="text" data-field="nomeMae" value="${escapeHtml(paf.nomeMae)}"></div>
           <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
-          <div class="f c4"><label>NIS</label><input type="text" data-field="nis" value="${escapeHtml(paf.nis)}"></div>
+          <div class="f c3"><label>NIS</label><input type="text" data-field="nis" value="${escapeHtml(paf.nis)}"></div>
+          <div class="f c3"><label>Data inicial do PAF</label><input type="date" data-field="dataInicial" value="${escapeHtml(paf.dataInicial)}"></div>
+          <div class="f c4"><label>Periodicidade de acompanhamento</label><input type="text" data-field="periodicidade" placeholder="Ex.: mensal, quinzenal…" value="${escapeHtml(paf.periodicidade)}"></div>
           <div class="f c2"><label>RG</label><input type="text" data-field="rg" value="${escapeHtml(paf.rg)}"></div>
           <div class="f c2"><label>Órgão</label><input type="text" data-field="rgOrgao" value="${escapeHtml(paf.rgOrgao)}"></div>
           <div class="f c2"><label>UF (RG)</label><input type="text" data-field="rgUf" maxlength="2" value="${escapeHtml(paf.rgUf)}"></div>
-          <div class="f c3"><label>Data de emissão (RG)</label><input type="date" data-field="rgDataEmissao" value="${escapeHtml(paf.rgDataEmissao)}"></div>
-          <div class="f c3"><label>Data inicial do PAF</label><input type="date" data-field="dataInicial" value="${escapeHtml(paf.dataInicial)}"></div>
-          <div class="f c4"><label>Periodicidade de acompanhamento</label><input type="text" data-field="periodicidade" placeholder="Ex.: mensal, quinzenal…" value="${escapeHtml(paf.periodicidade)}"></div>
-          <div class="f c4"><label>Data da situação atual</label><input type="date" data-field="situacaoData" value="${escapeHtml(paf.situacaoData)}"></div>
+          <div class="f c3"><label>Data de emissão</label><input type="date" data-field="rgDataEmissao" value="${escapeHtml(paf.rgDataEmissao)}"></div>
+          <div class="f c3"><label>Data da situação atual</label><input type="date" data-field="situacaoData" value="${escapeHtml(paf.situacaoData)}"></div>
         </div>
       </div>
       <div class="section-card">
@@ -1315,16 +1010,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
         <table class="dyn-table">
-          <thead><tr>
-            <th style="width:19%">Nome</th>
-            <th style="width:11%">Nascimento</th>
-            <th style="width:6%">Sexo</th>
-            <th style="width:13%">Parentesco</th>
-            <th style="width:14%">Nacionalidade</th>
-            <th style="width:6%">PCD</th>
-            <th>Documentação pendente</th>
-            <th></th>
-          </tr></thead>
+          <thead><tr><th style="width:24%">Nome</th><th style="width:14%">Nascimento</th><th style="width:8%">Sexo</th><th style="width:16%">Parentesco</th><th style="width:8%">PCD</th><th>Documentação pendente</th><th></th></tr></thead>
           <tbody>
             ${paf.membros.map((m, i) => `
               <tr>
@@ -1338,7 +1024,6 @@ function renderSection(id, paf) {
                   </select>
                 </td>
                 <td><input type="text" data-field="membros.${i}.parentesco" value="${escapeHtml(m.parentesco)}"></td>
-                <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade || "")}" placeholder="Brasileira"></td>
                 <td style="text-align:center"><input type="checkbox" data-field-check="membros.${i}.pcd" ${m.pcd ? "checked" : ""}></td>
                 <td>
                   <div class="doc-chips">
@@ -1353,9 +1038,6 @@ function renderSection(id, paf) {
               </tr>`).join("")}
           </tbody>
         </table>
-        <datalist id="nacionalidadesList">
-          ${NACIONALIDADES.map(n => `<option value="${escapeHtml(n)}">`).join("")}
-        </datalist>
         <button class="add-row-btn" data-action="add-membro">+ Adicionar membro</button>
         <p class="hint" style="margin-top:8px;">Documentação pendente: marque os documentos que este membro ainda precisa providenciar (CN=Certidão de Nascimento, CTPS=Carteira de Trabalho, TE=Título de Eleitor).</p>
       </div>`;
@@ -1440,37 +1122,15 @@ function renderSection(id, paf) {
       </div>`;
     }
 
-    case "grupo": {
-      const membrosValidos = (paf.membros || []).filter(m => m.nome && m.nome.trim());
-      return `
+    case "grupo": return `
       <div class="section-card">
         ${sectionHeader("04", "Sobre o Grupo Familiar", "Vulnerabilidades e riscos sociais a serem superados, gerados pelas múltiplas expressões da questão social.")}
-        ${notaTecnica("Para cada situação, selecione quais integrantes da família — cadastrados na aba \"Membros da Família\" — são especificamente atingidos por ela. Isso ajuda a enxergar como a mesma vulnerabilidade pode afetar cada pessoa do grupo familiar de um jeito diferente.")}
-        ${paf.situacoesSociais.map((row, i) => {
-          const selecionados = (row.membros || "").split(",").map(s => s.trim()).filter(Boolean);
-          return `
+        ${paf.situacoesSociais.map((row, i) => `
           <div class="matrix-row">
             <div class="situ-label">${escapeHtml(row.situacao)}</div>
-            <div class="membro-picker">
-              <button type="button" class="membro-picker-btn ${selecionados.length ? "" : "empty"}" data-situ-picker-toggle="${i}">
-                <span class="membro-picker-chips">${selecionados.length
-                  ? selecionados.map(n => `<span class="membro-chip">${escapeHtml(n)}</span>`).join("")
-                  : "Selecionar membro(s) da família…"}</span>
-                <span class="picker-caret">▾</span>
-              </button>
-              <div class="membro-picker-dropdown" id="situ-dd-${i}" style="display:none">
-                ${membrosValidos.length
-                  ? membrosValidos.map(m => `
-                      <label class="chk">
-                        <input type="checkbox" data-situ-membro="${i}" data-situ-membro-nome="${escapeHtml(m.nome)}" ${selecionados.includes(m.nome) ? "checked" : ""}>
-                        <span>${escapeHtml(m.nome)}</span>
-                      </label>`).join("")
-                  : `<div class="membro-picker-empty-hint">Cadastre os membros na aba "Membros da Família" para poder selecioná-los aqui.</div>`}
-              </div>
-            </div>
+            <input type="text" placeholder="Membro(s) da família nesta situação" data-field="situacoesSociais.${i}.membros" value="${escapeHtml(row.membros)}">
             <label class="chk"><input type="checkbox" data-field-check="situacoesSociais.${i}.superada" ${row.superada ? "checked" : ""}><span>Superada</span></label>
-          </div>`;
-        }).join("")}
+          </div>`).join("")}
       </div>
       <div class="section-card">
         <h2><span class="num">04a</span>Serviços da Rede Socioassistencial</h2>
@@ -1480,7 +1140,6 @@ function renderSection(id, paf) {
           <div class="f c4"><label>Alta Complexidade</label>${chkList("servAlta", SERVICOS_ALTA, paf.servAlta)}</div>
         </div>
       </div>`;
-    }
 
     case "encaminhamentos": return `
       <div class="section-card">
@@ -1567,8 +1226,6 @@ function renderSection(id, paf) {
           <div class="prontuario-fields">
             <div><span class="k">CRAS</span><span class="v">${escapeHtml(paf.crasNome) || "—"}</span></div>
             <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
-            <div><span class="k">Sexo do Responsável</span><span class="v">${escapeHtml(paf.sexoResponsavel) || "—"}</span></div>
-            <div><span class="k">Nacionalidade do Responsável</span><span class="v">${escapeHtml(paf.nacionalidadeResponsavel) || "—"}</span></div>
             <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
             <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
             <div><span class="k">Periodicidade</span><span class="v">${escapeHtml(paf.periodicidade) || "—"}</span></div>
@@ -1779,38 +1436,6 @@ function attachEditorHandlers() {
     });
   });
 
-  // Binding do seletor de membro(s) por situação (Seção 04 - Grupo Familiar)
-  container.querySelectorAll("[data-situ-picker-toggle]").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const dd = document.getElementById("situ-dd-" + btn.dataset.situPickerToggle);
-      if (!dd) return;
-      const isOpen = dd.style.display === "block";
-      container.querySelectorAll(".membro-picker-dropdown").forEach(d => d.style.display = "none");
-      dd.style.display = isOpen ? "none" : "block";
-    });
-  });
-
-  container.querySelectorAll("[data-situ-membro]").forEach(chk => {
-    chk.addEventListener("change", () => {
-      const i = chk.dataset.situMembro;
-      const dd = chk.closest(".membro-picker-dropdown");
-      const nomes = Array.from(dd.querySelectorAll("[data-situ-membro]"))
-        .filter(c => c.checked)
-        .map(c => c.dataset.situMembroNome);
-      setPath(state.current, `situacoesSociais.${i}.membros`, nomes.join(", "));
-      scheduleAutosave();
-      const btn = container.querySelector(`[data-situ-picker-toggle="${i}"]`);
-      const chips = btn?.querySelector(".membro-picker-chips");
-      if (btn && chips) {
-        btn.classList.toggle("empty", nomes.length === 0);
-        chips.innerHTML = nomes.length
-          ? nomes.map(n => `<span class="membro-chip">${escapeHtml(n)}</span>`).join("")
-          : "Selecionar membro(s) da família…";
-      }
-    });
-  });
-
   // Binding para Listas de Checkbox (arrays)
   container.querySelectorAll("[data-check-group]").forEach(chk => {
     chk.addEventListener("change", () => {
@@ -1826,7 +1451,7 @@ function attachEditorHandlers() {
   // Ações de Tabela Dinâmica (Membros da Família)
   container.querySelectorAll("[data-action='add-membro']").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", pcd: false, docPendente: [] });
+      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", sexo: "", pcd: false, docPendente: [] });
       savePAF(state.current, { silent: true });
       renderApp();
     });
@@ -1940,7 +1565,7 @@ function attachGlobalHandlers() {
   const settingsBtn = document.getElementById("settingsBtn");
   if (settingsBtn) settingsBtn.onclick = openSettingsModal;
 
-  // Fechar dropdowns de exportação e do seletor de membros ao clicar fora.
+  // Fechar dropdowns de exportação ao clicar fora.
   // Anexado apenas uma vez (renderApp roda a cada interação e chamava isto de novo,
   // empilhando um novo listener no document a cada render).
   if (!state._globalClickBound) {
@@ -1948,9 +1573,6 @@ function attachGlobalHandlers() {
     document.addEventListener("click", (e) => {
       if (!e.target.closest(".export-menu")) {
         document.querySelectorAll(".export-dropdown").forEach(d => d.style.display = "none");
-      }
-      if (!e.target.closest(".membro-picker")) {
-        document.querySelectorAll(".membro-picker-dropdown").forEach(d => d.style.display = "none");
       }
     });
   }
@@ -1972,11 +1594,10 @@ function exportPDF(paf) {
       <td>${fmtDateBR(m.nascimento)}</td>
       <td>${escapeHtml(m.sexo)}</td>
       <td>${escapeHtml(m.parentesco)}</td>
-      <td>${escapeHtml(m.nacionalidade || "")}</td>
       <td>${m.pcd ? "Sim" : "—"}</td>
       <td>${(m.docPendente || []).join(", ") || "—"}</td>
     </tr>
-  `).join("") || "<tr><td colspan='7'>Nenhum membro informado</td></tr>";
+  `).join("") || "<tr><td colspan='6'>Nenhum membro informado</td></tr>";
 
   const situacoesHTML = (paf.situacoesSociais || [])
     .filter(s => s.membros || s.superada)
@@ -2175,7 +1796,7 @@ function exportPDF(paf) {
 
       <h2>Membros da Família</h2>
       <table>
-        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>PCD</th><th>Doc. pendente</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>PCD</th><th>Doc. pendente</th></tr></thead>
         <tbody>${membrosHTML}</tbody>
       </table>
 
@@ -2385,7 +2006,6 @@ function exportWord(paf) {
       <h2>01. Identificação</h2>
       <p><b>Responsável:</b> ${escapeHtml(paf.responsavel)} ${paf.apelido ? "(" + escapeHtml(paf.apelido) + ")" : ""}<br>
       <b>Nome da mãe:</b> ${escapeHtml(paf.nomeMae) || "—"}<br>
-      <b>Sexo:</b> ${escapeHtml(paf.sexoResponsavel) || "—"} | <b>Nascimento:</b> ${fmtDateBR(paf.dataNascResponsavel) || "—"} | <b>Nacionalidade:</b> ${escapeHtml(paf.nacionalidadeResponsavel) || "—"}<br>
       <b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)} | <b>RG:</b> ${escapeHtml(paf.rg)} ${escapeHtml(paf.rgOrgao)}/${escapeHtml(paf.rgUf)}<br>
       <b>Endereço:</b> ${escapeHtml(enderecoCompleto(paf))}${paf.localizacaoDomicilio ? " (" + escapeHtml(paf.localizacaoDomicilio) + ")" : ""}<br>
       <b>Ponto de referência:</b> ${escapeHtml(paf.pontoReferencia) || "—"} | <b>Telefones:</b> ${escapeHtml(paf.telefones) || "—"}<br>
@@ -2393,8 +2013,8 @@ function exportWord(paf) {
 
       <h2>02. Composição Familiar</h2>
       <table>
-        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>PCD</th><th>Doc. pendente</th></tr>
-        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade || "")}</td><td>${m.pcd ? "Sim" : "—"}</td><td>${(m.docPendente || []).join(", ") || "—"}</td></tr>`).join("")}
+        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>PCD</th><th>Doc. pendente</th></tr>
+        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${m.pcd ? "Sim" : "—"}</td><td>${(m.docPendente || []).join(", ") || "—"}</td></tr>`).join("")}
       </table>
 
       <h2>03. Diagnóstico e Vulnerabilidades</h2>
