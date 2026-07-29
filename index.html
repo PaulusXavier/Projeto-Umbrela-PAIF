@@ -14,6 +14,23 @@
 <body>
 <div id="app">
 
+  <div class="masthead">
+    <div class="masthead-inner">
+      <div class="masthead-brasao" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="30" height="30"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="1"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+      </div>
+      <div class="masthead-text">
+        <strong>Prefeitura Municipal de Boa Vista</strong>
+        <span>Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</span>
+        <span>Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes</span>
+      </div>
+      <div class="masthead-contact">
+        <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
+        <span>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
+      </div>
+    </div>
+  </div>
+
   <header class="topbar">
     <div class="brand">
       <span class="seal">P</span>
@@ -29,13 +46,31 @@
 
   <main id="mainArea"></main>
 
-  <footer class="app-footer">Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — com base nas Orientações Técnicas do PAIF (MDS, vols. 1 e 2) e na Tipificação Nacional de Serviços Socioassistenciais — Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR</footer>
+  <footer class="app-footer">
+    <div class="app-footer-inner">
+      <div class="app-footer-col">
+        <strong>Prefeitura Municipal de Boa Vista</strong>
+        <span>Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</span>
+        <span>CRAS Cristiana Vicente Nunes — Centenário</span>
+      </div>
+      <div class="app-footer-col">
+        <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
+        <span>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
+      </div>
+      <div class="app-footer-col app-footer-tech">
+        <span>Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF)</span>
+        <span>Com base nas Orientações Técnicas do PAIF (MDS, vols. 1 e 2) e na Tipificação Nacional de Serviços Socioassistenciais</span>
+        <span>Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR</span>
+      </div>
+    </div>
+  </footer>
 </div>
 
 <div id="authScreen" class="login-wrap" style="display:none">
   <div class="login-card">
     <div class="seal-lg">P</div>
     <h1>Plano de Acompanhamento Familiar</h1>
+    <p class="login-org">Prefeitura Municipal de Boa Vista · SEMADS<br>CRAS Cristiana Vicente Nunes</p>
     <p class="sub">Entre com sua conta para acessar os registros do PAF/PAIF.</p>
     <div class="login-error" id="authError" style="display:none"></div>
     <div class="f"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username" placeholder="seu.email@exemplo.com"></div>
@@ -52,7 +87,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="firebase-config.js"></script>
 <script src="app.js"></script>
 </body>
