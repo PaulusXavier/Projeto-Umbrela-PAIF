@@ -116,10 +116,13 @@ os registros só para si (não compartilha com os outros).
   > Firebase configurado) ou anexe poucos arquivos pequenos por PAF.
 - O ícone ao lado de "Config" no topo mostra se a sincronização com a nuvem está ativa.
 - Em **Config**, é possível baixar um backup em JSON de todos os registros.
-- Na tela inicial, o botão **Resumo mensal** mostra a quantidade de famílias em
-  acompanhamento agrupadas por mês de início do PAF, com a distribuição por sexo,
-  nacionalidade e faixa etária do responsável familiar, e pode ser impresso/baixado
-  em PDF.
+- Na tela inicial, o botão **Resumo mensal** mostra um painel estatístico completo:
+  indicadores gerais (total de PAFs, por situação, pessoas acompanhadas, pessoas com
+  deficiência, idade média e tempo médio de acompanhamento), perfil dos responsáveis
+  (sexo, nacionalidade, faixa etária), distribuição por CRAS, vulnerabilidades e
+  situações sociais mais frequentes, programas e benefícios mais frequentes,
+  encaminhamentos por área e uma tabela de evolução mensal (novos PAFs e acumulado,
+  por mês de início). Pode ser impresso/baixado em PDF.
 
 ## 4. Arquivos do projeto
 
