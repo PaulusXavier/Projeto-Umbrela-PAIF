@@ -309,6 +309,9 @@ function emptyPAF() {
     updatedAt: now,
     crasNome: "",
     responsavel: "",
+    sexoResponsavel: "",
+    dataNascResponsavel: "",
+    nacionalidadeResponsavel: "",
     cpf: "",
     nis: "",
     endereco: "",
@@ -396,6 +399,25 @@ function mesesEmAcompanhamento(iso) {
   if (hoje.getDate() < inicio.getDate()) meses--;
   return Math.max(0, meses);
 }
+function calcularIdade(iso) {
+  if (!iso) return null;
+  const nasc = new Date(iso + "T00:00:00");
+  if (isNaN(nasc.getTime())) return null;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const aindaNaoFezAniversario = (hoje.getMonth() < nasc.getMonth()) ||
+    (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate());
+  if (aindaNaoFezAniversario) idade--;
+  return idade >= 0 ? idade : null;
+}
+function faixaEtaria(idade) {
+  if (idade == null) return "Não informada";
+  if (idade < 18) return "Menor de 18";
+  if (idade <= 29) return "18 a 29";
+  if (idade <= 39) return "30 a 39";
+  if (idade <= 59) return "40 a 59";
+  return "60 ou mais";
+}
 
 /* ---------------------------- Modal e Toast ---------------------------- */
 
@@ -450,6 +472,93 @@ function baixarBackupJSON() {
   toast("Backup baixado.");
 }
 
+function exportResumoFamilias() {
+  const printWin = window.open("", "_blank");
+  if (!printWin) {
+    toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
+    return;
+  }
+
+  const pafs = state.pafs || [];
+  const total = pafs.length;
+
+  const porStatus = {};
+  pafs.forEach(p => {
+    const label = STATUS_LABELS[p.situacaoPAF] || "Em andamento";
+    porStatus[label] = (porStatus[label] || 0) + 1;
+  });
+
+  const porNacionalidade = {};
+  pafs.forEach(p => {
+    const nac = (p.nacionalidadeResponsavel || "").trim() || "Não informada";
+    porNacionalidade[nac] = (porNacionalidade[nac] || 0) + 1;
+  });
+
+  const porSexo = {};
+  pafs.forEach(p => {
+    const sexo = (p.sexoResponsavel || "").trim() || "Não informado";
+    porSexo[sexo] = (porSexo[sexo] || 0) + 1;
+  });
+
+  const porFaixaEtaria = {};
+  pafs.forEach(p => {
+    const faixa = faixaEtaria(calcularIdade(p.dataNascResponsavel));
+    porFaixaEtaria[faixa] = (porFaixaEtaria[faixa] || 0) + 1;
+  });
+
+  const ordemFaixas = ["Menor de 18", "18 a 29", "30 a 39", "40 a 59", "60 ou mais", "Não informada"];
+
+  const linhasTabela = (obj, ordem) => {
+    const chaves = ordem ? ordem.filter(k => obj[k] !== undefined) : Object.keys(obj).sort((a, b) => obj[b] - obj[a]);
+    return chaves.map(k => `
+      <tr><td>${escapeHtml(k)}</td><td style="text-align:center">${obj[k]}</td><td style="text-align:center">${total ? ((obj[k] / total) * 100).toFixed(1) : "0.0"}%</td></tr>
+    `).join("") || "<tr><td colspan='3'>Sem dados</td></tr>";
+  };
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Resumo das Famílias em Acompanhamento</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#1b2733; margin:32px; }
+  h1 { font-size:20px; margin-bottom:2px; }
+  .sub { color:#52667C; font-size:12px; margin-bottom:20px; }
+  .total-box { display:inline-block; background:#EEF2F4; border:1px solid #C9D3DA; border-radius:8px; padding:14px 22px; margin-bottom:24px; }
+  .total-box .n { font-size:28px; font-weight:700; display:block; }
+  .total-box .l { font-size:12px; color:#52667C; }
+  h2 { font-size:14px; margin:22px 0 8px; border-bottom:1px solid #C9D3DA; padding-bottom:4px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:6px; }
+  th, td { border:1px solid #C9D3DA; padding:6px 10px; font-size:12.5px; text-align:left; }
+  th { background:#EEF2F4; }
+  footer { margin-top:30px; font-size:10.5px; color:#7A8A99; }
+  @media print { body { margin:12mm; } }
+</style></head>
+<body>
+  <h1>Resumo das Famílias em Acompanhamento — PAF/PAIF</h1>
+  <div class="sub">CRAS Cristiana Vicente Nunes · SEMADS · Prefeitura Municipal de Boa Vista — gerado em ${fmtDateBR(todayISO())}</div>
+
+  <div class="total-box"><span class="n">${total}</span><span class="l">Família(s) cadastrada(s)</span></div>
+
+  <h2>Quantitativo por situação</h2>
+  <table><thead><tr><th>Situação</th><th>Qtd.</th><th>%</th></tr></thead><tbody>${linhasTabela(porStatus)}</tbody></table>
+
+  <h2>Nacionalidade do Responsável Familiar</h2>
+  <table><thead><tr><th>Nacionalidade</th><th>Qtd.</th><th>%</th></tr></thead><tbody>${linhasTabela(porNacionalidade)}</tbody></table>
+
+  <h2>Sexo do Responsável Familiar</h2>
+  <table><thead><tr><th>Sexo</th><th>Qtd.</th><th>%</th></tr></thead><tbody>${linhasTabela(porSexo)}</tbody></table>
+
+  <h2>Faixa Etária do Responsável Familiar</h2>
+  <table><thead><tr><th>Faixa etária</th><th>Qtd.</th><th>%</th></tr></thead><tbody>${linhasTabela(porFaixaEtaria, ordemFaixas)}</tbody></table>
+
+  <footer>Relatório agregado e anonimizado — não identifica famílias individualmente. Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR.</footer>
+  <script>window.onload = () => setTimeout(() => window.print(), 200);</script>
+</body></html>`;
+
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
+}
+
 function openSettingsModal() {
   const root = document.getElementById("modalRoot");
   if (!root) return;
@@ -465,8 +574,10 @@ function openSettingsModal() {
         ${emailLinha}
         <div class="settings-field" style="margin-bottom:18px;"><span class="k">Registros salvos</span><span class="v">${state.pafs.length} PAF(s)</span></div>
         <p>Baixe uma cópia de segurança de todos os PAFs cadastrados em um único arquivo JSON.</p>
-        <div class="modal-actions" style="justify-content:space-between;">
+        <p>Ou exporte um resumo agregado (quantitativo, nacionalidade, sexo e faixa etária dos responsáveis) para impressão/PDF — sem identificar as famílias individualmente.</p>
+        <div class="modal-actions" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <button class="btn btn-ghost" id="settingsCloseBtn">Fechar</button>
+          <button class="btn btn-ghost" id="settingsResumoBtn">Resumo das famílias (PDF)</button>
           <button class="btn btn-primary" id="settingsBackupBtn">Baixar backup (JSON)</button>
         </div>
       </div>
@@ -474,6 +585,7 @@ function openSettingsModal() {
 
   document.getElementById("settingsCloseBtn").onclick = () => root.innerHTML = "";
   document.getElementById("settingsBackupBtn").onclick = baixarBackupJSON;
+  document.getElementById("settingsResumoBtn").onclick = exportResumoFamilias;
 }
 
 /* ---------------------------- Firebase / armazenamento ---------------------------- */
@@ -921,7 +1033,20 @@ function renderSection(id, paf) {
         <div class="field-grid">
           <div class="f c6"><label>Nome do CRAS</label><input type="text" data-field="crasNome" value="${escapeHtml(paf.crasNome)}"></div>
           <div class="f c6"><label>Responsável Familiar</label><input type="text" data-field="responsavel" value="${escapeHtml(paf.responsavel)}"></div>
-          <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
+          <div class="f c3"><label>Sexo do Responsável</label>
+            <select data-field="sexoResponsavel">
+              <option value="" ${!paf.sexoResponsavel ? "selected" : ""}>Não informado</option>
+              <option value="Feminino" ${paf.sexoResponsavel === "Feminino" ? "selected" : ""}>Feminino</option>
+              <option value="Masculino" ${paf.sexoResponsavel === "Masculino" ? "selected" : ""}>Masculino</option>
+              <option value="Outro" ${paf.sexoResponsavel === "Outro" ? "selected" : ""}>Outro</option>
+            </select>
+          </div>
+          <div class="f c3"><label>Data de nascimento do Responsável</label><input type="date" data-field="dataNascResponsavel" value="${escapeHtml(paf.dataNascResponsavel || "")}"></div>
+          <div class="f c3"><label>Nacionalidade do Responsável</label><input type="text" list="nacionalidadesList" data-field="nacionalidadeResponsavel" value="${escapeHtml(paf.nacionalidadeResponsavel || "")}" placeholder="Brasileira"></div>
+          <datalist id="nacionalidadesList">
+            ${NACIONALIDADES.map(n => `<option value="${escapeHtml(n)}">`).join("")}
+          </datalist>
+          <div class="f c3"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
           <div class="f c4"><label>NIS</label><input type="text" data-field="nis" value="${escapeHtml(paf.nis)}"></div>
           <div class="f c4"><label>Data inicial do PAF</label><input type="date" data-field="dataInicial" value="${escapeHtml(paf.dataInicial)}"></div>
           <div class="f c8"><label>Endereço</label><input type="text" data-field="endereco" value="${escapeHtml(paf.endereco)}"></div>
@@ -1029,6 +1154,8 @@ function renderSection(id, paf) {
           <div class="prontuario-fields">
             <div><span class="k">CRAS</span><span class="v">${escapeHtml(paf.crasNome) || "—"}</span></div>
             <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
+            <div><span class="k">Sexo do Responsável</span><span class="v">${escapeHtml(paf.sexoResponsavel) || "—"}</span></div>
+            <div><span class="k">Nacionalidade do Responsável</span><span class="v">${escapeHtml(paf.nacionalidadeResponsavel) || "—"}</span></div>
             <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
             <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
             <div><span class="k">Periodicidade</span><span class="v">${escapeHtml(paf.periodicidade) || "—"}</span></div>
