@@ -29,16 +29,24 @@ os registros só para si (não compartilha com os outros).
    service cloud.firestore {
      match /databases/{database}/documents {
        match /planos_acompanhamento_familiar/{docId} {
-         allow read, write: if true;
+         allow read, write: if request.auth != null;
        }
      }
    }
    ```
 
-   > Isso deixa a coleção aberta para leitura/escrita por quem tiver o link do app —
-   > é o mesmo padrão usado nos outros aplicativos internos da equipe. Se quiser
-   > restringir por senha/login mais adiante, é possível evoluir para regras com
-   > autenticação do Firebase.
+   > Isso libera leitura/escrita só para quem estiver logado (ver passo 1a abaixo) —
+   > sem login, não é possível ver nem alterar os registros, mesmo tendo o link do app.
+
+### 1a. Ativar o login (Firebase Authentication) — obrigatório para a nuvem funcionar
+
+1. No menu lateral do Firebase, vá em **Compilação > Authentication** → **Vamos começar**.
+2. Na aba **Sign-in method** (Método de login), clique em **E-mail/senha** e ative a
+   primeira opção (E-mail/senha). Salve.
+3. Vá para a aba **Users** (Usuários) → **Add user** (Adicionar usuário) e cadastre
+   o e-mail e uma senha provisória para cada técnico da equipe que vai usar o app.
+   Repita para cada pessoa. Elas podem trocar a senha depois usando o link
+   "Esqueci minha senha" na tela de login do app.
 
 4. Volte à página inicial do projeto (ícone de engrenagem → **Configurações do projeto**),
    role até **Seus apps**, clique no ícone **`</>`** (Web), dê um nome ao app e clique em
@@ -67,6 +75,9 @@ os registros só para si (não compartilha com os outros).
 
 ## 3. Como o app funciona
 
+- **Login**: se a sincronização em nuvem estiver ativa, o app pede e-mail e senha
+  antes de mostrar qualquer registro. As contas são criadas pelo administrador
+  no console do Firebase (passo 1a). O botão "Sair", no topo, encerra a sessão.
 - **Tela inicial**: lista todos os PAFs cadastrados, com busca por responsável/CPF/CRAS
   e filtro por situação (Em andamento, Encaminhado, Concluído, Cancelado).
 - **+ Novo PAF**: abre um formulário dividido em seções (aba lateral), replicando o
@@ -77,6 +88,15 @@ os registros só para si (não compartilha com os outros).
 - **Baixar PDF** / **Baixar Word (.doc)**: geram o arquivo preenchido pronto para
   impressão/assinatura, tanto na tela do formulário quanto no menu "Exportar" de cada
   card na lista.
+- **Anexos**: na aba "Anexos" do formulário é possível anexar fotos e documentos PDF
+  a cada PAF. Imagens são comprimidas automaticamente ao anexar. Fotos anexadas
+  aparecem também no PDF exportado; PDFs anexados ficam listados por nome (para
+  baixá-los é preciso usar o botão "Baixar" do próprio anexo).
+  > **Atenção ao usar a sincronização em nuvem (Firestore):** cada PAF é salvo como
+  > um único documento, que tem um limite de ~1 MB no total. O app avisa quando os
+  > anexos de um PAF estão ficando grandes demais e recusa arquivos que ultrapassem
+  > esse limite. Para anexar PDFs grandes com folga, prefira o modo local (sem
+  > Firebase configurado) ou anexe poucos arquivos pequenos por PAF.
 - O ícone ao lado de "Config" no topo mostra se a sincronização com a nuvem está ativa.
 - Em **Config**, é possível baixar um backup em JSON de todos os registros.
 
