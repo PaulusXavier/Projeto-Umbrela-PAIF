@@ -85,13 +85,13 @@ os registros só para si (não compartilha com os outros).
   Encaminhamentos, Programas e Benefícios, Rede do Território, Metas e Evolução,
   Estratégias e Eixos, Elaboração do Plano, Encerramento e Observações.
 - **Identificação e endereço completos** (seção Cabeçalho): além de nome/CPF/NIS, agora
-  também há apelido, nome da mãe, RG (com órgão emissor/UF/data) e um endereço estruturado
+  também há apelido, nome da mãe, RG (com órgão emissor/UF/data), **sexo, data de
+  nascimento e nacionalidade do responsável familiar**, e um endereço estruturado
   (rua, número, complemento, bairro, CEP, ponto de referência, telefones, urbano/rural) —
   aproveitado do Prontuário SUAS (MDS). O campo "Endereço resumido" continua existindo
   para registros antigos ou preenchimento rápido.
 - **Composição familiar detalhada** (seção Membros da Família): cada membro agora também
-  registra sexo, se é pessoa com deficiência (PCD) e quais documentos civis ainda estão
-  pendentes (Certidão de Nascimento, RG, Carteira de Trabalho, CPF, Título de Eleitor).
+  registra sexo, nacionalidade e se é pessoa com deficiência (PCD).
 - **Diagnóstico socioeconômico** (dentro da seção Diagnóstico): blocos objetivos de
   Condições Habitacionais, Condições Educacionais, Condições de Trabalho e Renda e
   Condições de Saúde, no mesmo padrão do Prontuário SUAS — mais rápidos de preencher do
@@ -116,6 +116,10 @@ os registros só para si (não compartilha com os outros).
   > Firebase configurado) ou anexe poucos arquivos pequenos por PAF.
 - O ícone ao lado de "Config" no topo mostra se a sincronização com a nuvem está ativa.
 - Em **Config**, é possível baixar um backup em JSON de todos os registros.
+- Na tela inicial, o botão **Resumo mensal** mostra a quantidade de famílias em
+  acompanhamento agrupadas por mês de início do PAF, com a distribuição por sexo,
+  nacionalidade e faixa etária do responsável familiar, e pode ser impresso/baixado
+  em PDF.
 
 ## 4. Arquivos do projeto
 
