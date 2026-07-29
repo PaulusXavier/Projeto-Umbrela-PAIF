@@ -130,10 +130,17 @@ const SECTIONS = [
 // Limite de referência: um documento no Firestore não pode passar de ~1 MB no total.
 // Por isso comprimimos imagens automaticamente e avisamos quando os anexos de um PAF
 // estiverem ficando grandes demais para sincronizar com segurança na nuvem.
-const ANEXO_AVISO_BYTES = 650 * 1024;   // a partir daqui, mostramos aviso
-const ANEXO_MAX_BYTES = 900 * 1024;     // acima disso, recusamos o anexo (nuvem)
+// Em modo local (sem Firebase configurado) o limite é bem mais folgado, já que o
+// registro fica só no localStorage deste aparelho — não precisa caber em 1 MB.
+const ANEXO_AVISO_BYTES_CLOUD = 650 * 1024;   // a partir daqui, mostramos aviso (nuvem)
+const ANEXO_MAX_BYTES_CLOUD = 900 * 1024;     // acima disso, recusamos o anexo (nuvem)
+const ANEXO_AVISO_BYTES_LOCAL = 3 * 1024 * 1024;  // aviso em modo local
+const ANEXO_MAX_BYTES_LOCAL = 4 * 1024 * 1024;    // recusa em modo local
 const ANEXO_IMG_MAX_DIM = 1600;         // redimensiona imagens maiores que isso
 const ANEXO_IMG_QUALIDADE = 0.72;       // qualidade do JPEG comprimido
+
+function anexoAvisoBytes() { return state.mode === "cloud" ? ANEXO_AVISO_BYTES_CLOUD : ANEXO_AVISO_BYTES_LOCAL; }
+function anexoMaxBytes() { return state.mode === "cloud" ? ANEXO_MAX_BYTES_CLOUD : ANEXO_MAX_BYTES_LOCAL; }
 
 function fmtBytes(n) {
   if (!n && n !== 0) return "—";
@@ -204,8 +211,9 @@ async function adicionarAnexos(fileList) {
       const dataURL = ehImagem ? await comprimirImagem(file) : await lerArquivoComoDataURL(file);
       const tamanho = dataURLBytes(dataURL);
 
-      if (tamanho > ANEXO_MAX_BYTES) {
-        toast(`"${file.name}" (${fmtBytes(tamanho)}) é grande demais para anexar com segurança. Use um arquivo menor.`);
+      if (tamanho > anexoMaxBytes()) {
+        const dica = state.mode === "cloud" ? ' Se precisar anexar arquivos grandes, use o modo local (sem sincronização).' : '';
+        toast(`"${file.name}" (${fmtBytes(tamanho)}) é grande demais para anexar com segurança.${dica}`);
         continue;
       }
 
@@ -228,8 +236,10 @@ async function adicionarAnexos(fileList) {
   renderApp();
 
   const totalDepois = totalAnexosBytes(state.current);
-  if (totalDepois > ANEXO_AVISO_BYTES) {
-    toast(`Atenção: os anexos deste PAF somam ${fmtBytes(totalDepois)}. Em modo nuvem, isso pode ultrapassar o limite de sincronização.`);
+  if (totalDepois > anexoAvisoBytes()) {
+    toast(state.mode === "cloud"
+      ? `Atenção: os anexos deste PAF somam ${fmtBytes(totalDepois)}. Isso pode ultrapassar o limite de sincronização com a nuvem.`
+      : `Atenção: os anexos deste PAF somam ${fmtBytes(totalDepois)}, um valor considerável para o armazenamento local do navegador.`);
   }
 }
 
@@ -413,6 +423,52 @@ function confirmModal(title, msg, onConfirm) {
     onConfirm();
     root.innerHTML = "";
   };
+}
+
+/* ---------------------------- Config / Backup ---------------------------- */
+
+function baixarBackupJSON() {
+  const payload = {
+    exportadoEm: new Date().toISOString(),
+    totalRegistros: state.pafs.length,
+    pafs: state.pafs
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `backup_paf_paif_${todayISO()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("Backup baixado.");
+}
+
+function openSettingsModal() {
+  const root = document.getElementById("modalRoot");
+  if (!root) return;
+
+  const modoLabel = state.mode === "cloud" ? "Sincronizado com a nuvem" : "Somente neste dispositivo";
+  const emailLinha = state.currentUser ? `<div class="settings-field"><span class="k">Conta</span><span class="v">${escapeHtml(state.currentUser.email)}</span></div>` : "";
+
+  root.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal">
+        <h3>Configurações</h3>
+        <div class="settings-field"><span class="k">Armazenamento</span><span class="v">${modoLabel}</span></div>
+        ${emailLinha}
+        <div class="settings-field" style="margin-bottom:18px;"><span class="k">Registros salvos</span><span class="v">${state.pafs.length} PAF(s)</span></div>
+        <p>Baixe uma cópia de segurança de todos os PAFs cadastrados em um único arquivo JSON.</p>
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="btn btn-ghost" id="settingsCloseBtn">Fechar</button>
+          <button class="btn btn-primary" id="settingsBackupBtn">Baixar backup (JSON)</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("settingsCloseBtn").onclick = () => root.innerHTML = "";
+  document.getElementById("settingsBackupBtn").onclick = baixarBackupJSON;
 }
 
 /* ---------------------------- Firebase / armazenamento ---------------------------- */
@@ -1072,7 +1128,7 @@ function renderSection(id, paf) {
     case "anexos": {
       const anexos = paf.anexos || [];
       const total = totalAnexosBytes(paf);
-      const avisoNuvem = state.mode === "cloud" && total > ANEXO_AVISO_BYTES;
+      const avisoNuvem = total > anexoAvisoBytes();
       const cards = anexos.map(a => {
         const ehImagem = a.tipo.startsWith("image/");
         const preview = ehImagem
@@ -1268,12 +1324,20 @@ function attachGlobalHandlers() {
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) logoutBtn.onclick = handleLogout;
 
-  // Fechar dropdowns de exportação ao clicar fora
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".export-menu")) {
-      document.querySelectorAll(".export-dropdown").forEach(d => d.style.display = "none");
-    }
-  });
+  const settingsBtn = document.getElementById("settingsBtn");
+  if (settingsBtn) settingsBtn.onclick = openSettingsModal;
+
+  // Fechar dropdowns de exportação ao clicar fora.
+  // Anexado apenas uma vez (renderApp roda a cada interação e chamava isto de novo,
+  // empilhando um novo listener no document a cada render).
+  if (!state._globalClickBound) {
+    state._globalClickBound = true;
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".export-menu")) {
+        document.querySelectorAll(".export-dropdown").forEach(d => d.style.display = "none");
+      }
+    });
+  }
 }
 
 /* ---------------------------- Exportação: PDF (Impressão Nativa) ---------------------------- */
@@ -1357,8 +1421,17 @@ function exportPDF(paf) {
         }
         .brasao { font-family: Georgia, 'Times New Roman', serif; }
 
+        .orgao-header {
+          display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
+          padding: 8px 12px; border-radius: 5px 5px 0 0; margin-bottom: 0; font-size: 9px; line-height: 1.35;
+        }
+        .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
+        .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
+
         .capa-header {
-          display: flex; align-items: center; gap: 14px; border-bottom: 2.5px solid #1F3A5F; padding-bottom: 10px; margin-bottom: 14px;
+          display: flex; align-items: center; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
+          border-bottom: 2.5px solid #1F3A5F; padding: 10px 12px; margin-bottom: 14px; border-radius: 0 0 5px 5px;
         }
         .capa-selo {
           width: 40px; height: 40px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
@@ -1434,6 +1507,20 @@ function exportPDF(paf) {
       </style>
     </head>
     <body>
+      <div class="orgao-header">
+        <div class="brasao-mini">
+          <svg viewBox="0 0 48 48" width="22" height="22"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+        </div>
+        <div>
+          <strong>Prefeitura Municipal de Boa Vista</strong>
+          Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
+          Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes
+        </div>
+        <div class="orgao-contato">
+          Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>
+          (95) 98402-6627 · crascentenariosemges@gmail.com
+        </div>
+      </div>
       <div class="capa-header">
         <div class="capa-selo">P</div>
         <div class="capa-titulos">
@@ -1515,7 +1602,8 @@ function exportPDF(paf) {
       </div>
 
       <div class="rodape-print">
-        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR
+        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes — Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
+        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </div>
 
       <script>
@@ -1548,6 +1636,19 @@ function exportWord(paf) {
     </style>
     </head>
     <body>
+      <table style="width:100%;border:none;margin-bottom:10pt;">
+        <tr>
+          <td style="border:none;padding:0;">
+            <p style="margin:0;font-size:11pt;font-weight:bold;color:#1F3A5F;">Prefeitura Municipal de Boa Vista</p>
+            <p style="margin:0;font-size:9pt;color:#52667C;">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
+            Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes</p>
+          </td>
+          <td style="border:none;padding:0;text-align:right;font-size:9pt;color:#52667C;">
+            Rua Santo Agostinho, 193b – Centenário<br>Boa Vista/RR<br>(95) 98402-6627<br>crascentenariosemges@gmail.com
+          </td>
+        </tr>
+      </table>
+      <hr/>
       <h1>Plano de Acompanhamento Familiar - PAF</h1>
       <p><b>CRAS:</b> ${escapeHtml(paf.crasNome)} | <b>Status:</b> ${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</p>
       <hr/>
@@ -1587,6 +1688,13 @@ function exportWord(paf) {
       <h2>07. Anexos</h2>
       <p>${(paf.anexos || []).map(a => escapeHtml(a.nome)).join(", ")}<br>
       <i>Os arquivos de anexo não são incorporados a este documento Word — baixe-os separadamente pelo app (aba "Anexos").</i></p>` : ""}
+
+      <hr/>
+      <p style="font-size:8pt;color:#8496A8;text-align:center;">
+        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes —
+        Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
+        Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
+      </p>
     </body>
     </html>
   `;
