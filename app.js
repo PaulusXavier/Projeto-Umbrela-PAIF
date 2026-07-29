@@ -28,18 +28,13 @@ const VULNERABILIDADES_FAMILIA = [
 
 const SITUACOES_SOCIAIS = [
   "Ausência de documentação civil",
-  "Precária situação de moradia",
   "Dificuldade de acesso a serviços públicos/benefícios",
   "Em contextos de violência",
-  "Família de baixa renda",
   "Ausência de qualificação profissional",
   "Criança/adolescente fora da escola",
   "Criança/adolescente com baixa frequência escolar",
-  "Beneficiária do PBF",
   "Beneficiária do PBF, em não cumprimento de condicionalidades",
   "Beneficiária(s) do BPC",
-  "Famílias elegíveis ao PBF",
-  "Famílias elegíveis ao BPC",
   "Situação de Trabalho infantil",
   "Membro da família em privação de liberdade",
   "Egresso de sistema penitenciário",
@@ -51,7 +46,6 @@ const SITUACOES_SOCIAIS = [
   "Presença de idosos com dependência que permanecem períodos do dia em casa sem a companhia de outro adulto",
   "Maternidade/Paternidade na adolescência",
   "Crianças pequenas que permanecem períodos do dia em casa sem a companhia de um adulto",
-  "Família que reside a pouco tempo na cidade",
   "Outras situações"
 ];
 
@@ -115,7 +109,7 @@ const STATUS_LABELS = { andamento: "Em andamento", encaminhado: "Encaminhado", c
 
 /* ---- Aproveitado do Prontuário SUAS (MDS): habitação, saúde e encaminhamentos ---- */
 
-const NACIONALIDADES = ["Brasileira", "Venezuelana", "Guianense", "Outra"];
+const NACIONALIDADES = ["Brasileira", "Venezuelana", "Guianense", "Haitiana", "Cubana", "Outra"];
 
 const HABITACAO_TIPO = ["Própria", "Alugada", "Cedida", "Ocupada"];
 const HABITACAO_PAREDES = ["Alvenaria ou madeira aparelhada", "Madeira aproveitada, taipa ou outros materiais precários"];
@@ -546,23 +540,76 @@ function openSettingsModal() {
 
 /* ---------------------------- Resumo mensal (famílias em acompanhamento) ---------------------------- */
 
+function computeResumoGeral() {
+  const pafs = state.pafs;
+  const total = pafs.length;
+  const porStatus = { andamento: 0, encaminhado: 0, concluido: 0, cancelado: 0 };
+  const porSexo = {}, porNacionalidade = {}, porFaixa = {}, porCras = {};
+  const porVulnerabilidade = {}, porPrograma = {}, porBeneficio = {}, porEncArea = {}, porSituacaoSocial = {};
+  let totalMembros = 0, totalPCD = 0, totalEncaminhamentos = 0;
+  const idades = [], meses = [];
+
+  pafs.forEach(p => {
+    porStatus[p.situacaoPAF] = (porStatus[p.situacaoPAF] || 0) + 1;
+
+    const sexoLabel = p.responsavelSexo === "F" ? "Feminino" : p.responsavelSexo === "M" ? "Masculino" : "Não informado";
+    porSexo[sexoLabel] = (porSexo[sexoLabel] || 0) + 1;
+
+    const nac = (p.responsavelNacionalidade || "").trim() || "Não informada";
+    porNacionalidade[nac] = (porNacionalidade[nac] || 0) + 1;
+
+    const idade = calcularIdade(p.responsavelNascimento);
+    if (idade != null) idades.push(idade);
+    porFaixa[faixaEtaria(idade)] = (porFaixa[faixaEtaria(idade)] || 0) + 1;
+
+    const cras = (p.crasNome || "").trim() || "Não informado";
+    porCras[cras] = (porCras[cras] || 0) + 1;
+
+    const membrosComNome = (p.membros || []).filter(m => m.nome);
+    totalMembros += membrosComNome.length;
+    totalPCD += membrosComNome.filter(m => m.pcd).length;
+
+    (p.vulnerabilidades || []).forEach(v => { porVulnerabilidade[v] = (porVulnerabilidade[v] || 0) + 1; });
+
+    (p.situacoesSociais || []).forEach(s => { if (s.membros) porSituacaoSocial[s.situacao] = (porSituacaoSocial[s.situacao] || 0) + 1; });
+
+    if (p.participaProgramas === "Sim") {
+      (p.programasQuais || []).forEach(pr => { porPrograma[pr] = (porPrograma[pr] || 0) + 1; });
+    }
+    if (p.recebeBeneficio === "Sim") {
+      (p.beneficioQuais || []).forEach(b => { porBeneficio[b] = (porBeneficio[b] || 0) + 1; });
+    }
+
+    (p.encaminhamentosForm || []).forEach(e => {
+      totalEncaminhamentos++;
+      const area = (e.area || "").trim() || "Não informada";
+      porEncArea[area] = (porEncArea[area] || 0) + 1;
+    });
+
+    const m = mesesEmAcompanhamento(p.dataInicial);
+    if (m != null) meses.push(m);
+  });
+
+  const media = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+
+  return {
+    total, porStatus, porSexo, porNacionalidade, porFaixa, porCras,
+    porVulnerabilidade, porSituacaoSocial, porPrograma, porBeneficio, porEncArea,
+    totalMembros, totalPCD, totalEncaminhamentos,
+    mediaMembros: total ? Math.round((totalMembros / total) * 10) / 10 : null,
+    idadeMedia: media(idades), mesesMedia: media(meses)
+  };
+}
+
 function computeResumoMensal() {
   const grupos = {};
   state.pafs.forEach(p => {
     const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
     if (!base || base.length < 7) return;
     const ym = base.slice(0, 7);
-    if (!grupos[ym]) grupos[ym] = { quantidade: 0, sexo: {}, nacionalidade: {}, faixas: {}, idades: [] };
-    const g = grupos[ym];
-    g.quantidade++;
-    const sexoLabel = p.responsavelSexo === "F" ? "Feminino" : p.responsavelSexo === "M" ? "Masculino" : "Não informado";
-    g.sexo[sexoLabel] = (g.sexo[sexoLabel] || 0) + 1;
-    const nac = (p.responsavelNacionalidade || "").trim() || "Não informada";
-    g.nacionalidade[nac] = (g.nacionalidade[nac] || 0) + 1;
-    const idade = calcularIdade(p.responsavelNascimento);
-    if (idade != null) g.idades.push(idade);
-    const faixa = faixaEtaria(idade);
-    g.faixas[faixa] = (g.faixas[faixa] || 0) + 1;
+    if (!grupos[ym]) grupos[ym] = { quantidade: 0, status: {} };
+    grupos[ym].quantidade++;
+    grupos[ym].status[p.situacaoPAF] = (grupos[ym].status[p.situacaoPAF] || 0) + 1;
   });
   return grupos;
 }
@@ -572,41 +619,118 @@ function labelYm(ym) {
   return `${MESES_NOMES[parseInt(m, 10) - 1] || m}/${y}`;
 }
 
-function distribuicaoHTML(obj) {
-  const total = Object.values(obj).reduce((a, b) => a + b, 0) || 1;
-  return Object.entries(obj).sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `<div class="resumo-linha"><span>${escapeHtml(k)}</span><span>${v} (${Math.round(v / total * 100)}%)</span></div>`)
-    .join("");
+function kpiCardHTML(valor, label) {
+  return `<div class="kpi-card"><span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span></div>`;
+}
+
+function barrasHTML(obj, opts) {
+  opts = opts || {};
+  const entradas = Object.entries(obj).sort((a, b) => b[1] - a[1]).filter(([, v]) => v > 0);
+  const lista = opts.top ? entradas.slice(0, opts.top) : entradas;
+  if (!lista.length) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
+  const total = entradas.reduce((a, [, v]) => a + v, 0) || 1;
+  const max = Math.max(...entradas.map(([, v]) => v), 1);
+  return `<div class="stat-bars">` + lista.map(([k, v]) => `
+    <div class="stat-bar-row">
+      <span class="stat-bar-label">${escapeHtml(k)}</span>
+      <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${Math.round(v / max * 100)}%"></div></div>
+      <span class="stat-bar-value">${v} <em>(${Math.round(v / total * 100)}%)</em></span>
+    </div>`).join("") + `</div>`;
+}
+
+function resumoGeralHTML(r) {
+  return `
+    <div class="kpi-grid">
+      ${kpiCardHTML(r.total, "Total de PAFs")}
+      ${kpiCardHTML(r.porStatus.andamento || 0, "Em andamento")}
+      ${kpiCardHTML(r.porStatus.encaminhado || 0, "Encaminhados")}
+      ${kpiCardHTML(r.porStatus.concluido || 0, "Concluídos")}
+      ${kpiCardHTML(r.porStatus.cancelado || 0, "Cancelados")}
+      ${kpiCardHTML(r.totalMembros, "Pessoas acompanhadas")}
+      ${kpiCardHTML(r.mediaMembros ?? "—", "Média por família")}
+      ${kpiCardHTML(r.totalPCD, "Pessoas com deficiência")}
+      ${kpiCardHTML(r.idadeMedia != null ? r.idadeMedia + " anos" : "—", "Idade média (responsável)")}
+      ${kpiCardHTML(r.mesesMedia != null ? r.mesesMedia : "—", "Meses médios de acompanhamento")}
+      ${kpiCardHTML(r.totalEncaminhamentos, "Encaminhamentos registrados")}
+    </div>
+
+    <div class="resumo-secao">
+      <h4>Perfil do responsável familiar</h4>
+      <div class="resumo-cols">
+        <div><strong>Sexo</strong>${barrasHTML(r.porSexo)}</div>
+        <div><strong>Nacionalidade</strong>${barrasHTML(r.porNacionalidade)}</div>
+        <div><strong>Faixa etária</strong>${barrasHTML(r.porFaixa)}</div>
+      </div>
+    </div>
+
+    <div class="resumo-secao">
+      <h4>Distribuição por CRAS</h4>
+      ${barrasHTML(r.porCras)}
+    </div>
+
+    <div class="resumo-secao">
+      <div class="resumo-cols">
+        <div><strong>Vulnerabilidades mais frequentes</strong>${barrasHTML(r.porVulnerabilidade, { top: 8 })}</div>
+        <div><strong>Situações sociais mais frequentes</strong>${barrasHTML(r.porSituacaoSocial, { top: 8 })}</div>
+      </div>
+    </div>
+
+    <div class="resumo-secao">
+      <div class="resumo-cols">
+        <div><strong>Programas/projetos mais frequentes</strong>${barrasHTML(r.porPrograma, { top: 8 })}</div>
+        <div><strong>Benefícios mais frequentes</strong>${barrasHTML(r.porBeneficio, { top: 8 })}</div>
+        <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea, { top: 8 })}</div>
+      </div>
+    </div>`;
 }
 
 function resumoMensalTabelaHTML(grupos) {
   const meses = Object.keys(grupos).sort().reverse();
   if (!meses.length) return `<p class="muted">Nenhum PAF com data inicial preenchida ainda.</p>`;
-  return meses.map(ym => {
-    const g = grupos[ym];
-    const media = g.idades.length ? Math.round(g.idades.reduce((a, b) => a + b, 0) / g.idades.length) : null;
-    return `
-    <div class="resumo-mes">
-      <h3>${labelYm(ym)} <span class="resumo-total">${g.quantidade} família(s)</span></h3>
-      <div class="resumo-cols">
-        <div><strong>Sexo do responsável</strong>${distribuicaoHTML(g.sexo)}</div>
-        <div><strong>Nacionalidade do responsável</strong>${distribuicaoHTML(g.nacionalidade)}</div>
-        <div><strong>Faixa etária do responsável</strong>${distribuicaoHTML(g.faixas)}${media != null ? `<div class="resumo-linha"><span>Idade média</span><span>${media} anos</span></div>` : ""}</div>
-      </div>
-    </div>`;
-  }).join("");
+  let acumulado = 0;
+  const totalGeral = meses.reduce((a, ym) => a + grupos[ym].quantidade, 0);
+  const linhasCrescentes = [...meses].reverse();
+  const acumulados = {};
+  linhasCrescentes.forEach(ym => { acumulado += grupos[ym].quantidade; acumulados[ym] = acumulado; });
+
+  return `
+    <table class="resumo-tabela">
+      <thead><tr><th>Mês de início</th><th>Novos PAFs</th><th>Em andamento</th><th>Encaminhados</th><th>Concluídos</th><th>Cancelados</th><th>Acumulado</th></tr></thead>
+      <tbody>
+        ${meses.map(ym => {
+          const g = grupos[ym];
+          return `<tr>
+            <td>${labelYm(ym)}</td>
+            <td>${g.quantidade}</td>
+            <td>${g.status.andamento || 0}</td>
+            <td>${g.status.encaminhado || 0}</td>
+            <td>${g.status.concluido || 0}</td>
+            <td>${g.status.cancelado || 0}</td>
+            <td>${acumulados[ym]}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+      <tfoot><tr><th>Total</th><th>${totalGeral}</th><th colspan="4"></th><th></th></tr></tfoot>
+    </table>`;
 }
 
 function openResumoModal() {
   const root = document.getElementById("modalRoot");
   if (!root) return;
+  const geral = computeResumoGeral();
   const grupos = computeResumoMensal();
   root.innerHTML = `
     <div class="modal-backdrop">
       <div class="modal modal-lg">
-        <h3>Resumo das famílias em acompanhamento</h3>
-        <p class="muted" style="margin-top:-8px;">Quantidade e perfil do responsável familiar (sexo, nacionalidade, idade), agrupados por mês de início do PAF.</p>
-        <div class="resumo-scroll">${resumoMensalTabelaHTML(grupos)}</div>
+        <h3>Resumo estatístico do acompanhamento</h3>
+        <p class="muted" style="margin-top:-8px;">Visão geral de todas as famílias cadastradas, com perfil dos responsáveis, vulnerabilidades, programas e evolução mensal.</p>
+        <div class="resumo-scroll">
+          ${resumoGeralHTML(geral)}
+          <div class="resumo-secao">
+            <h4>Evolução mensal (por data de início do PAF)</h4>
+            ${resumoMensalTabelaHTML(grupos)}
+          </div>
+        </div>
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="btn btn-ghost" id="resumoCloseBtn">Fechar</button>
           <button class="btn btn-primary" id="resumoImprimirBtn">Imprimir / Baixar PDF</button>
@@ -614,10 +738,10 @@ function openResumoModal() {
       </div>
     </div>`;
   document.getElementById("resumoCloseBtn").onclick = () => root.innerHTML = "";
-  document.getElementById("resumoImprimirBtn").onclick = () => imprimirResumoMensal(grupos);
+  document.getElementById("resumoImprimirBtn").onclick = () => imprimirResumoMensal(geral, grupos);
 }
 
-function imprimirResumoMensal(grupos) {
+function imprimirResumoMensal(geral, grupos) {
   const printWin = window.open("", "_blank");
   if (!printWin) {
     toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
@@ -628,23 +752,39 @@ function imprimirResumoMensal(grupos) {
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <title>Resumo mensal - PAF/PAIF</title>
+      <title>Resumo estatístico - PAF/PAIF</title>
       <style>
         @page { margin: 16mm 14mm; }
+        * { box-sizing: border-box; }
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; margin: 0; }
         h1 { font-size: 16px; margin: 0 0 4px; }
-        .sub { color: #5b7186; font-size: 11px; margin: 0 0 18px; }
-        .resumo-mes { border: 1px solid #d7dee4; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; page-break-inside: avoid; }
-        .resumo-mes h3 { margin: 0 0 8px; font-size: 13px; display: flex; justify-content: space-between; }
-        .resumo-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        .resumo-cols strong { display: block; font-size: 11px; margin-bottom: 4px; }
-        .resumo-linha { display: flex; justify-content: space-between; font-size: 11px; padding: 1px 0; }
+        h4 { font-size: 12.5px; margin: 0 0 8px; color: #1F3A5F; border-bottom: 1px solid #d7dee4; padding-bottom: 4px; }
+        .sub { color: #5b7186; font-size: 11px; margin: 0 0 16px; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+        .kpi-card { border: 1px solid #d7dee4; border-radius: 6px; padding: 8px 10px; text-align: center; page-break-inside: avoid; }
+        .kpi-valor { display: block; font-size: 17px; font-weight: 700; }
+        .kpi-label { display: block; font-size: 9.5px; color: #5b7186; text-transform: uppercase; letter-spacing: .02em; margin-top: 2px; }
+        .resumo-secao { margin-bottom: 16px; page-break-inside: avoid; }
+        .resumo-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .resumo-cols strong { display: block; font-size: 11px; margin-bottom: 6px; }
+        .stat-bar-row { display: grid; grid-template-columns: 1fr 60px 60px; align-items: center; gap: 6px; font-size: 10.5px; padding: 2px 0; }
+        .stat-bar-track { height: 6px; background: #eef2f5; border-radius: 3px; overflow: hidden; }
+        .stat-bar-fill { height: 100%; background: #2E7D6B; }
+        .stat-bar-value em { color: #5b7186; font-style: normal; }
+        .resumo-tabela { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+        .resumo-tabela th, .resumo-tabela td { border: 1px solid #d7dee4; padding: 4px 6px; text-align: center; }
+        .resumo-tabela thead th { background: #f2f5f7; }
+        .resumo-tabela tfoot th { background: #f2f5f7; }
       </style>
     </head>
     <body>
-      <h1>Resumo das famílias em acompanhamento</h1>
-      <p class="sub">Quantidade e perfil do responsável familiar, por mês de início do PAF · Emitido em ${fmtDateBR(todayISO())}</p>
-      ${resumoMensalTabelaHTML(grupos)}
+      <h1>Resumo estatístico do acompanhamento</h1>
+      <p class="sub">Todas as famílias cadastradas · Emitido em ${fmtDateBR(todayISO())}</p>
+      ${resumoGeralHTML(geral)}
+      <div class="resumo-secao">
+        <h4>Evolução mensal (por data de início do PAF)</h4>
+        ${resumoMensalTabelaHTML(grupos)}
+      </div>
       <script>window.onload = () => setTimeout(() => window.print(), 200);<\/script>
     </body>
     </html>`;
@@ -1093,6 +1233,21 @@ function chkList(groupName, options, selectedArr, cols) {
     </label>`).join("") + `</div>`;
 }
 
+function situacaoMembrosField(paf, i, row) {
+  const nomes = [...new Set((paf.membros || []).map(m => (m.nome || "").trim()).filter(Boolean))];
+  if (!nomes.length) {
+    return `<input type="text" placeholder="Cadastre os membros na seção 02 para selecioná-los aqui" data-field="situacoesSociais.${i}.membros" value="${escapeHtml(row.membros)}">`;
+  }
+  const selecionados = (row.membros || "").split(",").map(s => s.trim()).filter(Boolean);
+  return `<div class="situ-membros-picker">
+    ${nomes.map(n => `
+      <label class="chk chk-mini">
+        <input type="checkbox" data-situ-idx="${i}" data-situ-nome="${escapeHtml(n)}" ${selecionados.includes(n) ? "checked" : ""}>
+        <span>${escapeHtml(n)}</span>
+      </label>`).join("")}
+  </div>`;
+}
+
 function renderSection(id, paf) {
   switch (id) {
     case "cabecalho": return `
@@ -1263,7 +1418,7 @@ function renderSection(id, paf) {
         ${paf.situacoesSociais.map((row, i) => `
           <div class="matrix-row">
             <div class="situ-label">${escapeHtml(row.situacao)}</div>
-            <input type="text" placeholder="Membro(s) da família nesta situação" data-field="situacoesSociais.${i}.membros" value="${escapeHtml(row.membros)}">
+            ${situacaoMembrosField(paf, i, row)}
             <label class="chk"><input type="checkbox" data-field-check="situacoesSociais.${i}.superada" ${row.superada ? "checked" : ""}><span>Superada</span></label>
           </div>`).join("")}
       </div>
@@ -1322,8 +1477,6 @@ function renderSection(id, paf) {
               <label><input type="radio" name="participaProgramas" data-field="participaProgramas" value="Não" ${paf.participaProgramas === "Não" ? "checked" : ""}> Não</label>
             </div>
             ${chkList("programasQuais", PROGRAMAS_QUAIS, paf.programasQuais)}
-            <div class="f" style="margin-top:6px"><label>Municipal — qual?</label><input type="text" data-field="programasMunicipalQual" value="${escapeHtml(paf.programasMunicipalQual)}"></div>
-            <div class="f" style="margin-top:6px"><label>Projetos sociais — qual?</label><input type="text" data-field="programasProjetoQual" value="${escapeHtml(paf.programasProjetoQual)}"></div>
             <div class="f" style="margin-top:6px"><label>Outros</label><input type="text" data-field="programasOutros" value="${escapeHtml(paf.programasOutros)}"></div>
           </div>
           <div class="f c6">
@@ -1579,6 +1732,23 @@ function attachEditorHandlers() {
       let arr = getPath(state.current, groupName) || [];
       toggleArrayValue(arr, val);
       setPath(state.current, groupName, arr);
+      scheduleAutosave();
+    });
+  });
+
+  // Binding para o seletor de membros em "Sobre o Grupo Familiar"
+  container.querySelectorAll("[data-situ-nome]").forEach(chk => {
+    chk.addEventListener("change", () => {
+      const idx = parseInt(chk.dataset.situIdx, 10);
+      const nome = chk.dataset.situNome;
+      const row = state.current.situacoesSociais[idx];
+      let nomes = (row.membros || "").split(",").map(s => s.trim()).filter(Boolean);
+      if (chk.checked) {
+        if (!nomes.includes(nome)) nomes.push(nome);
+      } else {
+        nomes = nomes.filter(n => n !== nome);
+      }
+      row.membros = nomes.join(", ");
       scheduleAutosave();
     });
   });
