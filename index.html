@@ -1,153 +1,305 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-<title>Plano de Acompanhamento Familiar - PAF/PAIF</title>
-<meta name="theme-color" content="#1F3A5F">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema PAF / PAIF - Acompanhamento Familiar</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#172C48">
 </head>
 <body>
-<div id="app">
 
-  <div class="masthead">
-    <div class="masthead-inner">
-      <div class="masthead-brasao" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="30" height="30"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="1"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+  <div id="app">
+    <!-- Masthead Institucional -->
+    <header class="masthead">
+      <div class="masthead-inner">
+        <div class="masthead-brasao">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V7l-9-5z"/>
+          </svg>
+        </div>
+        <div class="masthead-text">
+          <strong>Assistência Social & Proteção Integral</strong>
+          <span>Sistema de Prontuário e Acompanhamento Familiar (PAF / PAIF)</span>
+        </div>
+        <div class="masthead-contact">
+          <span>CRAS / CREAS - Unidade de Atendimento</span>
+          <span>Suporte Técnico Interno</span>
+        </div>
       </div>
-      <div class="masthead-text">
-        <strong>Prefeitura Municipal de Boa Vista</strong>
-        <span>Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</span>
-        <span>Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes</span>
+    </header>
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="brand">
+        <div class="seal">SUAS</div>
+        <span>PAF / PAIF</span>
       </div>
-      <div class="masthead-contact">
-        <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
-        <span>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
+      
+      <button class="icon-btn rail-toggle" id="btnToggleRail" onclick="toggleRail()">☰ Menu</button>
+      
+      <div class="spacer"></div>
+
+      <div class="sync-pill ok" id="syncPill">
+        <span class="sync-dot"></span>
+        <span id="syncLabel">Sincronizado</span>
       </div>
+
+      <div class="user-pill" id="userDisplay">Assistente Social</div>
+
+      <button class="icon-btn" onclick="openView('home')">📋 Listagem</button>
+      <button class="icon-btn" onclick="logout()">Sair</button>
     </div>
-  </div>
 
-  <header class="topbar">
-    <div class="brand">
-      <span class="seal">P</span>
-      <span>PAF <span style="opacity:.55;font-weight:400">/ PAIF</span></span>
-    </div>
-    <button class="icon-btn rail-toggle" id="railToggleBtn" title="Seções">☰</button>
-    <div class="spacer"></div>
-    <div class="sync-pill local" id="syncPill"><span class="sync-dot"></span><span id="syncLabel">Configurar sincronização</span></div>
-    <div class="user-pill" id="userPill" style="display:none"><span id="userEmailLabel"></span></div>
-    <button class="icon-btn" id="logoutBtn" style="display:none" title="Sair">Sair</button>
-    <button class="icon-btn" id="settingsBtn" title="Configurações">⚙︎ Config</button>
-  </header>
-
-  <main id="mainArea">
-    <!-- Seção: Dados Adicionais do Acompanhamento Familiar -->
-    <section class="paf-section" id="sectionDadosAdicionais">
-      <h2>Dados Adicionais da Família</h2>
-
-      <div class="form-grid">
-        <!-- Situação Habitacional e Renda -->
-        <div class="f">
-          <label for="tipoMoradia">Tipo de Moradia</label>
-          <select id="tipoMoradia" name="tipoMoradia">
-            <option value="">Selecione...</option>
-            <option value="Propria">Própria</option>
-            <option value="Alugada">Alugada</option>
-            <option value="Cedida">Cedida</option>
-            <option value="Ocupacao">Ocupação / Área Irregular</option>
-            <option value="Outro">Outro</option>
-          </select>
+    <!-- MAIN APP CONTAINER -->
+    <main>
+      <!-- Tela Inicial / Listagem -->
+      <section id="viewHome" class="home-wrap">
+        <div class="home-head">
+          <div>
+            <p class="home-eyebrow">Acompanhamento Familiar</p>
+            <h1>Plano de Acompanhamento Familiar</h1>
+            <p>Gestão e prontuário contínuo de famílias cadastradas.</p>
+          </div>
+          <button class="btn btn-primary" onclick="createNewPAF()">+ Novo Plano (PAF)</button>
         </div>
 
-        <div class="f">
-          <label for="rendaFamiliar">Renda Familiar Total (R$)</label>
-          <input type="number" step="0.01" id="rendaFamiliar" placeholder="Ex: 1412.00">
+        <div class="search-row">
+          <input type="search" id="searchInput" placeholder="Buscar por nome do responsável ou CPF..." oninput="renderList()">
+          <button class="filter-chip active" onclick="setFilter('todos', this)">Todos</button>
+          <button class="filter-chip" onclick="setFilter('andamento', this)">Em Andamento</button>
+          <button class="filter-chip" onclick="setFilter('encaminhado', this)">Encaminhado</button>
+          <button class="filter-chip" onclick="setFilter('concluido', this)">Concluído</button>
         </div>
 
-        <!-- Benefícios e Identificação Social -->
-        <div class="f">
-          <label for="beneficiosSociais">Benefícios Sociais Recebidos</label>
-          <select id="beneficiosSociais" name="beneficiosSociais">
-            <option value="">Nenhum</option>
-            <option value="Bolsa Familia">Bolsa Família</option>
-            <option value="BPC Idoso">BPC - Idoso</option>
-            <option value="BPC PCD">BPC - Pessoa com Deficiência</option>
-            <option value="Outros">Outros Benefícios</option>
-          </select>
-        </div>
+        <div id="pafGrid" class="paf-grid"></div>
 
-        <div class="f">
-          <label for="numNIS">Número do NIS (Responsável)</label>
-          <input type="text" id="numNIS" placeholder="000.00000.00-0" maxlength="14">
+        <div id="emptyState" class="empty-state" style="display: none;">
+          <div class="empty-seal"><span>SUAS</span></div>
+          <h3>Nenhum registro encontrado</h3>
+          <p>Crie um novo formulário PAF para iniciar o atendimento.</p>
         </div>
+      </section>
 
-        <!-- Vulnerabilidades e Riscos -->
-        <div class="f full-width">
-          <label>Fatores de Vulnerabilidade e Risco Detectados</label>
-          <div class="checkbox-group">
-            <label><input type="checkbox" name="vulnerabilidades" value="Desemprego"> Desemprego / Trabalho Informal</label>
-            <label><input type="checkbox" name="vulnerabilidades" value="Violencia"> Violência Doméstica / Intrafamiliar</label>
-            <label><input type="checkbox" name="vulnerabilidades" value="Trabalho Infantil"> Trabalho Infantil</label>
-            <label><input type="checkbox" name="vulnerabilidades" value="Uso Substancias"> Uso prejudicial de Álcool/Outras Drogas</label>
-            <label><input type="checkbox" name="vulnerabilidades" value="PCD/Idoso Sem Apoio"> PCD ou Idoso sem rede de apoio</label>
+      <!-- Tela de Edição / Formulário -->
+      <section id="viewEditor" class="editor-wrap" style="display: none;">
+        <!-- Trilhos de Abas -->
+        <aside class="tab-rail" id="tabRail">
+          <div class="rail-label">Seções do PAF</div>
+          <div class="tab-item active" onclick="switchTab('tabSec1', this)">
+            <span class="rivet"></span> Dados Gerais
+          </div>
+          <div class="tab-item" onclick="switchTab('tabSec2', this)">
+            <span class="rivet"></span> Família
+          </div>
+          <div class="tab-item" onclick="switchTab('tabSec3', this)">
+            <span class="rivet"></span> Avaliação Social
+          </div>
+          <div class="tab-item" onclick="switchTab('tabSec4', this)">
+            <span class="rivet"></span> Plano de Metas
+          </div>
+          <div class="tab-item" onclick="switchTab('tabSec5', this)">
+            <span class="rivet"></span> Prontuário / Linha do Tempo
+          </div>
+          <div class="tab-item" onclick="switchTab('tabSec6', this)">
+            <span class="rivet"></span> Anexos
+          </div>
+        </aside>
+
+        <!-- Formulários Internos -->
+        <div class="form-scroll">
+          <div class="form-inner">
+            
+            <!-- SEÇÃO 1: DADOS INICIAIS -->
+            <div id="tabSec1" class="tab-content">
+              <div class="section-card">
+                <h2><span class="num">01</span> Identificação e Responsável Familiar</h2>
+                <p class="section-sub">Informações cadastrais e endereço da família.</p>
+                
+                <div class="field-grid">
+                  <div class="f c8">
+                    <label>Nome do Responsável Familiar (RF)</label>
+                    <input type="text" id="field_nomeRF">
+                  </div>
+                  <div class="f c4">
+                    <label>CPF</label>
+                    <input type="text" id="field_cpfRF" placeholder="000.000.000-00">
+                  </div>
+                  <div class="f c4">
+                    <label>NIS</label>
+                    <input type="text" id="field_nisRF">
+                  </div>
+                  <div class="f c4">
+                    <label>Data de Nascimento</label>
+                    <input type="date" id="field_dataNascRF">
+                  </div>
+                  <div class="f c4">
+                    <label>Telefone / WhatsApp</label>
+                    <input type="tel" id="field_telefone">
+                  </div>
+                  <div class="f c8">
+                    <label>Endereço / Logradouro</label>
+                    <input type="text" id="field_endereco">
+                  </div>
+                  <div class="f c4">
+                    <label>Bairro / Comunidade</label>
+                    <input type="text" id="field_bairro">
+                  </div>
+                  <div class="f c12">
+                    <label>Status do Plano</label>
+                    <div class="status-picker">
+                      <button class="status-opt andamento selected" onclick="setStatus('andamento', this)">Em Andamento</button>
+                      <button class="status-opt encaminhado" onclick="setStatus('encaminhado', this)">Encaminhado</button>
+                      <button class="status-opt concluido" onclick="setStatus('concluido', this)">Concluído</button>
+                      <button class="status-opt cancelado" onclick="setStatus('cancelado', this)">Cancelado</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- SEÇÃO 2: COMPOSIÇÃO FAMILIAR -->
+            <div id="tabSec2" class="tab-content" style="display:none;">
+              <div class="section-card">
+                <h2><span class="num">02</span> Composição Familiar</h2>
+                <p class="section-sub">Membros residentes e renda estimada.</p>
+                
+                <table class="dyn-table" id="tableMembros">
+                  <thead>
+                    <tr>
+                      <th>Nome Completo</th>
+                      <th>Parentesco</th>
+                      <th>Idade</th>
+                      <th>Ocupação / Renda</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="membrosContainer"></tbody>
+                </table>
+                <button class="add-row-btn" onclick="addMembroRow()">+ Adicionar Membro</button>
+              </div>
+            </div>
+
+            <!-- SEÇÃO 3: AVALIAÇÃO SOCIAL -->
+            <div id="tabSec3" class="tab-content" style="display:none;">
+              <div class="section-card">
+                <h2><span class="num">03</span> Situação Habitacional e Vulnerabilidades</h2>
+                <p class="section-sub">Diagnóstico inicial realizado pela equipe técnica.</p>
+                
+                <div class="nota-tecnica">
+                  <span class="marca">ANÁLISE</span>
+                  <p>Registre as fragilidades, vínculos comunitários e acesso a serviços públicos essenciais.</p>
+                </div>
+
+                <div class="f">
+                  <label>Descrição da Vulnerabilidade Social</label>
+                  <textarea id="field_vulnerabilidades" rows="4" placeholder="Descreva os principais desafios encontrados..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- SEÇÃO 4: PLANO DE METAS -->
+            <div id="tabSec4" class="tab-content" style="display:none;">
+              <div class="section-card">
+                <h2><span class="num">04</span> Plano de Metas e Compromissos</h2>
+                <p class="section-sub">Objetivos acordados entre a equipe e a família.</p>
+
+                <div id="metasContainer"></div>
+                <button class="add-row-btn" onclick="addMetaRow()">+ Adicionar Meta</button>
+              </div>
+            </div>
+
+            <!-- SEÇÃO 5: PRONTUÁRIO -->
+            <div id="tabSec5" class="tab-content" style="display:none;">
+              <div class="section-card prontuario-header">
+                <div class="prontuario-avatar" id="avatarInitials">--</div>
+                <div class="prontuario-info">
+                  <h3 class="prontuario-nome" id="prontuarioNome">Nome do Responsável</h3>
+                  <div class="prontuario-fields">
+                    <div><span class="k">CPF</span><span class="v" id="prontuarioCPF">---</span></div>
+                    <div><span class="k">NIS</span><span class="v" id="prontuarioNIS">---</span></div>
+                  </div>
+                </div>
+                <div class="prontuario-stats">
+                  <div class="stat-box">
+                    <span class="stat-num" id="statEvolucoes">0</span>
+                    <span class="stat-label">Atendimentos</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-card">
+                <h2>Evolução e Registros de Atendimento</h2>
+                <button class="btn btn-primary btn-sm" onclick="addTimelineItem()" style="margin-bottom: 16px;">+ Novo Atendimento</button>
+
+                <div class="timeline" id="timelineContainer"></div>
+              </div>
+            </div>
+
+            <!-- SEÇÃO 6: ANEXOS -->
+            <div id="tabSec6" class="tab-content" style="display:none;">
+              <div class="section-card">
+                <h2><span class="num">06</span> Documentos e Anexos</h2>
+                <p class="section-sub">Upload de comprovantes, relatórios ou pareceres.</p>
+
+                <div class="anexo-dropzone" onclick="document.getElementById('fileInput').click()">
+                  <span class="anexo-dropzone-icon">📁</span>
+                  <span>Clique aqui para selecionar arquivos</span>
+                  <input type="file" id="fileInput" multiple style="display:none;" onchange="handleFiles(this.files)">
+                </div>
+
+                <div class="anexo-grid" id="anexoGrid"></div>
+              </div>
+            </div>
+
           </div>
         </div>
+      </section>
+    </main>
 
-        <!-- Observações e Parecer Complementar -->
-        <div class="f full-width">
-          <label for="observacoesAdicionais">Observações e Informações Complementares</label>
-          <textarea id="observacoesAdicionais" rows="4" placeholder="Registre informações adicionais relevantes sobre o contexto familiar ou histórico de atendimentos..."></textarea>
+    <!-- Barra de Rodapé Fixa (quando editando) -->
+    <div class="footer-bar" id="footerBar" style="display:none;">
+      <button class="btn btn-ghost" onclick="openView('home')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCurrentPAF()">Salvar Alterações</button>
+    </div>
+
+    <!-- App Footer -->
+    <footer class="app-footer">
+      <div class="app-footer-inner">
+        <div class="app-footer-col">
+          <strong>Sistema de Prontuário PAF / PAIF</strong>
+          <span>Desenvolvido para gestão técnica social de atendimentos do SUAS.</span>
+        </div>
+        <div class="app-footer-tech">
+          <span>Modo Offline Ativo • Armazenamento Local</span>
         </div>
       </div>
-    </section>
-  </main>
-
-  <footer class="app-footer">
-    <div class="app-footer-inner">
-      <div class="app-footer-col">
-        <strong>Prefeitura Municipal de Boa Vista</strong>
-        <span>Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</span>
-        <span>CRAS Cristiana Vicente Nunes — Centenário</span>
-      </div>
-      <div class="app-footer-col">
-        <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
-        <span>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
-      </div>
-      <div class="app-footer-col app-footer-tech">
-        <span>Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF)</span>
-        <span>Com base nas Orientações Técnicas do PAIF (MDS, vols. 1 e 2) e na Tipificação Nacional de Serviços Socioassistenciais</span>
-        <span>Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR</span>
-      </div>
-    </div>
-  </footer>
-</div>
-
-<div id="authScreen" class="login-wrap" style="display:none">
-  <div class="login-card">
-    <div class="seal-lg">P</div>
-    <h1>Plano de Acompanhamento Familiar</h1>
-    <p class="login-org">Prefeitura Municipal de Boa Vista · SEMADS<br>CRAS Cristiana Vicente Nunes</p>
-    <p class="sub">Entre com sua conta para acessar os registros do PAF/PAIF.</p>
-    <div class="login-error" id="authError" style="display:none"></div>
-    <div class="f"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username" placeholder="seu.email@exemplo.com"></div>
-    <div class="f"><label>Senha</label><input type="password" id="authPassword" autocomplete="current-password" placeholder="••••••••"></div>
-    <button class="btn btn-primary" id="authSubmitBtn">Entrar</button>
-    <p class="login-hint"><a href="#" id="forgotPasswordLink">Esqueci minha senha</a></p>
-    <p class="login-hint">Não tem uma conta? Peça ao administrador do sistema para criá-la.</p>
+    </footer>
   </div>
-</div>
 
-<div id="toast" class="toast"></div>
-<div id="modalRoot"></div>
+  <!-- Modal / Tela de Login Mock -->
+  <div class="login-wrap" id="loginModal" style="display: none;">
+    <div class="login-card">
+      <div class="seal-lg">SUAS</div>
+      <h1>Acesso ao Sistema</h1>
+      <p class="login-org">Assistência Social e Proteção Integral</p>
+      
+      <div class="f">
+        <label>Usuário / Matrícula</label>
+        <input type="text" id="loginUser" value="assistente.social">
+      </div>
+      <div class="f">
+        <label>Senha</label>
+        <input type="password" id="loginPass" value="123456">
+      </div>
+      <button class="btn btn-primary" onclick="performLogin()">Entrar no Sistema</button>
+    </div>
+  </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
-<script src="app.js"></script>
+  <!-- Toast Notificação -->
+  <div id="toast" class="toast">Mensagem do Sistema</div>
+
+  <script src="app.js"></script>
 </body>
 </html>
