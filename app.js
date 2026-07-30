@@ -1141,17 +1141,24 @@ function renderHomeHTML() {
     return `<button class="filter-chip ${state.statusFilter === s ? "active" : ""}" data-status="${s}">${label}</button>`;
   }).join("");
 
-  const cards = list.map(p => {
+  const rows = list.map(p => {
     const membrosCount = (p.membros || []).filter(m => m.nome).length;
+    const protocolo = escapeHtml((p.id || "").split("_")[1] || "—");
+    const inicial = (escapeHtml(p.responsavel) || "?").trim().charAt(0).toUpperCase() || "?";
     return `
-    <div class="paf-card status-${p.situacaoPAF}" data-open="${p.id}">
-      <span class="stamp ${p.situacaoPAF}">${STATUS_LABELS[p.situacaoPAF] || "Em andamento"}</span>
-      <h3>${escapeHtml(p.responsavel) || "Sem nome do responsável"}</h3>
-      <div class="meta">
-        <span>CRAS: ${escapeHtml(p.crasNome) || "—"}</span>
-        <span>Início: ${fmtDateBR(p.dataInicial) || "—"} · ${membrosCount} membro(s)</span>
+    <div class="record-row status-${p.situacaoPAF}" data-open="${p.id}">
+      <div class="record-index">${inicial}</div>
+      <div class="record-main">
+        <div class="record-name">${escapeHtml(p.responsavel) || "Sem nome do responsável"}</div>
+        <div class="record-protocolo">Prontuário Nº ${protocolo}</div>
       </div>
-      <div class="card-actions">
+      <div class="record-cras">${escapeHtml(p.crasNome) || "—"}</div>
+      <div class="record-col record-membros">${membrosCount} memb.</div>
+      <div class="record-col record-data">${fmtDateBR(p.dataInicial) || "—"}</div>
+      <div class="record-status">
+        <span class="folder-tab ${p.situacaoPAF}">${STATUS_LABELS[p.situacaoPAF] || "Em andamento"}</span>
+      </div>
+      <div class="record-actions">
         <button class="btn btn-ghost btn-sm" data-open="${p.id}">Abrir</button>
         <div class="export-menu">
           <button class="btn btn-ghost btn-sm" data-export-toggle="${p.id}">Exportar ▾</button>
@@ -1164,6 +1171,16 @@ function renderHomeHTML() {
       </div>
     </div>`;
   }).join("");
+
+  const recordsHead = `
+    <div class="records-list-head">
+      <span></span>
+      <span>Responsável</span>
+      <span>CRAS</span>
+      <span>Membros</span>
+      <span>Início</span>
+      <span>Situação</span>
+    </div>`;
 
   const empty = `
     <div class="empty-state">
@@ -1187,9 +1204,9 @@ function renderHomeHTML() {
     </div>
     <div class="search-row">
       <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF ou CRAS…" value="${escapeHtml(state.search)}">
-      ${chips}
+      <div class="filter-tabs">${chips}</div>
     </div>
-    ${list.length ? `<div class="paf-grid">${cards}</div>` : empty}
+    ${list.length ? `<div class="records-list">${recordsHead}${rows}</div>` : empty}
   </div>`;
 }
 
@@ -1605,7 +1622,7 @@ function renderSection(id, paf) {
         <div class="prontuario-info">
           <h2 class="prontuario-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</h2>
           <div class="prontuario-tags">
-            <span class="stamp ${paf.situacaoPAF}" style="position:static;transform:none;display:inline-block;">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
+            <span class="folder-tab ${paf.situacaoPAF}">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
           </div>
           <div class="prontuario-fields">
             <div><span class="k">CRAS</span><span class="v">${escapeHtml(paf.crasNome) || "—"}</span></div>
