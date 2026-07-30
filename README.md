@@ -114,9 +114,13 @@ os registros só para si (não compartilha com os outros).
   impressão/assinatura, tanto na tela do formulário quanto no menu "Exportar" de cada
   card na lista.
 - **Anexos**: na aba "Anexos" do formulário é possível anexar fotos e documentos PDF
-  a cada PAF. Imagens são comprimidas automaticamente ao anexar. Fotos anexadas
-  aparecem também no PDF exportado; PDFs anexados ficam listados por nome (para
-  baixá-los é preciso usar o botão "Baixar" do próprio anexo).
+  a cada PAF. Imagens são comprimidas automaticamente ao anexar. Ao **Baixar PDF**,
+  as fotos aparecem no corpo do relatório e cada PDF anexado é incluído logo em
+  seguida, uma página por documento (isso depende do navegador conseguir imprimir
+  o PDF embutido — funciona bem no Chrome/Edge; se algum anexo não aparecer, baixe-o
+  separadamente pelo botão "Baixar" do próprio anexo). No **Word (.doc)**, as fotos
+  também são incorporadas ao documento, mas os PDFs continuam apenas listados por
+  nome (o Word não permite embutir páginas de outro PDF).
   > **Atenção ao usar a sincronização em nuvem (Firestore):** cada PAF é salvo como
   > um único documento, que tem um limite de ~1 MB no total. O app avisa quando os
   > anexos de um PAF estão ficando grandes demais e recusa arquivos que ultrapassem
