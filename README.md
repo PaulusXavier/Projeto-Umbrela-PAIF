@@ -92,6 +92,14 @@ os registros só para si (não compartilha com os outros).
   para registros antigos ou preenchimento rápido.
 - **Composição familiar detalhada** (seção Membros da Família): cada membro agora também
   registra sexo, nacionalidade e se é pessoa com deficiência (PCD).
+- **Trabalho Social Coletivo do PAIF** (nova subseção 04a, dentro de "Situações, Trabalho
+  Coletivo e Serviços"): registre a participação da família em acolhida, grupos de
+  acompanhamento familiar, SCFV articulado ao PAIF, oficinas socioeducativas, ações
+  comunitárias e mobilização de redes — distinto dos encaminhamentos a outros órgãos.
+- **Objetivos do PAIF trabalhados no Plano** (seção Elaboração do Plano): checklist com
+  os objetivos do Serviço conforme a Tipificação Nacional de Serviços Socioassistenciais,
+  para deixar claro qual finalidade do PAIF está sendo perseguida com aquela família —
+  também aparece no PDF e no Word exportados.
 - **Diagnóstico socioeconômico** (dentro da seção Diagnóstico): blocos objetivos de
   Condições Habitacionais, Condições Educacionais, Condições de Trabalho e Renda e
   Condições de Saúde, no mesmo padrão do Prontuário SUAS — mais rápidos de preencher do
