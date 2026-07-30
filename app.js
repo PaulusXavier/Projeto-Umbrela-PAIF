@@ -43,9 +43,7 @@ const SITUACOES_SOCIAIS = [
   "Questões relacionadas a saúde mental",
   "Membro com problemas de saúde com doença limitadora de atividades cotidianas",
   "Pessoa(s) com deficiência(s)",
-  "Presença de idosos com dependência que permanecem períodos do dia em casa sem a companhia de outro adulto",
   "Maternidade/Paternidade na adolescência",
-  "Crianças pequenas que permanecem períodos do dia em casa sem a companhia de um adulto",
   "Outras situações"
 ];
 
@@ -60,6 +58,30 @@ const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Fune
 const REDE_APOIO = ["Creches", "Escolas em tempo integral", "Projetos sociais em contraturno escolar", "OSC's e/ou associação de bairro", "UBS", "CAPS"];
 
 const TIPOS_ATENDIMENTO = ["Atendimento no CRAS", "Visita Domiciliar", "Contato Telefônico", "Encaminhamento", "Reunião de Rede", "Grupo/SCFV", "Outro"];
+
+// Objetivos do PAIF conforme a Tipificação Nacional de Serviços Socioassistenciais —
+// usados para que a equipe registre, no Plano, quais objetivos do Serviço estão
+// sendo trabalhados com esta família específica (evita que o PAF vire só "resolução de caso").
+const OBJETIVOS_PAIF = [
+  "Fortalecer a função protetiva da família, contribuindo para a melhoria da sua qualidade de vida",
+  "Prevenir a ruptura de vínculos familiares e comunitários, apoiando a superação de situações de fragilidade social",
+  "Promover aquisições sociais e materiais à família, fortalecendo seu protagonismo e autonomia",
+  "Ampliar o acesso a benefícios, programas de transferência de renda e serviços socioassistenciais",
+  "Ampliar o acesso a serviços setoriais (saúde, educação, trabalho e outros), contribuindo para o usufruto de direitos",
+  "Apoiar a família que tem, entre seus membros, pessoas que demandam cuidados, por meio de espaços coletivos de escuta e troca de experiências"
+];
+
+// Trabalho social coletivo do PAIF (distinto dos encaminhamentos a outros serviços/órgãos):
+// ações que a própria equipe do CRAS realiza com a família e no território.
+const ATIVIDADES_COLETIVAS_PAIF = [
+  "Acolhida (recepção e escuta inicial da família no CRAS)",
+  "Grupos de acompanhamento familiar do PAIF",
+  "Grupos de Convivência e Fortalecimento de Vínculos (SCFV) articulados ao PAIF",
+  "Oficinas socioeducativas com famílias",
+  "Ações comunitárias, campanhas ou mutirões no território",
+  "Palestras informativas sobre direitos e serviços",
+  "Mobilização e articulação da rede social de apoio no território"
+];
 
 const TIPO_ATENDIMENTO_COR = {
   "Atendimento no CRAS": "#2E7D6B",
@@ -109,8 +131,6 @@ const STATUS_LABELS = { andamento: "Em andamento", encaminhado: "Encaminhado", c
 
 /* ---- Aproveitado do Prontuário SUAS (MDS): habitação, saúde e encaminhamentos ---- */
 
-const NACIONALIDADES = ["Brasileira", "Venezuelana", "Guianense", "Haitiana", "Cubana", "Outra"];
-
 const HABITACAO_TIPO = ["Própria", "Alugada", "Cedida", "Ocupada"];
 const HABITACAO_PAREDES = ["Alvenaria ou madeira aparelhada", "Madeira aproveitada, taipa ou outros materiais precários"];
 const HABITACAO_ENERGIA = ["Com medidor próprio", "Com medidor compartilhado", "Sem medidor", "Não possui energia elétrica"];
@@ -125,7 +145,7 @@ const SECTIONS = [
   { id: "cabecalho", label: "Cabeçalho" },
   { id: "familia", label: "Membros da Família" },
   { id: "diagnostico", label: "Diagnóstico" },
-  { id: "grupo", label: "Situações e Serviços" },
+  { id: "grupo", label: "Situações, Trabalho Coletivo e Serviços" },
   { id: "encaminhamentos", label: "Encaminhamentos" },
   { id: "programas", label: "Programas e Benefícios" },
   { id: "rede", label: "Rede do Território" },
@@ -337,6 +357,8 @@ function emptyPAF() {
     vulnerabilidadesOutros: "",
     situacoesSociais: SITUACOES_SOCIAIS.map(s => ({ situacao: s, membros: "", superada: false })),
     servBasica: [], servMedia: [], servAlta: [],
+    atividadesColetivas: [],
+    atividadesColetivasOutras: "",
     // Diagnóstico socioeconômico (aproveitado do Prontuário SUAS)
     habitacaoTipo: "", habitacaoParedes: "", habitacaoEnergia: "", habitacaoAgua: "",
     habitacaoEsgoto: "", habitacaoLixo: "", habitacaoComodos: "", habitacaoDormitorios: "",
@@ -366,6 +388,8 @@ function emptyPAF() {
     eixos: [],
     eixosOutros: "",
     familiaParticipou: "",
+    objetivosPaif: [],
+    objetivosPaifOutros: "",
     prazoExecucaoPlano: "",
     prazoAvaliacaoPlano: "",
     tecnicoReferencia: "",
@@ -1168,13 +1192,13 @@ function tabCompleteness(paf) {
     cabecalho: !!(paf.responsavel && paf.crasNome),
     familia: paf.membros.some(m => m.nome),
     diagnostico: paf.vulnerabilidades.length > 0,
-    grupo: paf.situacoesSociais.some(s => s.membros) || paf.servBasica.length || paf.servMedia.length || paf.servAlta.length,
+    grupo: paf.situacoesSociais.some(s => s.membros) || (paf.atividadesColetivas || []).length || paf.servBasica.length || paf.servMedia.length || paf.servAlta.length,
     encaminhamentos: (paf.encaminhamentosForm || []).length > 0,
     programas: !!paf.participaProgramas,
     rede: paf.redeApoio.length > 0,
     metas: paf.metas.some(m => m.prazo || m.resultados) || (paf.atendimentos || []).length > 0,
     estrategias: paf.estrategias.length > 0,
-    plano: !!(paf.tecnicoReferencia && paf.prazoExecucaoPlano),
+    plano: !!(paf.tecnicoReferencia && paf.prazoExecucaoPlano) || (paf.objetivosPaif || []).length > 0,
     encerramento: !!paf.encerramentoMotivo,
     anexos: (paf.anexos || []).length > 0,
     observacoes: !!paf.observacoes
@@ -1184,6 +1208,9 @@ function tabCompleteness(paf) {
 function renderEditorHTML() {
   const paf = state.current;
   const complete = tabCompleteness(paf);
+  const totalSecoes = SECTIONS.length;
+  const secoesCompletas = SECTIONS.filter(s => complete[s.id]).length;
+  const progresso = Math.round((secoesCompletas / totalSecoes) * 100);
   const rail = SECTIONS.map(s => `
     <div class="tab-item ${state.activeSection === s.id ? "active" : ""} ${complete[s.id] ? "complete" : ""}" data-section="${s.id}">
       <span class="rivet"></span>${s.label}
@@ -1193,6 +1220,10 @@ function renderEditorHTML() {
   <div class="editor-wrap">
     <nav class="tab-rail ${state.railOpen ? "open" : ""}" id="tabRail">
       <div class="rail-label">Seções do PAF</div>
+      <div class="rail-progress" title="${secoesCompletas} de ${totalSecoes} seções com informações preenchidas">
+        <div class="rail-progress-track"><div class="rail-progress-fill" style="width:${progresso}%"></div></div>
+        <span class="rail-progress-label">${progresso}% preenchido</span>
+      </div>
       ${rail}
     </nav>
     <div class="form-scroll" id="formScroll">
@@ -1239,13 +1270,20 @@ function situacaoMembrosField(paf, i, row) {
     return `<input type="text" placeholder="Cadastre os membros na seção 02 para selecioná-los aqui" data-field="situacoesSociais.${i}.membros" value="${escapeHtml(row.membros)}">`;
   }
   const selecionados = (row.membros || "").split(",").map(s => s.trim()).filter(Boolean);
-  return `<div class="situ-membros-picker">
-    ${nomes.map(n => `
-      <label class="chk chk-mini">
-        <input type="checkbox" data-situ-idx="${i}" data-situ-nome="${escapeHtml(n)}" ${selecionados.includes(n) ? "checked" : ""}>
-        <span>${escapeHtml(n)}</span>
-      </label>`).join("")}
-  </div>`;
+  const resumo = selecionados.length ? selecionados.join(", ") : "Selecionar membros";
+  return `<details class="situ-membros-dropdown">
+    <summary class="situ-membros-summary" title="Clique para selecionar os membros">
+      <span class="situ-membros-resumo">${escapeHtml(resumo)}</span>
+      <span class="situ-membros-count">${selecionados.length ? selecionados.length : ""}</span>
+    </summary>
+    <div class="situ-membros-picker">
+      ${nomes.map(n => `
+        <label class="chk chk-mini">
+          <input type="checkbox" data-situ-idx="${i}" data-situ-nome="${escapeHtml(n)}" ${selecionados.includes(n) ? "checked" : ""}>
+          <span>${escapeHtml(n)}</span>
+        </label>`).join("")}
+    </div>
+  </details>`;
 }
 
 function renderSection(id, paf) {
@@ -1423,7 +1461,13 @@ function renderSection(id, paf) {
           </div>`).join("")}
       </div>
       <div class="section-card">
-        <h2><span class="num">04a</span>Serviços da Rede Socioassistencial</h2>
+        <h2><span class="num">04a</span>Trabalho Social Coletivo do PAIF</h2>
+        <p class="section-sub">Ações realizadas pela própria equipe do CRAS com a família e no território — diferente dos encaminhamentos a outros serviços/órgãos (seção 05).</p>
+        ${chkList("atividadesColetivas", ATIVIDADES_COLETIVAS_PAIF, paf.atividadesColetivas || [], true)}
+        <div class="f" style="margin-top:12px"><label>Outras</label><input type="text" data-field="atividadesColetivasOutras" value="${escapeHtml(paf.atividadesColetivasOutras)}"></div>
+      </div>
+      <div class="section-card">
+        <h2><span class="num">04b</span>Serviços da Rede Socioassistencial</h2>
         <div class="field-grid">
           <div class="f c4"><label>Proteção Social Básica</label>${chkList("servBasica", SERVICOS_BASICA, paf.servBasica)}</div>
           <div class="f c4"><label>Média Complexidade</label>${chkList("servMedia", SERVICOS_MEDIA, paf.servMedia)}</div>
@@ -1591,6 +1635,10 @@ function renderSection(id, paf) {
     case "plano": return `
       <div class="section-card">
         ${sectionHeader("10", "Elaboração do Plano", "")}
+        ${notaTecnica("Marque os objetivos do PAIF (conforme a Tipificação Nacional de Serviços Socioassistenciais) que este Plano pretende trabalhar com a família — isso ajuda a manter o acompanhamento alinhado à finalidade do Serviço, e não apenas à resolução de uma demanda pontual.")}
+        <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
+        ${chkList("objetivosPaif", OBJETIVOS_PAIF, paf.objetivosPaif || [], true)}
+        <div class="f" style="margin:12px 0 20px"><label>Outros objetivos</label><input type="text" data-field="objetivosPaifOutros" value="${escapeHtml(paf.objetivosPaifOutros)}"></div>
         <div class="field-grid">
           <div class="f c6">
             <label>A família participou da construção do Plano de Acompanhamento?</label>
@@ -1852,9 +1900,6 @@ function attachEditorHandlers() {
 /* ---------------------------- Global Handlers ---------------------------- */
 
 function attachGlobalHandlers() {
-  document.getElementById("btnGoHome")?.addEventListener("click", goHome);
-  document.getElementById("btnNewPafHeader")?.addEventListener("click", newPAF);
-  
   const railToggle = document.getElementById("railToggleBtn");
   if (railToggle) {
     railToggle.onclick = () => {
@@ -2135,6 +2180,10 @@ function exportPDF(paf) {
         <tbody>${situacoesHTML}</tbody>
       </table>
 
+      <h2>Trabalho Social Coletivo do PAIF</h2>
+      <div>${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
+      ${paf.atividadesColetivasOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.atividadesColetivasOutras)}</p>` : ""}
+
       <h2>Registro de Atendimentos</h2>
       ${atendimentosHTML}
 
@@ -2143,6 +2192,10 @@ function exportPDF(paf) {
         <thead><tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr></thead>
         <tbody>${metasHTML}</tbody>
       </table>
+
+      <h2>Objetivos do PAIF Trabalhados no Plano</h2>
+      <div>${(paf.objetivosPaif || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
+      ${paf.objetivosPaifOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.objetivosPaifOutros)}</p>` : ""}
 
       <h2>Elaboração e Encerramento</h2>
       <div class="grid">
@@ -2328,7 +2381,10 @@ function exportWord(paf) {
       <h2>03. Diagnóstico e Vulnerabilidades</h2>
       <p>${(paf.vulnerabilidades || []).join(", ") || "Nenhuma registrada"}</p>
 
-      <h2>03a. Diagnóstico Socioeconômico</h2>
+      <h2>03a. Trabalho Social Coletivo do PAIF</h2>
+      <p>${(paf.atividadesColetivas || []).join(", ") || "Nenhuma registrada"}${paf.atividadesColetivasOutras ? " | Outras: " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
+
+      <h2>03b. Diagnóstico Socioeconômico</h2>
       <p>
       <b>Habitação:</b> ${escapeHtml(paf.habitacaoTipo) || "—"} | ${escapeHtml(paf.habitacaoParedes) || "—"} | Energia: ${escapeHtml(paf.habitacaoEnergia) || "—"} | Esgoto: ${escapeHtml(paf.habitacaoEsgoto) || "—"} | Área de risco: ${escapeHtml(paf.habitacaoAreaRisco) || "—"}<br>
       <b>Educação:</b> Fora da escola (0-5/6-14/15-17): ${escapeHtml(paf.eduForaEscola06) || "0"}/${escapeHtml(paf.eduForaEscola614) || "0"}/${escapeHtml(paf.eduForaEscola1517) || "0"}<br>
@@ -2355,7 +2411,8 @@ function exportWord(paf) {
       </table>
 
       <h2>06. Encerramento e Validação</h2>
-      <p><b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia)}<br>
+      <p><b>Objetivos do PAIF trabalhados neste Plano:</b> ${(paf.objetivosPaif || []).join("; ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? " | Outros: " + escapeHtml(paf.objetivosPaifOutros) : ""}<br>
+      <b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia)}<br>
       <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao)}<br>
       <b>Observações:</b> ${escapeHtml(paf.observacoes)}</p>
 
