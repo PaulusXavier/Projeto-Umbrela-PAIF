@@ -54,8 +54,23 @@ const SERVICOS_ALTA = ["Acolhimento Institucional", "Acolhimento em República",
 const PROGRAMAS_QUAIS = ["Bolsa Família", "BPC - Benefício de Prestação Continuada", "Programa Família que Acolhe (FQA)",
   "Projeto ArtCanto", "Programa Dedo Verde", "Programa Rumo Certo", "Projeto Cabelos de Prata", "Conviver",
   "Cesta da Família", "Colo de Mãe"];
-const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte", "Em Pecúnia (dinheiro, cartão, cheque, depósito bancário)"];
-const REDE_APOIO = ["Creches", "Escolas em tempo integral", "Projetos sociais em contraturno escolar", "OSC's e/ou associação de bairro", "UBS", "CAPS"];
+const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte", "Em Pecúnia (dinheiro, cartão, cheque, depósito bancário)", "Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família"];
+const REDE_APOIO = [
+  // Saúde
+  "UBS - Unidade Básica de Saúde", "CAPS - Centro de Atenção Psicossocial", "Hospital/Maternidade",
+  "NASF - Núcleo Ampliado de Saúde da Família", "Farmácia Popular", "Vigilância em Saúde/Epidemiológica",
+  // Educação
+  "Creches", "Escolas (ensino regular)", "Escolas em tempo integral", "EJA - Educação de Jovens e Adultos",
+  "Projetos sociais em contraturno escolar", "Núcleo/Sala de Apoio Pedagógico",
+  // Assistência Social
+  "CRAS", "CREAS", "Centro POP", "Casa de Acolhimento/Abrigo Institucional", "Conselho Tutelar",
+  "Restaurante Popular/Banco de Alimentos",
+  // Justiça e Direitos
+  "Defensoria Pública", "Ministério Público", "Vara da Infância e Juventude", "Delegacia (DEAM/Delegacia da Mulher)",
+  "Poder Judiciário/Fórum",
+  // Comunidade e sociedade civil
+  "OSC's e/ou associação de bairro", "Igrejas e instituições religiosas", "Conselhos Municipais de Direitos"
+];
 
 const TIPOS_ATENDIMENTO = ["Atendimento no CRAS", "Visita Domiciliar", "Contato Telefônico", "Encaminhamento", "Reunião de Rede", "Grupo/SCFV", "Outro"];
 
@@ -441,6 +456,16 @@ function enderecoCompleto(paf) {
 function escapeHtml(str) {
   return String(str == null ? "" : str)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function protocoloNumero(pafOrId) {
+  const id = typeof pafOrId === "string" ? pafOrId : (pafOrId && pafOrId.id);
+  const ordenados = [...state.pafs].sort((a, b) => {
+    const ca = a.createdAt || a.dataInicial || a.id || "";
+    const cb = b.createdAt || b.dataInicial || b.id || "";
+    return ca.localeCompare(cb);
+  });
+  const idx = ordenados.findIndex(p => p.id === id);
+  return idx === -1 ? "—" : String(idx + 1);
 }
 function fmtDateBR(iso) {
   if (!iso) return "";
@@ -1143,7 +1168,7 @@ function renderHomeHTML() {
 
   const rows = list.map(p => {
     const membrosCount = (p.membros || []).filter(m => m.nome).length;
-    const protocolo = escapeHtml((p.id || "").split("_")[1] || "—");
+    const protocolo = protocoloNumero(p);
     const inicial = (escapeHtml(p.responsavel) || "?").trim().charAt(0).toUpperCase() || "?";
     return `
     <div class="record-row status-${p.situacaoPAF}" data-open="${p.id}">
@@ -1297,7 +1322,7 @@ function renderEditorHTML() {
       <div class="form-inner">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="backHomeBtn">← Voltar à lista</button>
-          <span class="protocolo-tag">Protocolo Nº ${escapeHtml((paf.id || "").split("_")[1] || "—")}</span>
+          <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
           <div class="status-picker" style="margin-left:auto">
             ${["andamento", "encaminhado", "concluido", "cancelado"].map(s => `
               <button class="status-opt ${paf.situacaoPAF === s ? "selected " + s : ""}" data-set-status="${s}">${STATUS_LABELS[s]}</button>
@@ -1415,7 +1440,7 @@ function renderSection(id, paf) {
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
         ${notaTecnica("O campo \"Parentesco\" deve refletir o arranjo familiar real da família atendida, sem pressupor o modelo nuclear tradicional (pai, mãe e filhos). As Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS chamam atenção para a diversidade de configurações familiares — famílias monoparentais, homoafetivas, chefiadas por mulheres, ou pessoas sem núcleo familiar de referência — como parte legítima do público do PAIF.")}
         <table class="dyn-table">
-          <thead><tr><th style="width:20%">Nome</th><th style="width:12%">Nascimento</th><th style="width:7%">Sexo</th><th style="width:14%">Parentesco</th><th style="width:16%">Nacionalidade</th><th style="width:7%">PCD</th><th></th></tr></thead>
+          <thead><tr><th style="width:22%">Nome</th><th style="width:14%">Nascimento</th><th style="width:9%">Sexo</th><th style="width:18%">Parentesco</th><th style="width:20%">Nacionalidade</th><th></th></tr></thead>
           <tbody>
             ${paf.membros.map((m, i) => `
               <tr>
@@ -1430,7 +1455,6 @@ function renderSection(id, paf) {
                 </td>
                 <td><input type="text" data-field="membros.${i}.parentesco" value="${escapeHtml(m.parentesco)}"></td>
                 <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade)}"></td>
-                <td style="text-align:center"><input type="checkbox" data-field-check="membros.${i}.pcd" ${m.pcd ? "checked" : ""}></td>
                 <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover" aria-label="Remover membro">✕</button></td>
               </tr>`).join("")}
           </tbody>
@@ -1514,7 +1538,7 @@ function renderSection(id, paf) {
           ${simNao("saudeGestante", paf.saudeGestante, "saudeGestanteQuem", paf.saudeGestanteQuem)}
           <div class="f c12"><label>Observações sobre saúde</label><textarea rows="2" data-field="saudeObs">${escapeHtml(paf.saudeObs)}</textarea></div>
         </div>
-        <p class="hint">A presença de PCD e cuidados constantes já é registrada na tabela de "Membros da Família" (coluna PCD) e na lista de vulnerabilidades acima.</p>
+        <p class="hint">A presença de PCD e a necessidade de cuidados constantes devem ser registradas na lista de vulnerabilidades acima e/ou no campo de observações do Diagnóstico.</p>
       </div>`;
     }
 
@@ -2210,7 +2234,7 @@ function exportPDF(paf) {
           <p>Serviço de Proteção e Atendimento Integral à Família (PAIF) ${paf.crasNome ? "· " + escapeHtml(paf.crasNome) : ""}</p>
         </div>
         <div class="capa-meta">
-          Ficha nº ${escapeHtml((paf.id || "").split("_")[1] || "—")}<br>
+          Ficha nº ${protocoloNumero(paf)}<br>
           Emitido em ${fmtDateBR(todayISO())}
         </div>
       </div>
