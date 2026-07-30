@@ -136,7 +136,32 @@ os registros só para si (não compartilha com os outros).
   encaminhamentos por área e uma tabela de evolução mensal (novos PAFs e acumulado,
   por mês de início). Pode ser impresso/baixado em PDF.
 
-## 4. Arquivos do projeto
+## 4. Fundamentação técnica
+
+Além do formulário original em Word, o conteúdo do app (campos, notas técnicas
+e checklists) foi organizado com base em:
+
+- **Orientações Técnicas sobre o PAIF** (MDS, vols. 1 e 2);
+- **Tipificação Nacional de Serviços Socioassistenciais** (MDS);
+- **Prontuário SUAS** (MDS), para os campos de identificação, endereço e
+  diagnóstico socioeconômico;
+- **Referências Técnicas para Atuação de Psicólogas(os) no CRAS/SUAS**
+  (Conselho Federal de Psicologia / CREPOP, 3ª ed., 2021), que fundamenta,
+  em especial: o entendimento da vulnerabilidade como situação social e
+  dinâmica (não um traço fixo ou culpa da família); o reconhecimento da
+  pluralidade de arranjos familiares atendidos pelo CRAS, além do modelo
+  nuclear tradicional; o caráter territorial e comunitário do trabalho do
+  PAIF, com foco no fortalecimento de vínculos; e o caráter não tutelar do
+  Plano de Acompanhamento, que deve fortalecer a autonomia e o protagonismo
+  da família, evitando o assistencialismo e a resolução pontual de "casos".
+  Essas referências aparecem no app como "Notas técnicas" ao longo das
+  seções do formulário.
+
+Nenhum desses documentos substitui o julgamento técnico da equipe do CRAS —
+servem apenas como referência para orientar o preenchimento e a leitura do
+Plano.
+
+## 5. Arquivos do projeto
 
 | Arquivo | Função |
 |---|---|
