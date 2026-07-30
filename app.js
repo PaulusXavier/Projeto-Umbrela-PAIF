@@ -635,7 +635,19 @@ function computeResumoMensal() {
     grupos[ym].quantidade++;
     grupos[ym].status[p.situacaoPAF] = (grupos[ym].status[p.situacaoPAF] || 0) + 1;
   });
-  return grupos;
+
+  const saidas = {};
+  state.pafs.forEach(p => {
+    const dataSaida = p.encerramentoData;
+    if (!dataSaida || dataSaida.length < 7) return;
+    const ym = dataSaida.slice(0, 7);
+    if (!saidas[ym]) saidas[ym] = { quantidade: 0, motivos: {} };
+    saidas[ym].quantidade++;
+    const motivoLabel = ENCERRAMENTO_MOTIVOS.find(m => m.v === p.encerramentoMotivo)?.label || "Não informado";
+    saidas[ym].motivos[motivoLabel] = (saidas[ym].motivos[motivoLabel] || 0) + 1;
+  });
+
+  return { grupos, saidas };
 }
 
 function labelYm(ym) {
@@ -708,34 +720,43 @@ function resumoGeralHTML(r) {
     </div>`;
 }
 
-function resumoMensalTabelaHTML(grupos) {
-  const meses = Object.keys(grupos).sort().reverse();
-  if (!meses.length) return `<p class="muted">Nenhum PAF com data inicial preenchida ainda.</p>`;
-  let acumulado = 0;
-  const totalGeral = meses.reduce((a, ym) => a + grupos[ym].quantidade, 0);
+function resumoMensalTabelaHTML(dados) {
+  const { grupos, saidas } = dados;
+  const meses = Array.from(new Set([...Object.keys(grupos), ...Object.keys(saidas)])).sort().reverse();
+  if (!meses.length) return `<p class="muted">Nenhum PAF com data inicial ou de encerramento preenchida ainda.</p>`;
+
   const linhasCrescentes = [...meses].reverse();
+  const totalIncluidas = linhasCrescentes.reduce((a, ym) => a + (grupos[ym]?.quantidade || 0), 0);
+  const totalExcluidas = linhasCrescentes.reduce((a, ym) => a + (saidas[ym]?.quantidade || 0), 0);
+
+  let acumulado = 0;
   const acumulados = {};
-  linhasCrescentes.forEach(ym => { acumulado += grupos[ym].quantidade; acumulados[ym] = acumulado; });
+  linhasCrescentes.forEach(ym => {
+    acumulado += (grupos[ym]?.quantidade || 0) - (saidas[ym]?.quantidade || 0);
+    acumulados[ym] = acumulado;
+  });
 
   return `
     <table class="resumo-tabela">
-      <thead><tr><th>Mês de início</th><th>Novos PAFs</th><th>Em andamento</th><th>Encaminhados</th><th>Concluídos</th><th>Cancelados</th><th>Acumulado</th></tr></thead>
+      <thead><tr><th>Mês</th><th>Incluídas</th><th>Excluídas</th><th>Saldo</th><th>Acumulado</th></tr></thead>
       <tbody>
         ${meses.map(ym => {
-          const g = grupos[ym];
+          const inc = grupos[ym]?.quantidade || 0;
+          const exc = saidas[ym]?.quantidade || 0;
+          const saldo = inc - exc;
+          const motivosTitle = saidas[ym] ? Object.entries(saidas[ym].motivos).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
           return `<tr>
             <td>${labelYm(ym)}</td>
-            <td>${g.quantidade}</td>
-            <td>${g.status.andamento || 0}</td>
-            <td>${g.status.encaminhado || 0}</td>
-            <td>${g.status.concluido || 0}</td>
-            <td>${g.status.cancelado || 0}</td>
+            <td>${inc}</td>
+            <td${motivosTitle ? ` title="${escapeHtml(motivosTitle)}"` : ""}>${exc}</td>
+            <td style="color:${saldo > 0 ? "var(--accent-dark)" : saldo < 0 ? "var(--danger)" : "inherit"};font-weight:600;">${saldo > 0 ? "+" : ""}${saldo}</td>
             <td>${acumulados[ym]}</td>
           </tr>`;
         }).join("")}
       </tbody>
-      <tfoot><tr><th>Total</th><th>${totalGeral}</th><th colspan="4"></th><th></th></tr></tfoot>
-    </table>`;
+      <tfoot><tr><th>Total</th><th>${totalIncluidas}</th><th>${totalExcluidas}</th><th>${totalIncluidas - totalExcluidas > 0 ? "+" : ""}${totalIncluidas - totalExcluidas}</th><th></th></tr></tfoot>
+    </table>
+    <p class="hint" style="margin-top:6px;">Incluídas: famílias com data de início nesse mês. Excluídas: famílias com data de encerramento nesse mês (passe o mouse sobre o número para ver os motivos). Acumulado: saldo líquido de famílias em acompanhamento.</p>`;
 }
 
 function openResumoModal() {
@@ -751,7 +772,7 @@ function openResumoModal() {
         <div class="resumo-scroll">
           ${resumoGeralHTML(geral)}
           <div class="resumo-secao">
-            <h4>Evolução mensal (por data de início do PAF)</h4>
+            <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
             ${resumoMensalTabelaHTML(grupos)}
           </div>
         </div>
@@ -806,7 +827,7 @@ function imprimirResumoMensal(geral, grupos) {
       <p class="sub">Todas as famílias cadastradas · Emitido em ${fmtDateBR(todayISO())}</p>
       ${resumoGeralHTML(geral)}
       <div class="resumo-secao">
-        <h4>Evolução mensal (por data de início do PAF)</h4>
+        <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
         ${resumoMensalTabelaHTML(grupos)}
       </div>
       <script>window.onload = () => setTimeout(() => window.print(), 200);<\/script>
@@ -977,7 +998,7 @@ function subscribeCloud() {
   state.unsub = col.onSnapshot(
     snap => {
       state.pafs = snap.docs.map(d => d.data());
-      localStorage.setItem("paf_cache", JSON.stringify(state.pafs));
+      try { localStorage.setItem("paf_cache", JSON.stringify(state.pafs)); } catch (err) { console.error(err); }
       setSyncPill("ok", "Sincronizado (nuvem)");
       if (state.view === "home") renderApp();
     },
@@ -989,20 +1010,36 @@ function subscribeCloud() {
   );
 }
 
+function safeParseArray(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error("Dados locais corrompidos, ignorando:", err);
+    return [];
+  }
+}
+
 function loadLocalCacheOnly() {
-  const raw = localStorage.getItem("paf_cache");
-  state.pafs = raw ? JSON.parse(raw) : [];
+  state.pafs = safeParseArray(localStorage.getItem("paf_cache"));
   if (state.view === "home") renderApp();
 }
 
 function loadLocal() {
-  const raw = localStorage.getItem("paf_records");
-  state.pafs = raw ? JSON.parse(raw) : [];
+  state.pafs = safeParseArray(localStorage.getItem("paf_records"));
   renderApp();
 }
 
 function persistLocalArray() {
-  localStorage.setItem("paf_records", JSON.stringify(state.pafs));
+  try {
+    localStorage.setItem("paf_records", JSON.stringify(state.pafs));
+    return true;
+  } catch (err) {
+    console.error(err);
+    toast("Não foi possível salvar neste dispositivo — armazenamento cheio ou indisponível.");
+    return false;
+  }
 }
 
 function savePAF(paf, opts = {}) {
@@ -1014,8 +1051,8 @@ function savePAF(paf, opts = {}) {
   } else {
     const idx = state.pafs.findIndex(p => p.id === paf.id);
     if (idx === -1) state.pafs.unshift(paf); else state.pafs[idx] = paf;
-    persistLocalArray();
-    if (!opts.silent) toast("Salvo neste dispositivo.");
+    const ok = persistLocalArray();
+    if (ok && !opts.silent) toast("Salvo neste dispositivo.");
   }
 }
 
@@ -1363,7 +1400,7 @@ function renderSection(id, paf) {
                 <td><input type="text" data-field="membros.${i}.parentesco" value="${escapeHtml(m.parentesco)}"></td>
                 <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade)}"></td>
                 <td style="text-align:center"><input type="checkbox" data-field-check="membros.${i}.pcd" ${m.pcd ? "checked" : ""}></td>
-                <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover">✕</button></td>
+                <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover" aria-label="Remover membro">✕</button></td>
               </tr>`).join("")}
           </tbody>
         </table>
@@ -1496,8 +1533,8 @@ function renderSection(id, paf) {
                 <td><input type="text" data-field="encaminhamentosForm.${i}.profissionalOrigem" value="${escapeHtml(e.profissionalOrigem)}" placeholder="${escapeHtml(paf.tecnicoReferencia) || ''}"></td>
                 <td><input type="text" data-field="encaminhamentosForm.${i}.telefoneOrigem" value="${escapeHtml(e.telefoneOrigem)}"></td>
                 <td style="white-space:nowrap;">
-                  <button class="btn btn-ghost btn-sm" data-action="imprimir-encaminhamento" data-idx="${i}" title="Gerar e imprimir">🖨️</button>
-                  <button class="row-del" data-action="remove-encaminhamento" data-idx="${i}" title="Remover">✕</button>
+                  <button class="btn btn-ghost btn-sm" data-action="imprimir-encaminhamento" data-idx="${i}" title="Gerar e imprimir" aria-label="Gerar e imprimir formulário de encaminhamento">🖨️</button>
+                  <button class="row-del" data-action="remove-encaminhamento" data-idx="${i}" title="Remover" aria-label="Remover encaminhamento">✕</button>
                 </td>
               </tr>
               <tr>
@@ -1585,7 +1622,7 @@ function renderSection(id, paf) {
                 <span class="mes">${escapeHtml(badge.mes)}</span>
               </div>
               <div class="timeline-card">
-                <button class="row-del" data-action="remove-atendimento" data-idx="${i}" title="Remover este atendimento">✕</button>
+                <button class="row-del" data-action="remove-atendimento" data-idx="${i}" title="Remover este atendimento" aria-label="Remover este atendimento">✕</button>
                 <div class="timeline-row">
                   <div class="f"><label>Data</label><input type="date" data-field="atendimentos.${i}.data" value="${escapeHtml(a.data)}"></div>
                   <div class="f"><label>Tipo de Atendimento</label>
@@ -1937,6 +1974,10 @@ function exportPDF(paf) {
     toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
     return;
   }
+  const qtdPdfsAnexados = (paf.anexos || []).filter(a => a.tipo === "application/pdf").length;
+  if (qtdPdfsAnexados) {
+    toast(`Gerando documento com ${qtdPdfsAnexados} PDF${qtdPdfsAnexados > 1 ? "s" : ""} anexado${qtdPdfsAnexados > 1 ? "s" : ""} — pode levar alguns segundos…`);
+  }
 
   const membrosHTML = (paf.membros || []).map(m => `
     <tr>
@@ -1994,8 +2035,19 @@ function exportPDF(paf) {
         <img src="${a.dataURL}">
         <span>${escapeHtml(a.nome)}</span>
       </div>`).join("")}</div>` : ""}
-    ${anexosPdf.length ? `<p class="muted">Documentos PDF anexados (não exibidos aqui — baixe-os separadamente no app): ${anexosPdf.map(a => escapeHtml(a.nome)).join(", ")}</p>` : ""}
+    ${anexosPdf.length ? `<p class="muted">Documentos PDF anexados (incluídos a seguir, uma página por documento): ${anexosPdf.map(a => escapeHtml(a.nome)).join(", ")}</p>` : ""}
   ` : "";
+
+  const anexosPdfPaginasHTML = anexosPdf.map(a => `
+    <div class="anexo-pdf-pagina">
+      <p class="anexo-pdf-titulo">Anexo — ${escapeHtml(a.nome)}</p>
+      <object data="${a.dataURL}" type="application/pdf" class="anexo-pdf-embed">
+        <div class="anexo-pdf-fallback">
+          <p>Não foi possível exibir este PDF diretamente aqui.</p>
+          <a href="${a.dataURL}" download="${escapeHtml(a.nome)}" target="_blank">Toque aqui para abrir/baixar "${escapeHtml(a.nome)}"</a>
+        </div>
+      </object>
+    </div>`).join("");
 
   const html = `
     <!DOCTYPE html>
@@ -2091,6 +2143,13 @@ function exportPDF(paf) {
         .anexo-print-item { width: 140px; text-align: center; page-break-inside: avoid; }
         .anexo-print-item img { max-width: 100%; max-height: 160px; border: 1px solid #D7E0E6; border-radius: 4px; }
         .anexo-print-item span { display: block; font-size: 8.5px; color: #52667C; margin-top: 3px; word-break: break-word; }
+
+        .anexo-pdf-pagina { page-break-before: always; padding-top: 8px; }
+        .anexo-pdf-titulo { font-family: Georgia, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
+        .anexo-pdf-embed { width: 100%; height: 95vh; border: 1px solid #D7E0E6; }
+        .anexo-pdf-fallback { text-align: center; padding: 40px 20px; border: 1px dashed #D7E0E6; border-radius: 6px; }
+        .anexo-pdf-fallback a { display: inline-block; margin-top: 8px; color: #2E7D6B; font-weight: bold; }
+        @media print { .anexo-pdf-embed { height: 95vh; } }
 
         @media print {
           .capa-header, h2 { page-break-after: avoid; }
@@ -2225,8 +2284,10 @@ function exportPDF(paf) {
         Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </div>
 
+      ${anexosPdfPaginasHTML}
+
       <script>
-        window.onload = () => { window.print(); };
+        window.onload = () => { setTimeout(() => window.print(), ${anexosPdf.length ? 700 : 50}); };
       </script>
     </body>
     </html>
@@ -2418,8 +2479,22 @@ function exportWord(paf) {
 
       ${(paf.anexos || []).length ? `
       <h2>07. Anexos</h2>
-      <p>${(paf.anexos || []).map(a => escapeHtml(a.nome)).join(", ")}<br>
-      <i>Os arquivos de anexo não são incorporados a este documento Word — baixe-os separadamente pelo app (aba "Anexos").</i></p>` : ""}
+      ${(() => {
+        const imgs = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
+        const pdfs = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
+        let out = "";
+        if (imgs.length) {
+          out += `<table style="border:none;"><tr>` + imgs.map(a => `
+            <td style="border:none;text-align:center;padding:6pt;vertical-align:top;">
+              <img src="${a.dataURL}" style="max-width:220px;max-height:220px;border:1px solid #CCCCCC;"><br>
+              <span style="font-size:8pt;color:#52667C;">${escapeHtml(a.nome)}</span>
+            </td>`).join("") + `</tr></table>`;
+        }
+        if (pdfs.length) {
+          out += `<p><b>Documentos PDF anexados</b> (não incorporados a este arquivo Word — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map(a => escapeHtml(a.nome)).join(", ")}</p>`;
+        }
+        return out;
+      })()}` : ""}
 
       <hr/>
       <p style="font-size:8pt;color:#8496A8;text-align:center;">
