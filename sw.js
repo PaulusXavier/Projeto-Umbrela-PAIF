@@ -1,10 +1,13 @@
-const CACHE_NAME = 'paf-paif-v2';
+const CACHE_NAME = 'paf-paif-v3';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
-  './manifest.json'
+  './firebase-config.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
