@@ -1090,6 +1090,19 @@ function openPAF(id) {
   state.current = JSON.parse(JSON.stringify(paf));
   const blank = emptyPAF();
   Object.keys(blank).forEach(k => { if (state.current[k] === undefined) state.current[k] = blank[k]; });
+
+  // Migração: se novas situações sociais ou metas fixas foram adicionadas ao app
+  // depois que este PAF foi criado, inclui as que estiverem faltando (sem remover
+  // nem apagar o que já foi preenchido para as existentes).
+  const situacoesExistentes = new Set(state.current.situacoesSociais.map(s => s.situacao));
+  SITUACOES_SOCIAIS.forEach(s => {
+    if (!situacoesExistentes.has(s)) state.current.situacoesSociais.push({ situacao: s, membros: "", superada: false });
+  });
+  const metasExistentes = new Set(state.current.metas.map(m => m.meta));
+  METAS_FIXAS.forEach(m => {
+    if (!metasExistentes.has(m)) state.current.metas.push({ meta: m, prazo: "", resultados: "" });
+  });
+
   state.view = "editor";
   state.activeSection = "cabecalho";
   renderApp();
@@ -1383,6 +1396,7 @@ function renderSection(id, paf) {
     case "familia": return `
       <div class="section-card">
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
+        ${notaTecnica("O campo \"Parentesco\" deve refletir o arranjo familiar real da família atendida, sem pressupor o modelo nuclear tradicional (pai, mãe e filhos). As Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS chamam atenção para a diversidade de configurações familiares — famílias monoparentais, homoafetivas, chefiadas por mulheres, ou pessoas sem núcleo familiar de referência — como parte legítima do público do PAIF.")}
         <table class="dyn-table">
           <thead><tr><th style="width:20%">Nome</th><th style="width:12%">Nascimento</th><th style="width:7%">Sexo</th><th style="width:14%">Parentesco</th><th style="width:16%">Nacionalidade</th><th style="width:7%">PCD</th><th></th></tr></thead>
           <tbody>
@@ -1427,7 +1441,7 @@ function renderSection(id, paf) {
       return `
       <div class="section-card">
         ${sectionHeader("03", "Diagnóstico", "Família inserida em acompanhamento familiar no PAIF para superação da(s) seguinte(s) vulnerabilidade(s):")}
-        ${notaTecnica("Vulnerabilidade, para a PNAS, vai além da renda: é uma leitura dinâmica das situações de desproteção social vividas pela família, moldadas por seus recursos e pelo território — e não um traço fixo ou definitivo de quem é atendido.")}
+        ${notaTecnica("Vulnerabilidade, para a PNAS, vai além da renda: é uma leitura dinâmica das situações de desproteção social vividas pela família, moldadas por seus recursos e pelo território — e não um traço fixo ou definitivo de quem é atendido. As Referências Técnicas do CFP/CREPOP para o CRAS/SUAS reforçam que a vulnerabilidade não deve ser tratada como atributo individual da família nem usada para culpabilizá-la por sua condição de pobreza, mas compreendida à luz de condições sociais, econômicas e históricas mais amplas — sem prejuízo do reconhecimento das potencialidades e da capacidade de protagonismo de cada família no seu próprio processo.")}
         ${chkList("vulnerabilidades", VULNERABILIDADES_FAMILIA, paf.vulnerabilidades)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="vulnerabilidadesOutros" value="${escapeHtml(paf.vulnerabilidadesOutros)}"></div>
       </div>
@@ -1490,6 +1504,7 @@ function renderSection(id, paf) {
     case "grupo": return `
       <div class="section-card">
         ${sectionHeader("04", "Sobre o Grupo Familiar", "Vulnerabilidades e riscos sociais a serem superados, gerados pelas múltiplas expressões da questão social.")}
+        ${notaTecnica("O trabalho do PAIF é, antes de tudo, territorial e comunitário: as Referências Técnicas do CFP/CREPOP para o CRAS/SUAS situam o fortalecimento de vínculos familiares e comunitários — e não apenas o atendimento individual — como eixo central da atuação da equipe técnica, incluindo a psicóloga(o), junto a essa família.")}
         ${paf.situacoesSociais.map((row, i) => `
           <div class="matrix-row">
             <div class="situ-label">${escapeHtml(row.situacao)}</div>
@@ -1672,7 +1687,7 @@ function renderSection(id, paf) {
     case "plano": return `
       <div class="section-card">
         ${sectionHeader("10", "Elaboração do Plano", "")}
-        ${notaTecnica("Marque os objetivos do PAIF (conforme a Tipificação Nacional de Serviços Socioassistenciais) que este Plano pretende trabalhar com a família — isso ajuda a manter o acompanhamento alinhado à finalidade do Serviço, e não apenas à resolução de uma demanda pontual.")}
+        ${notaTecnica("Marque os objetivos do PAIF (conforme a Tipificação Nacional de Serviços Socioassistenciais) que este Plano pretende trabalhar com a família — isso ajuda a manter o acompanhamento alinhado à finalidade do Serviço, e não apenas à resolução de uma demanda pontual. As Referências Técnicas do CFP/CREPOP destacam que o Plano deve ter caráter não tutelar: a família participa ativamente da definição de suas metas, e o trabalho técnico busca fortalecer sua autonomia e protagonismo, e não apenas prover respostas assistencialistas às suas demandas.")}
         <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
         ${chkList("objetivosPaif", OBJETIVOS_PAIF, paf.objetivosPaif || [], true)}
         <div class="f" style="margin:12px 0 20px"><label>Outros objetivos</label><input type="text" data-field="objetivosPaifOutros" value="${escapeHtml(paf.objetivosPaifOutros)}"></div>
@@ -2243,6 +2258,27 @@ function exportPDF(paf) {
       <div>${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
       ${paf.atividadesColetivasOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.atividadesColetivasOutras)}</p>` : ""}
 
+      <h2>Serviços da Rede Socioassistencial</h2>
+      <div class="grid">
+        <div class="field"><span class="label">Proteção Social Básica</span>${(paf.servBasica || []).map(escapeHtml).join(", ") || "—"}</div>
+        <div class="field"><span class="label">Média Complexidade</span>${(paf.servMedia || []).map(escapeHtml).join(", ") || "—"}</div>
+        <div class="field"><span class="label">Alta Complexidade</span>${(paf.servAlta || []).map(escapeHtml).join(", ") || "—"}</div>
+      </div>
+
+      <h2>Programas, Projetos e Benefícios Socioassistenciais</h2>
+      <div class="grid">
+        <div class="field"><span class="label">Participa de programas/projetos sociais</span>${escapeHtml(paf.participaProgramas) || "—"}</div>
+        <div class="field"><span class="label">Recebe outro benefício assistencial</span>${escapeHtml(paf.recebeBeneficio) || "—"}</div>
+      </div>
+      <div>${(paf.programasQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
+      ${paf.programasOutros ? `<p style="margin:4px 0;"><strong>Outros programas:</strong> ${escapeHtml(paf.programasOutros)}</p>` : ""}
+      <div>${(paf.beneficioQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
+      ${paf.beneficioOutro ? `<p style="margin:4px 0;"><strong>Outro benefício:</strong> ${escapeHtml(paf.beneficioOutro)}</p>` : ""}
+
+      <h2>Recursos do Território (Rede de Apoio)</h2>
+      <div>${(paf.redeApoio || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
+      ${paf.redeApoioOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.redeApoioOutros)}</p>` : ""}
+
       <h2>Registro de Atendimentos</h2>
       ${atendimentosHTML}
 
@@ -2252,17 +2288,28 @@ function exportPDF(paf) {
         <tbody>${metasHTML}</tbody>
       </table>
 
+      <h2>Estratégias e Eixos de Intervenção</h2>
+      <div class="grid">
+        <div class="field"><span class="label">Estratégias</span>${(paf.estrategias || []).map(escapeHtml).join(", ") || "—"}${paf.estrategiasOutras ? " · Outras: " + escapeHtml(paf.estrategiasOutras) : ""}</div>
+        <div class="field"><span class="label">Eixos de intervenção</span>${(paf.eixos || []).map(escapeHtml).join(", ") || "—"}${paf.eixosOutros ? " · Outros: " + escapeHtml(paf.eixosOutros) : ""}</div>
+      </div>
+
       <h2>Objetivos do PAIF Trabalhados no Plano</h2>
       <div>${(paf.objetivosPaif || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
       ${paf.objetivosPaifOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.objetivosPaifOutros)}</p>` : ""}
 
       <h2>Elaboração e Encerramento</h2>
       <div class="grid">
+        <div class="field"><span class="label">Família participou da elaboração</span>${escapeHtml(paf.familiaParticipou) || "—"}</div>
         <div class="field"><span class="label">Técnico de Referência</span>${escapeHtml(paf.tecnicoReferencia) || "—"}</div>
         <div class="field"><span class="label">Data de Elaboração</span>${fmtDateBR(paf.dataElaboracao) || "—"}</div>
+        <div class="field"><span class="label">Prazo de execução do Plano</span>${escapeHtml(paf.prazoExecucaoPlano) || "—"}</div>
+        <div class="field"><span class="label">Prazo de avaliação do Plano</span>${escapeHtml(paf.prazoAvaliacaoPlano) || "—"}</div>
         <div class="field"><span class="label">Motivo de Encerramento</span>${escapeHtml(ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo)?.label) || "—"}</div>
+        <div class="field"><span class="label">Técnico do Encerramento</span>${escapeHtml(paf.encerramentoTecnico) || "—"}</div>
         <div class="field"><span class="label">Data de Encerramento</span>${fmtDateBR(paf.encerramentoData) || "—"}</div>
       </div>
+      ${paf.encerramentoOutros ? `<p style="margin:6px 0 0;"><strong>Outros motivos/observações do encerramento:</strong> ${escapeHtml(paf.encerramentoOutros)}</p>` : ""}
 
       ${paf.observacoes ? `<h2>Observações Gerais</h2><p>${escapeHtml(paf.observacoes)}</p>` : ""}
 
@@ -2395,6 +2442,11 @@ function imprimirEncaminhamento(paf, enc) {
 function exportWord(paf) {
   if (!paf) return;
 
+  const situacoesWordHTML = (paf.situacoesSociais || [])
+    .filter(s => s.membros || s.superada)
+    .map(s => `<tr><td>${escapeHtml(s.situacao)}</td><td>${escapeHtml(s.membros)}</td><td>${s.superada ? "Sim" : "Não"}</td></tr>`)
+    .join("") || "<tr><td colspan='3'>Nenhuma situação registrada</td></tr>";
+
   const content = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
@@ -2442,10 +2494,21 @@ function exportWord(paf) {
       <h2>03. Diagnóstico e Vulnerabilidades</h2>
       <p>${(paf.vulnerabilidades || []).join(", ") || "Nenhuma registrada"}</p>
 
-      <h2>03a. Trabalho Social Coletivo do PAIF</h2>
+      <h2>03a. Situações Sociais Registradas</h2>
+      <table>
+        <tr><th>Situação Social</th><th>Membros</th><th>Superada</th></tr>
+        ${situacoesWordHTML}
+      </table>
+
+      <h2>03b. Trabalho Social Coletivo do PAIF</h2>
       <p>${(paf.atividadesColetivas || []).join(", ") || "Nenhuma registrada"}${paf.atividadesColetivasOutras ? " | Outras: " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
 
-      <h2>03b. Diagnóstico Socioeconômico</h2>
+      <h2>03c. Serviços da Rede Socioassistencial</h2>
+      <p><b>Proteção Social Básica:</b> ${(paf.servBasica || []).join(", ") || "—"}<br>
+      <b>Média Complexidade:</b> ${(paf.servMedia || []).join(", ") || "—"}<br>
+      <b>Alta Complexidade:</b> ${(paf.servAlta || []).join(", ") || "—"}</p>
+
+      <h2>03d. Diagnóstico Socioeconômico</h2>
       <p>
       <b>Habitação:</b> ${escapeHtml(paf.habitacaoTipo) || "—"} | ${escapeHtml(paf.habitacaoParedes) || "—"} | Energia: ${escapeHtml(paf.habitacaoEnergia) || "—"} | Esgoto: ${escapeHtml(paf.habitacaoEsgoto) || "—"} | Área de risco: ${escapeHtml(paf.habitacaoAreaRisco) || "—"}<br>
       <b>Educação:</b> Fora da escola (0-5/6-14/15-17): ${escapeHtml(paf.eduForaEscola06) || "0"}/${escapeHtml(paf.eduForaEscola614) || "0"}/${escapeHtml(paf.eduForaEscola1517) || "0"}<br>
@@ -2465,17 +2528,32 @@ function exportWord(paf) {
         ${paf.encaminhamentosForm.map(e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td>${escapeHtml(e.objetivo)}</td><td>${escapeHtml(e.contraReferencia) || "—"}</td></tr>`).join("")}
       </table>` : ""}
 
+      <h2>04b. Programas, Projetos e Benefícios Socioassistenciais</h2>
+      <p><b>Participa de programas/projetos sociais:</b> ${escapeHtml(paf.participaProgramas) || "—"} — ${(paf.programasQuais || []).join(", ") || "nenhum selecionado"}${paf.programasOutros ? " | Outros: " + escapeHtml(paf.programasOutros) : ""}<br>
+      <b>Recebe outro benefício assistencial:</b> ${escapeHtml(paf.recebeBeneficio) || "—"} — ${(paf.beneficioQuais || []).join(", ") || "nenhum selecionado"}${paf.beneficioOutro ? " | Outro: " + escapeHtml(paf.beneficioOutro) : ""}</p>
+
+      <h2>04c. Recursos do Território (Rede de Apoio)</h2>
+      <p>${(paf.redeApoio || []).join(", ") || "Nenhum selecionado"}${paf.redeApoioOutros ? " | Outros: " + escapeHtml(paf.redeApoioOutros) : ""}</p>
+
       <h2>05. Metas e Resultados</h2>
       <table>
         <tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr>
         ${(paf.metas || []).map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`).join("")}
       </table>
 
-      <h2>06. Encerramento e Validação</h2>
+      <h2>05a. Estratégias e Eixos de Intervenção</h2>
+      <p><b>Estratégias:</b> ${(paf.estrategias || []).join(", ") || "—"}${paf.estrategiasOutras ? " | Outras: " + escapeHtml(paf.estrategiasOutras) : ""}<br>
+      <b>Eixos de intervenção:</b> ${(paf.eixos || []).join(", ") || "—"}${paf.eixosOutros ? " | Outros: " + escapeHtml(paf.eixosOutros) : ""}</p>
+
+      <h2>06. Elaboração e Encerramento</h2>
       <p><b>Objetivos do PAIF trabalhados neste Plano:</b> ${(paf.objetivosPaif || []).join("; ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? " | Outros: " + escapeHtml(paf.objetivosPaifOutros) : ""}<br>
-      <b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia)}<br>
-      <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao)}<br>
-      <b>Observações:</b> ${escapeHtml(paf.observacoes)}</p>
+      <b>Família participou da elaboração:</b> ${escapeHtml(paf.familiaParticipou) || "—"}<br>
+      <b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia) || "—"}<br>
+      <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao) || "—"}<br>
+      <b>Prazo de execução do Plano:</b> ${escapeHtml(paf.prazoExecucaoPlano) || "—"} | <b>Prazo de avaliação do Plano:</b> ${escapeHtml(paf.prazoAvaliacaoPlano) || "—"}<br>
+      <b>Motivo de Encerramento:</b> ${escapeHtml(ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo)?.label) || "—"} ${paf.encerramentoOutros ? "(" + escapeHtml(paf.encerramentoOutros) + ")" : ""}<br>
+      <b>Técnico do Encerramento:</b> ${escapeHtml(paf.encerramentoTecnico) || "—"} | <b>Data de Encerramento:</b> ${fmtDateBR(paf.encerramentoData) || "—"}<br>
+      <b>Observações:</b> ${escapeHtml(paf.observacoes) || "—"}</p>
 
       ${(paf.anexos || []).length ? `
       <h2>07. Anexos</h2>
