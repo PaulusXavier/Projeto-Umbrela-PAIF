@@ -4,7 +4,7 @@
   --paper-soft: #F6F2E8;
   --ink: #1F3A5F;
   --ink-soft: #52667C;
-  --ink-faint: #8496A8;
+  --ink-faint: #71859A;
   --accent: #2E7D6B;
   --accent-dark: #1F5C4E;
   --accent-soft: #DEEAE6;
@@ -60,6 +60,18 @@ a { color: var(--accent-dark); }
 
 /* ---------- Layout shell ---------- */
 #app { min-height: 100vh; display: flex; flex-direction: column; }
+
+.tab-rail, .form-scroll, .resumo-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-soft) transparent;
+}
+.tab-rail::-webkit-scrollbar, .form-scroll::-webkit-scrollbar, .resumo-scroll::-webkit-scrollbar { width: 8px; }
+.tab-rail::-webkit-scrollbar-thumb, .form-scroll::-webkit-scrollbar-thumb, .resumo-scroll::-webkit-scrollbar-thumb {
+  background: var(--gold-soft); border-radius: 999px; border: 2px solid var(--paper);
+}
+.tab-rail:hover::-webkit-scrollbar-thumb, .form-scroll:hover::-webkit-scrollbar-thumb, .resumo-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--gold);
+}
 
 /* ---------- Institutional masthead ---------- */
 .masthead {
@@ -133,6 +145,7 @@ a { color: var(--accent-dark); }
   width: 30px; height: 30px;
   border-radius: 50%;
   border: 1.5px solid var(--gold-soft);
+  background: radial-gradient(circle at 32% 28%, rgba(243,231,208,.18), transparent 60%);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-display);
   font-size: 13px;
@@ -184,9 +197,10 @@ main { flex: 1; display: flex; min-height: 0; }
 .btn:active { transform: scale(.97); }
 .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(46,125,107,.28); }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(46,125,107,.35); }
-.btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-.btn-ghost:hover { background: var(--paper-soft); }
-.btn-danger { background: var(--danger-soft); color: var(--danger); }
+.btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); transition: background .12s, border-color .12s, transform .12s, box-shadow .12s; }
+.btn-ghost:hover { background: var(--paper-soft); border-color: var(--ink-faint); }
+.btn-danger { background: var(--danger-soft); color: var(--danger); transition: background .12s, transform .12s; }
+.btn-danger:hover { background: #EFCEC9; }
 .btn-sm { padding: 6px 11px; font-size: 12.5px; }
 
 .search-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
@@ -206,14 +220,14 @@ main { flex: 1; display: flex; min-height: 0; }
 .paf-card {
   background: var(--paper); border-radius: 3px 10px 10px 10px; box-shadow: var(--shadow);
   padding: 16px 16px 14px; border-left: 4px solid var(--accent); position: relative; cursor: pointer;
-  transition: transform .12s;
+  transition: transform .12s, box-shadow .12s;
 }
 .paf-card::before {
   content: ""; position: absolute; top: -9px; left: 0; width: 74px; height: 9px;
   background: inherit; border-radius: 6px 6px 0 0;
   box-shadow: var(--shadow);
 }
-.paf-card:hover { transform: translateY(-2px); }
+.paf-card:hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(31,58,95,.1), 0 10px 26px rgba(31,58,95,.13); }
 .paf-card.status-cancelado { border-left-color: var(--danger); }
 .paf-card.status-concluido { border-left-color: var(--ink-faint); }
 .paf-card.status-encaminhado { border-left-color: var(--gold); }
@@ -239,6 +253,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .empty-seal {
   width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 16px;
   border: 2px solid var(--gold); position: relative;
+  background: radial-gradient(circle at 34% 26%, #fff, var(--gold-soft) 70%);
   display: flex; align-items: center; justify-content: center;
 }
 .empty-seal::before {
@@ -278,6 +293,7 @@ main { flex: 1; display: flex; min-height: 0; }
   display: flex; align-items: center; gap: 10px;
   padding: 10px 20px; font-size: 13px; color: var(--ink-soft);
   border-left: 3px solid transparent; position: relative;
+  transition: background .12s, border-color .12s, color .12s;
 }
 .tab-item .rivet {
   width: 7px; height: 7px; border-radius: 50%; background: var(--line); flex-shrink: 0;
@@ -300,6 +316,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .section-card {
   background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 22px 24px 26px; margin-bottom: 18px;
+  border-top: 2px solid var(--gold-soft);
 }
 .section-card h2 {
   font-size: 16.5px; margin: 0 0 3px; color: var(--ink); display:flex; align-items:center; gap:10px;
@@ -475,8 +492,9 @@ main { flex: 1; display: flex; min-height: 0; }
 
 .footer-bar {
   position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--line);
-  padding: 12px 24px; display: flex; justify-content: flex-end; gap: 10px; z-index: 30;
+  padding: 7px 16px; display: flex; justify-content: flex-end; gap: 6px; z-index: 30;
 }
+.footer-bar .btn { padding: 6px 11px; font-size: 12px; gap: 5px; }
 
 .hint { font-size: 11.5px; color: var(--ink-faint); margin-top: 4px; }
 
@@ -541,8 +559,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .resumo-scroll { max-height: 62vh; overflow-y: auto; margin: 10px 0 4px; padding-right: 6px; }
 
 .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
-.kpi-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 8px; text-align: center; background: var(--paper-soft); }
-.kpi-valor { display: block; font-size: 19px; font-weight: 700; color: var(--accent-dark); }
+.kpi-card { border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 8px; padding: 10px 8px; text-align: center; background: var(--paper-soft); }
+.kpi-valor { display: block; font-family: var(--font-display); font-size: 21px; font-weight: 700; color: var(--accent-dark); }
 .kpi-label { display: block; font-size: 10px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .03em; margin-top: 3px; line-height: 1.3; }
 
 .resumo-secao { margin-bottom: 18px; }
@@ -647,6 +665,7 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 .login-card .seal-lg {
   width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--gold); position: relative;
+  background: radial-gradient(circle at 34% 26%, #fff, var(--gold-soft) 70%);
   display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;
   font-family: var(--font-display); font-size: 21px; color: var(--gold);
 }
