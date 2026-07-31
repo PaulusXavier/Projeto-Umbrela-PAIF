@@ -145,6 +145,19 @@ e checklists) foi organizado com base em:
 - **Tipificação Nacional de Serviços Socioassistenciais** (MDS);
 - **Prontuário SUAS** (MDS), para os campos de identificação, endereço e
   diagnóstico socioeconômico;
+- **Trilhas "Trabalho Social com Famílias e Territórios no PAIF"** (MDS/UNICEF),
+  usadas nas Notas técnicas de campos específicos do formulário:
+  - *Trilha para o contexto das condicionalidades do Programa Bolsa Família* —
+    fundamenta a nota sobre não cumprimento de condicionalidades como sinal de
+    desproteção social (não punição), na seção Programas e Benefícios;
+  - *Trilha para o contexto da Insegurança Alimentar e Nutricional* — fundamenta
+    a nota sobre a fome como fenômeno multidimensional e o atendimento à demanda
+    de cesta básica como porta de entrada para o acompanhamento, na seção
+    Condições de Trabalho e Renda;
+  - *Trilha para prevenção da violência doméstica e familiar contra as mulheres* —
+    fundamenta a nota sobre acolhida sem exigência de comprovação e o papel
+    preventivo/complementar do PAIF frente ao PAEFI, na seção Sobre o Grupo
+    Familiar;
 - **Referências Técnicas para Atuação de Psicólogas(os) no CRAS/SUAS**
   (Conselho Federal de Psicologia / CREPOP, 3ª ed., 2021), que fundamenta,
   em especial: o entendimento da vulnerabilidade como situação social e
