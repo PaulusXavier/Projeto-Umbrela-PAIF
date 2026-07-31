@@ -223,27 +223,29 @@ main { flex: 1; display: flex; min-height: 0; }
 .filter-chip[data-status="encaminhado"].active { box-shadow: 0 2px 0 var(--gold) inset; }
 .filter-chip[data-status="concluido"].active { box-shadow: 0 2px 0 var(--ink-faint) inset; }
 .filter-chip[data-status="cancelado"].active { box-shadow: 0 2px 0 var(--danger) inset; }
+.filter-chip[data-status="arquivo"].active { box-shadow: 0 2px 0 var(--ink-faint) inset; }
 
 /* ---------- Records repository (list/ledger) ---------- */
 .records-list {
-  border: 1px solid var(--line); border-radius: 0 10px 10px 10px; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 0 10px 10px 10px;
   background: var(--paper); box-shadow: var(--shadow);
 }
 .records-list-head {
-  display: grid; grid-template-columns: 46px 1.7fr 1fr 96px 118px 118px;
+  display: grid; grid-template-columns: 46px 1.7fr 1fr 96px 118px 118px 258px;
   gap: 14px; align-items: center; padding: 9px 18px 9px 14px;
   background: var(--paper-soft); border-bottom: 1px solid var(--line);
   font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: .09em;
-  color: var(--ink-faint);
+  color: var(--ink-faint); border-radius: 0 10px 0 0;
 }
 .record-row {
-  display: grid; grid-template-columns: 46px 1.7fr 1fr 96px 118px 118px;
+  display: grid; grid-template-columns: 46px 1.7fr 1fr 96px 118px 118px 258px;
   gap: 14px; align-items: center; padding: 11px 18px 11px 14px;
   border-bottom: 1px solid var(--line); position: relative; cursor: pointer;
   background: var(--paper); transition: background .12s;
 }
 .records-list .record-row:nth-child(even) { background: #FBFAF6; }
-.record-row:last-child { border-bottom: none; }
+.record-row:last-child { border-bottom: none; border-radius: 0 0 10px 10px; }
+.record-row:last-child::before { border-radius: 0 0 0 10px; }
 .record-row:hover { background: var(--accent-soft); }
 .record-row::before {
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent);
@@ -387,6 +389,15 @@ main { flex: 1; display: flex; min-height: 0; }
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .f textarea { resize: vertical; min-height: 64px; }
+
+.date-idade-row { display: flex; align-items: center; gap: 8px; }
+.date-idade-row input[type=date] { flex: 1; }
+.idade-badge {
+  font-size: 11px; font-weight: 600; color: var(--ink-soft); background: var(--paper-soft);
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px; white-space: nowrap;
+}
+.idade-badge:empty { display: none; }
+.idade-badge-sm { display: block; margin-top: 4px; padding: 2px 7px; font-size: 10.5px; text-align: center; }
 
 .check-list { display: flex; flex-direction: column; gap: 8px; }
 .check-list.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
