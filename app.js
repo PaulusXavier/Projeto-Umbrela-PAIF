@@ -513,6 +513,11 @@ function calcularIdade(iso) {
   if (aindaNaoFezAniversario) idade--;
   return idade >= 0 ? idade : null;
 }
+function idadeTexto(iso) {
+  const idade = calcularIdade(iso);
+  if (idade == null) return "";
+  return idade + (idade === 1 ? " ano" : " anos");
+}
 function faixaEtaria(idade) {
   if (idade == null) return "Não informada";
   if (idade < 18) return "0 a 17 anos";
@@ -1171,12 +1176,14 @@ function renderHomeHTML() {
   const q = state.search.trim().toLowerCase();
   let list = state.pafs.filter(p => {
     const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || (p.apelido || "").toLowerCase().includes(q) || (p.crasNome || "").toLowerCase().includes(q);
-    const matchesStatus = state.statusFilter === "todos" || p.situacaoPAF === state.statusFilter;
+    const matchesStatus = state.statusFilter === "todos" ? true
+      : state.statusFilter === "arquivo" ? (p.situacaoPAF === "concluido" || p.situacaoPAF === "cancelado")
+      : p.situacaoPAF === state.statusFilter;
     return matchesQ && matchesStatus;
   }).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
 
-  const chips = ["todos", "andamento", "encaminhado", "concluido", "cancelado"].map(s => {
-    const label = s === "todos" ? "Todos" : STATUS_LABELS[s];
+  const chips = ["todos", "andamento", "encaminhado", "concluido", "cancelado", "arquivo"].map(s => {
+    const label = s === "todos" ? "Todos" : s === "arquivo" ? "Arquivo (encerrados)" : STATUS_LABELS[s];
     return `<button class="filter-chip ${state.statusFilter === s ? "active" : ""}" data-status="${s}">${label}</button>`;
   }).join("");
 
@@ -1219,6 +1226,7 @@ function renderHomeHTML() {
       <span>Membros</span>
       <span>Início</span>
       <span>Situação</span>
+      <span></span>
     </div>`;
 
   const empty = `
@@ -1409,7 +1417,13 @@ function renderSection(id, paf) {
               <option value="M" ${paf.responsavelSexo === "M" ? "selected" : ""}>M</option>
             </select>
           </div>
-          <div class="f c3"><label>Data de nascimento (Responsável)</label><input type="date" data-field="responsavelNascimento" value="${escapeHtml(paf.responsavelNascimento)}"></div>
+          <div class="f c3">
+            <label>Data de nascimento (Responsável)</label>
+            <div class="date-idade-row">
+              <input type="date" data-field="responsavelNascimento" data-idade-of="idadeResponsavel" value="${escapeHtml(paf.responsavelNascimento)}">
+              <span class="idade-badge" id="idadeResponsavel">${idadeTexto(paf.responsavelNascimento)}</span>
+            </div>
+          </div>
           <div class="f c4">
             <label>Nacionalidade (Responsável)</label>
             <input type="text" list="nacionalidadesList" data-field="responsavelNacionalidade" value="${escapeHtml(paf.responsavelNacionalidade)}">
@@ -1459,7 +1473,10 @@ function renderSection(id, paf) {
             ${paf.membros.map((m, i) => `
               <tr>
                 <td><input type="text" data-field="membros.${i}.nome" value="${escapeHtml(m.nome)}"></td>
-                <td><input type="date" data-field="membros.${i}.nascimento" value="${escapeHtml(m.nascimento)}"></td>
+                <td>
+                  <input type="date" data-field="membros.${i}.nascimento" data-idade-of="idadeMembro${i}" value="${escapeHtml(m.nascimento)}">
+                  <span class="idade-badge idade-badge-sm" id="idadeMembro${i}">${idadeTexto(m.nascimento)}</span>
+                </td>
                 <td>
                   <select data-field="membros.${i}.sexo">
                     <option value="" ${!m.sexo ? "selected" : ""}>—</option>
@@ -1877,6 +1894,14 @@ function attachEditorHandlers() {
     });
   });
 
+  // Atualiza a idade exibida ao lado do campo de nascimento, sem precisar re-renderizar a tela
+  container.querySelectorAll("[data-idade-of]").forEach(input => {
+    input.addEventListener("input", () => {
+      const badge = document.getElementById(input.dataset.idadeOf);
+      if (badge) badge.textContent = idadeTexto(input.value);
+    });
+  });
+
   // Binding para Checkboxes de Matrizes Dinâmicas
   container.querySelectorAll("[data-field-check]").forEach(chk => {
     chk.addEventListener("change", () => {
@@ -2136,61 +2161,75 @@ function exportPDF(paf) {
         * { box-sizing: border-box; }
         body {
           font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F;
-          line-height: 1.45; margin: 0; padding: 0;
+          line-height: 1.5; margin: 0; padding: 0;
         }
         .brasao { font-family: Georgia, 'Times New Roman', serif; }
 
         .orgao-header {
           display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
-          padding: 8px 12px; border-radius: 5px 5px 0 0; margin-bottom: 0; font-size: 9px; line-height: 1.35;
+          padding: 9px 12px; border-radius: 5px 5px 0 0; margin-bottom: 0; font-size: 9px; line-height: 1.4;
         }
         .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; letter-spacing: .01em; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
 
         .capa-header {
           display: flex; align-items: center; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
-          border-bottom: 2.5px solid #1F3A5F; padding: 10px 12px; margin-bottom: 14px; border-radius: 0 0 5px 5px;
+          border-bottom: 2.5px solid #1F3A5F; padding: 11px 12px; margin-bottom: 16px; border-radius: 0 0 5px 5px;
         }
         .capa-selo {
           width: 40px; height: 40px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 18px; color: #B98A34;
         }
-        .capa-titulos h1 { font-family: Georgia, serif; font-size: 16px; margin: 0; color: #1F3A5F; }
-        .capa-titulos p { margin: 2px 0 0; font-size: 10.5px; color: #52667C; }
-        .capa-meta { margin-left: auto; text-align: right; font-size: 9.5px; color: #8496A8; }
+        .capa-titulos h1 { font-family: Georgia, serif; font-size: 17px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
+        .capa-titulos p { margin: 3px 0 0; font-size: 10.5px; color: #2E7D6B; font-weight: 600; }
+        .capa-meta { margin-left: auto; text-align: right; font-size: 9.5px; color: #8496A8; line-height: 1.6; border-left: 1px solid #D7E0E6; padding-left: 14px; }
+        .capa-meta strong { color: #1F3A5F; }
 
         .id-band {
-          background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px;
-          display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+          background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 6px; padding: 13px 16px; margin-bottom: 18px;
+          display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
         }
         .id-nome-wrap { flex: 1 1 200px; }
-        .id-nome { font-family: Georgia, serif; font-size: 15px; font-weight: bold; margin: 0 0 4px; }
+        .id-nome { font-family: Georgia, serif; font-size: 16px; font-weight: bold; margin: 0 0 5px; letter-spacing: -.01em; }
         .id-status {
-          display: inline-block; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold;
-          padding: 2px 8px; border-radius: 999px; border: 1.2px solid #2E7D6B; color: #2E7D6B;
+          display: inline-flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold;
+          padding: 3px 9px; border-radius: 999px; border: 1.2px solid #2E7D6B; color: #2E7D6B; background: #fff;
         }
-        .id-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 20px; flex: 2 1 380px; font-size: 10.5px; }
-        .id-grid .k { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; }
+        .id-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .id-status.andamento { border-color: #1F5C4E; color: #1F5C4E; background: #DEEAE6; }
+        .id-status.encaminhado { border-color: #7A5A1E; color: #7A5A1E; background: #F3E7D0; }
+        .id-status.concluido { border-color: #52667C; color: #52667C; background: #E7E9EC; }
+        .id-status.cancelado { border-color: #B5473F; color: #B5473F; background: #F5E0DD; }
+        .id-grid {
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px 20px; flex: 2 1 380px; font-size: 10.5px;
+          border-left: 1px solid #D7E0E6; padding-left: 16px;
+        }
+        .id-grid .k { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; margin-bottom: 1px; }
         .id-grid .v { display: block; font-weight: 600; }
-        .id-stats { display: flex; gap: 8px; flex: 0 0 auto; }
-        .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-radius: 6px; padding: 6px 10px; min-width: 58px; }
+        .id-stats { display: flex; gap: 8px; flex: 0 0 auto; border-left: 1px solid #D7E0E6; padding-left: 16px; }
+        .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-radius: 6px; padding: 6px 11px; min-width: 58px; }
         .id-stat .n { display: block; font-family: Georgia, serif; font-size: 16px; font-weight: bold; color: #B98A34; line-height: 1; }
-        .id-stat .l { display: block; font-size: 7.5px; text-transform: uppercase; color: #8496A8; margin-top: 2px; }
+        .id-stat .l { display: block; font-size: 7.5px; text-transform: uppercase; color: #8496A8; margin-top: 3px; letter-spacing: .02em; }
 
-        h2 { font-size: 12.5px; color: #2E7D6B; margin: 18px 0 6px; border-bottom: 1px solid #D7E0E6; padding-bottom: 3px; page-break-after: avoid; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; margin-bottom: 6px; }
+        h2 {
+          font-size: 12.5px; color: #1F5C4E; margin: 22px 0 8px; padding-bottom: 4px;
+          border-bottom: 1.6px solid #DEEAE6; page-break-after: avoid; letter-spacing: .01em;
+        }
+        h2::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #B98A34; margin-right: 7px; vertical-align: middle; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 18px; margin-bottom: 6px; }
         .field { margin-bottom: 4px; }
-        .label { font-weight: bold; font-size: 9px; text-transform: uppercase; color: #52667C; display: block; }
+        .label { font-weight: bold; font-size: 9px; text-transform: uppercase; letter-spacing: .02em; color: #52667C; display: block; margin-bottom: 1px; }
         table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; }
-        th, td { border: 1px solid #D7E0E6; padding: 5px 6px; text-align: left; vertical-align: top; }
-        th { background: #F6F8F9; font-weight: bold; font-size: 9.5px; text-transform: uppercase; }
-        .tag { display: inline-block; background: #DEEAE6; color: #1F5C4E; padding: 2px 7px; border-radius: 4px; font-size: 9.5px; margin: 2px 4px 2px 0; }
+        th, td { border: 1px solid #D7E0E6; padding: 6px 7px; text-align: left; vertical-align: top; }
+        th { background: #F6F8F9; font-weight: bold; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; border-bottom: 1.6px solid #D7E0E6; }
+        tbody tr:nth-child(even) td { background: #FAFBFC; }
+        .tag { display: inline-block; background: #DEEAE6; color: #1F5C4E; padding: 3px 8px; border-radius: 4px; font-size: 9.5px; margin: 2px 5px 2px 0; font-weight: 600; }
         .muted { color: #8496A8; font-style: italic; }
 
         .reg-item {
-          display: flex; gap: 10px; border: 1px solid #D7E0E6; border-left-width: 3px; border-radius: 6px;
-          padding: 8px 10px; margin-bottom: 8px; page-break-inside: avoid;
+          display: flex; gap: 11px; border: 1px solid #D7E0E6; border-left-width: 3px; border-radius: 6px;
+          padding: 9px 11px; margin-bottom: 8px; page-break-inside: avoid;
         }
         .reg-badge {
           flex-shrink: 0; width: 42px; height: 42px; border-radius: 6px; border: 1.4px solid;
@@ -2205,20 +2244,20 @@ function exportPDF(paf) {
         .reg-evolucao { margin: 0 0 4px; font-size: 10.5px; }
         .reg-encam { margin: 0; font-size: 10px; color: #52667C; }
 
-        .assinaturas { display: flex; gap: 40px; margin-top: 40px; page-break-inside: avoid; }
+        .assinaturas { display: flex; gap: 44px; margin-top: 46px; page-break-inside: avoid; }
         .assinatura { flex: 1; text-align: center; }
-        .assinatura .linha { border-top: 1px solid #1F3A5F; margin-bottom: 4px; padding-top: 4px; }
-        .assinatura .titulo { font-size: 9.5px; color: #52667C; }
+        .assinatura .linha { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; font-weight: 600; }
+        .assinatura .titulo { font-size: 9px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
 
         .rodape-print {
-          margin-top: 24px; padding-top: 8px; border-top: 1px solid #D7E0E6;
-          font-size: 8.5px; color: #8496A8; text-align: center;
+          margin-top: 26px; padding-top: 9px; border-top: 1px solid #D7E0E6;
+          font-size: 8.5px; color: #8496A8; text-align: center; line-height: 1.5;
         }
 
         .anexos-print-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
         .anexo-print-item { width: 140px; text-align: center; page-break-inside: avoid; }
-        .anexo-print-item img { max-width: 100%; max-height: 160px; border: 1px solid #D7E0E6; border-radius: 4px; }
-        .anexo-print-item span { display: block; font-size: 8.5px; color: #52667C; margin-top: 3px; word-break: break-word; }
+        .anexo-print-item img { width: 100%; height: 140px; object-fit: cover; border: 1px solid #D7E0E6; border-radius: 4px; }
+        .anexo-print-item span { display: block; font-size: 8.5px; color: #52667C; margin-top: 4px; word-break: break-word; }
 
         .anexo-pdf-pagina { page-break-before: always; padding-top: 8px; }
         .anexo-pdf-titulo { font-family: Georgia, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
@@ -2254,7 +2293,7 @@ function exportPDF(paf) {
           <p>Serviço de Proteção e Atendimento Integral à Família (PAIF) ${paf.crasNome ? "· " + escapeHtml(paf.crasNome) : ""}</p>
         </div>
         <div class="capa-meta">
-          Ficha nº ${protocoloNumero(paf)}<br>
+          Ficha nº <strong>${protocoloNumero(paf)}</strong><br>
           Emitido em ${fmtDateBR(todayISO())}
         </div>
       </div>
@@ -2262,7 +2301,7 @@ function exportPDF(paf) {
       <div class="id-band">
         <div class="id-nome-wrap">
           <p class="id-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</p>
-          <span class="id-status">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
+          <span class="id-status ${paf.situacaoPAF || "andamento"}">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
         </div>
         <div class="id-grid">
           <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
@@ -2424,24 +2463,24 @@ function imprimirEncaminhamento(paf, enc) {
       <style>
         @page { margin: 16mm 14mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; line-height: 1.45; margin: 0; }
-        .orgao-header { display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE; padding: 8px 12px; border-radius: 5px; font-size: 9px; margin-bottom: 14px; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; line-height: 1.5; margin: 0; }
+        .orgao-header { display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE; padding: 9px 12px; border-radius: 5px; font-size: 9px; margin-bottom: 16px; }
         .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
-        h1 { font-family: Georgia, serif; font-size: 15px; color: #1F3A5F; border-bottom: 2px solid #1F3A5F; padding-bottom: 6px; }
-        .canhoto { border: 1px dashed #8496A8; border-radius: 6px; padding: 10px 12px; margin-bottom: 18px; font-size: 10.5px; }
-        .canhoto b { color: #52667C; }
-        .corpo { border: 1px solid #D7E0E6; border-radius: 6px; padding: 14px 16px; }
-        .linha { margin: 0 0 10px; }
-        .campo-preenchido { border-bottom: 1px solid #1F3A5F; padding: 0 2px; }
-        .contra { margin-top: 30px; border-top: 2px dashed #8496A8; padding-top: 14px; }
-        .contra h2 { font-size: 12px; color: #2E7D6B; margin: 0 0 8px; }
-        .contra .campo { border: 1px solid #D7E0E6; border-radius: 6px; min-height: 70px; padding: 8px; font-size: 10.5px; }
-        .assinaturas { display: flex; gap: 40px; margin-top: 34px; }
+        h1 { font-family: Georgia, serif; font-size: 15px; color: #1F3A5F; border-bottom: 2px solid #1F3A5F; padding-bottom: 7px; letter-spacing: -.01em; }
+        .canhoto { border: 1px dashed #8496A8; border-radius: 6px; padding: 11px 13px; margin-bottom: 20px; font-size: 10.5px; }
+        .canhoto b { color: #52667C; text-transform: uppercase; font-size: 9px; letter-spacing: .03em; }
+        .corpo { border: 1px solid #D7E0E6; border-radius: 6px; padding: 15px 17px; }
+        .linha { margin: 0 0 11px; }
+        .campo-preenchido { border-bottom: 1px solid #1F3A5F; padding: 0 2px; font-weight: 600; }
+        .contra { margin-top: 32px; border-top: 2px dashed #8496A8; padding-top: 15px; }
+        .contra h2 { font-size: 12px; color: #1F5C4E; margin: 0 0 9px; letter-spacing: .01em; }
+        .contra .campo { border: 1px solid #D7E0E6; border-radius: 6px; min-height: 70px; padding: 9px; font-size: 10.5px; background: #FAFBFC; }
+        .assinaturas { display: flex; gap: 44px; margin-top: 38px; }
         .assinatura { flex: 1; text-align: center; }
-        .assinatura .linha-ass { border-top: 1px solid #1F3A5F; margin-bottom: 4px; padding-top: 4px; }
-        .assinatura .titulo { font-size: 9.5px; color: #52667C; }
-        .rodape-print { margin-top: 24px; padding-top: 8px; border-top: 1px solid #D7E0E6; font-size: 8.5px; color: #8496A8; text-align: center; }
+        .assinatura .linha-ass { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; }
+        .assinatura .titulo { font-size: 9px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
+        .rodape-print { margin-top: 26px; padding-top: 9px; border-top: 1px solid #D7E0E6; font-size: 8.5px; color: #8496A8; text-align: center; line-height: 1.5; }
       </style>
     </head>
     <body>
