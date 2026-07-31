@@ -1184,7 +1184,7 @@ function renderHomeHTML() {
   const rows = list.map(p => {
     const membrosCount = (p.membros || []).filter(m => m.nome).length;
     const protocolo = protocoloNumero(p);
-    const inicial = (escapeHtml(p.responsavel) || "?").trim().charAt(0).toUpperCase() || "?";
+    const inicial = escapeHtml((p.responsavel || "?").trim().charAt(0).toUpperCase() || "?");
     return `
     <div class="record-row status-${p.situacaoPAF}" data-open="${p.id}">
       <div class="record-index">${inicial}</div>
@@ -1599,7 +1599,7 @@ function renderSection(id, paf) {
                 <td>
                   <select data-field="encaminhamentosForm.${i}.area">
                     <option value="">—</option>
-                    ${ENCAMINHAMENTO_AREAS.map(a => `<option value="${a}" ${e.area === a ? "selected" : ""}>${a}</option>`).join("")}
+                    ${ENCAMINHAMENTO_AREAS.map(a => `<option value="${escapeHtml(a)}" ${e.area === a ? "selected" : ""}>${escapeHtml(a)}</option>`).join("")}
                   </select>
                 </td>
                 <td><input type="text" data-field="encaminhamentosForm.${i}.orgaoDestino" value="${escapeHtml(e.orgaoDestino)}"></td>
@@ -2298,8 +2298,8 @@ function exportPDF(paf) {
         <div class="field"><span class="label">Saneamento</span>${escapeHtml(paf.habitacaoEsgoto) || "—"}</div>
         <div class="field"><span class="label">Crianças/adolesc. fora da escola</span>${[paf.eduForaEscola06, paf.eduForaEscola614, paf.eduForaEscola1517].filter(Boolean).join(" / ") || "—"}</div>
         <div class="field"><span class="label">Renda total / per capita</span>${[paf.rendaTotal, paf.rendaPerCapita].filter(Boolean).join(" / ") || "—"}</div>
-        <div class="field"><span class="label">Doença grave na família</span>${paf.saudeDoencaGrave || "—"}${paf.saudeDoencaGraveQuem ? " (" + escapeHtml(paf.saudeDoencaGraveQuem) + ")" : ""}</div>
-        <div class="field"><span class="label">Gestante(s) na família</span>${paf.saudeGestante || "—"}${paf.saudeGestanteQuem ? " (" + escapeHtml(paf.saudeGestanteQuem) + ")" : ""}</div>
+        <div class="field"><span class="label">Doença grave na família</span>${escapeHtml(paf.saudeDoencaGrave) || "—"}${paf.saudeDoencaGraveQuem ? " (" + escapeHtml(paf.saudeDoencaGraveQuem) + ")" : ""}</div>
+        <div class="field"><span class="label">Gestante(s) na família</span>${escapeHtml(paf.saudeGestante) || "—"}${paf.saudeGestanteQuem ? " (" + escapeHtml(paf.saudeGestanteQuem) + ")" : ""}</div>
       </div>
       ${[paf.habitacaoObs, paf.eduObs, paf.rendaObs, paf.saudeObs].filter(Boolean).map(o => `<p class="muted" style="margin:4px 0;">${escapeHtml(o)}</p>`).join("")}
 
