@@ -1537,6 +1537,7 @@ function renderSection(id, paf) {
 
       <div class="section-card">
         <h2><span class="num">03c</span>Condições de Trabalho e Renda</h2>
+        ${notaTecnica("A Trilha do PAIF para o contexto da Insegurança Alimentar e Nutricional (MDS/UNICEF) trata a fome como um fenômeno multidimensional, que não se resume à insuficiência de renda. Quando a família procura o CRAS pedindo uma cesta básica, a resposta imediata (busca ativa no CadÚnico, inserção em programas de transferência de renda, encaminhamento a equipamentos de segurança alimentar) deve funcionar como porta de entrada para o acompanhamento continuado pelo PAIF — e não se esgotar na entrega pontual do benefício eventual.")}
         <div class="field-grid">
           <div class="f c6"><label>Renda total da família (sem programas sociais)</label><input type="text" data-field="rendaTotal" placeholder="R$" value="${escapeHtml(paf.rendaTotal)}"></div>
           <div class="f c6"><label>Renda familiar per capita (sem programas sociais)</label><input type="text" data-field="rendaPerCapita" placeholder="R$" value="${escapeHtml(paf.rendaPerCapita)}"></div>
@@ -1568,6 +1569,7 @@ function renderSection(id, paf) {
             ${situacaoMembrosField(paf, i, row)}
             <label class="chk"><input type="checkbox" data-field-check="situacoesSociais.${i}.superada" ${row.superada ? "checked" : ""}><span>Superada</span></label>
           </div>`).join("")}
+        ${notaTecnica("Ao marcar \"Em contextos de violência\" para alguma mulher da família, a Trilha do PAIF para a Prevenção da Violência Doméstica e Familiar contra as Mulheres (MDS/UNICEF) orienta que a equipe acolha o relato sem exigir comprovação — verificar os fatos é atribuição do sistema de justiça, não do PAIF. O papel do Serviço aqui é preventivo e complementar ao do PAEFI: mesmo quando a situação exigir encaminhamento à rede especializada, o CRAS deve continuar sendo um espaço de referência e acolhida para essa família, sem interromper sua participação nas demais atividades do PAIF.")}
       </div>
       <div class="section-card">
         <h2><span class="num">04a</span>Trabalho Social Coletivo do PAIF</h2>
@@ -1622,6 +1624,7 @@ function renderSection(id, paf) {
     case "programas": return `
       <div class="section-card">
         ${sectionHeader("06", "Programas, Projetos, Serviços e Benefícios Socioassistenciais", "")}
+        ${notaTecnica("A Trilha do PAIF para o Contexto das Condicionalidades do Programa Bolsa Família (MDS/UNICEF) orienta que o não cumprimento das condicionalidades de saúde e educação não deve ser lido como culpa ou punição da família, e sim como um sinal de possíveis desproteções sociais a serem investigadas. Essas famílias devem ser priorizadas no acompanhamento do PAIF, com busca ativa proativa da equipe — e não apenas uma resposta ao aviso de bloqueio do benefício.")}
         <div class="field-grid">
           <div class="f c6">
             <label>a) Participa de programas, projetos sociais ou de geração de renda?</label>
