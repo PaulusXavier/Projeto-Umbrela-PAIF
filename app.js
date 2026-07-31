@@ -55,6 +55,23 @@ const PROGRAMAS_QUAIS = ["Bolsa Família", "BPC - Benefício de Prestação Cont
   "Projeto ArtCanto", "Programa Dedo Verde", "Programa Rumo Certo", "Projeto Cabelos de Prata", "Conviver",
   "Cesta da Família", "Colo de Mãe"];
 const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte", "Em Pecúnia (dinheiro, cartão, cheque, depósito bancário)", "Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família"];
+
+// Sugestões extras para os campos de texto livre "Outros"/"Outro" (datalist).
+// O que já aparece nos checkboxes acima é removido automaticamente na hora de montar a lista,
+// então não é preciso manter isso sincronizado manualmente.
+const PROGRAMAS_OUTROS_SUGESTOES = ["Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família",
+  "Pé-de-Meia", "Programa Criança Feliz", "Programa de Erradicação do Trabalho Infantil (PETI)",
+  "Programa Cisternas", "Seguro Defeso", "Programa Mulher Segura e Protegida", "Qualifica RR",
+  "Pronatec", "Programa Bolsa Verde"];
+const BENEFICIOS_OUTROS_SUGESTOES = ["Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família",
+  "Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte",
+  "Vale-gás", "Auxílio-doença", "Passe livre para pessoa com deficiência"];
+
+// Remove da lista de sugestões qualquer item que já esteja nos checkboxes (evita repetir a mesma opção duas vezes).
+function outrosSugestoes(sugestoes, jaListados) {
+  const jaListadosLower = jaListados.map(o => o.toLowerCase().trim());
+  return sugestoes.filter(s => !jaListadosLower.includes(s.toLowerCase().trim()));
+}
 const REDE_APOIO = [
   // Saúde
   "UBS - Unidade Básica de Saúde", "CAPS - Centro de Atenção Psicossocial", "Hospital/Maternidade",
@@ -381,15 +398,13 @@ function emptyPAF() {
     eduForaEscola06: "", eduForaEscola614: "", eduForaEscola1517: "",
     eduAnalfabetismo1017: "", eduAnalfabetismo1859: "", eduAnalfabetismo60mais: "", eduObs: "",
     rendaTotal: "", rendaPerCapita: "", rendaObs: "",
-    saudePcdQtd: "", saudeDoencaGrave: "", saudeDoencaGraveQuem: "",
+    saudeDoencaGrave: "", saudeDoencaGraveQuem: "",
     saudeMedicacaoControlada: "", saudeMedicacaoQuem: "",
     saudeAlcool: "", saudeAlcoolQuem: "", saudeDrogas: "", saudeDrogasQuem: "",
     saudeGestante: "", saudeGestanteQuem: "", saudeObs: "",
     encaminhamentosForm: [],
     participaProgramas: "",
     programasQuais: [],
-    programasMunicipalQual: "",
-    programasProjetoQual: "",
     programasOutros: "",
     recebeBeneficio: "",
     beneficioQuais: [],
@@ -1440,7 +1455,7 @@ function renderSection(id, paf) {
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
         ${notaTecnica("O campo \"Parentesco\" deve refletir o arranjo familiar real da família atendida, sem pressupor o modelo nuclear tradicional (pai, mãe e filhos). As Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS chamam atenção para a diversidade de configurações familiares — famílias monoparentais, homoafetivas, chefiadas por mulheres, ou pessoas sem núcleo familiar de referência — como parte legítima do público do PAIF.")}
         <table class="dyn-table">
-          <thead><tr><th style="width:22%">Nome</th><th style="width:14%">Nascimento</th><th style="width:9%">Sexo</th><th style="width:18%">Parentesco</th><th style="width:20%">Nacionalidade</th><th></th></tr></thead>
+          <thead><tr><th style="width:19%">Nome</th><th style="width:12%">Nascimento</th><th style="width:7%">Sexo</th><th style="width:15%">Parentesco</th><th style="width:17%">Nacionalidade</th><th style="width:7%">PCD</th><th></th></tr></thead>
           <tbody>
             ${paf.membros.map((m, i) => `
               <tr>
@@ -1455,6 +1470,7 @@ function renderSection(id, paf) {
                 </td>
                 <td><input type="text" data-field="membros.${i}.parentesco" value="${escapeHtml(m.parentesco)}"></td>
                 <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade)}"></td>
+                <td style="text-align:center;"><input type="checkbox" data-field-check="membros.${i}.pcd" ${m.pcd ? "checked" : ""} title="Pessoa com deficiência"></td>
                 <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover" aria-label="Remover membro">✕</button></td>
               </tr>`).join("")}
           </tbody>
@@ -1614,7 +1630,8 @@ function renderSection(id, paf) {
               <label><input type="radio" name="participaProgramas" data-field="participaProgramas" value="Não" ${paf.participaProgramas === "Não" ? "checked" : ""}> Não</label>
             </div>
             ${chkList("programasQuais", PROGRAMAS_QUAIS, paf.programasQuais)}
-            <div class="f" style="margin-top:6px"><label>Outros</label><input type="text" data-field="programasOutros" value="${escapeHtml(paf.programasOutros)}"></div>
+            <div class="f" style="margin-top:6px"><label>Outros</label><input type="text" list="programasOutrosList" data-field="programasOutros" value="${escapeHtml(paf.programasOutros)}"></div>
+            <datalist id="programasOutrosList">${outrosSugestoes(PROGRAMAS_OUTROS_SUGESTOES, PROGRAMAS_QUAIS).map(o => `<option value="${escapeHtml(o)}">`).join("")}</datalist>
           </div>
           <div class="f c6">
             <label>b) Recebe algum outro benefício assistencial e/ou eventual?</label>
@@ -1623,7 +1640,8 @@ function renderSection(id, paf) {
               <label><input type="radio" name="recebeBeneficio" data-field="recebeBeneficio" value="Não" ${paf.recebeBeneficio === "Não" ? "checked" : ""}> Não</label>
             </div>
             ${chkList("beneficioQuais", BENEFICIOS_QUAIS, paf.beneficioQuais)}
-            <div class="f" style="margin-top:6px"><label>Outro</label><input type="text" data-field="beneficioOutro" value="${escapeHtml(paf.beneficioOutro)}"></div>
+            <div class="f" style="margin-top:6px"><label>Outro</label><input type="text" list="beneficioOutroList" data-field="beneficioOutro" value="${escapeHtml(paf.beneficioOutro)}"></div>
+            <datalist id="beneficioOutroList">${outrosSugestoes(BENEFICIOS_OUTROS_SUGESTOES, BENEFICIOS_QUAIS).map(o => `<option value="${escapeHtml(o)}">`).join("")}</datalist>
           </div>
         </div>
       </div>`;
