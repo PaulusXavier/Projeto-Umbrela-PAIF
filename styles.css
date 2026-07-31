@@ -395,15 +395,15 @@ main { flex: 1; display: flex; min-height: 0; }
    administrativo (dourado) e informacional (neutro) — ajuda a "ler" o rol de
    seções de relance, e colore o selo de cada seção dentro do formulário. */
 .tab-item[data-section="familia"], .tab-item[data-section="grupo"], .tab-item[data-section="rede"], .tab-item[data-section="encerramento"],
-.section-content[data-section="familia"], .section-content[data-section="grupo"], .section-content[data-section="rede"], .section-content[data-section="encerramento"] {
+.section-content[data-section-cat="familia"], .section-content[data-section-cat="grupo"], .section-content[data-section-cat="rede"], .section-content[data-section-cat="encerramento"] {
   --cat: var(--accent); --cat-dark: var(--accent-dark); --cat-soft: var(--accent-soft);
 }
 .tab-item[data-section="encaminhamentos"], .tab-item[data-section="programas"], .tab-item[data-section="plano"],
-.section-content[data-section="encaminhamentos"], .section-content[data-section="programas"], .section-content[data-section="plano"] {
+.section-content[data-section-cat="encaminhamentos"], .section-content[data-section-cat="programas"], .section-content[data-section-cat="plano"] {
   --cat: var(--gold); --cat-dark: #7A5A1E; --cat-soft: var(--gold-soft);
 }
 .tab-item[data-section="cabecalho"], .tab-item[data-section="diagnostico"], .tab-item[data-section="metas"], .tab-item[data-section="estrategias"], .tab-item[data-section="anexos"], .tab-item[data-section="observacoes"],
-.section-content[data-section="cabecalho"], .section-content[data-section="diagnostico"], .section-content[data-section="metas"], .section-content[data-section="estrategias"], .section-content[data-section="anexos"], .section-content[data-section="observacoes"] {
+.section-content[data-section-cat="cabecalho"], .section-content[data-section-cat="diagnostico"], .section-content[data-section-cat="metas"], .section-content[data-section-cat="estrategias"], .section-content[data-section-cat="anexos"], .section-content[data-section-cat="observacoes"] {
   --cat: var(--ink-soft); --cat-dark: var(--ink); --cat-soft: var(--slate-soft);
 }
 .section-content .section-icon-badge {
