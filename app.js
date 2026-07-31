@@ -51,16 +51,15 @@ const SERVICOS_BASICA = ["PAIF", "SCFV", "Serviço de Proteção Social Básica 
 const SERVICOS_MEDIA = ["PAEFI", "Medidas Socioeducativas em Meio Aberto", "Para idosos, PCD e suas famílias", "Para pessoas em situação de rua"];
 const SERVICOS_ALTA = ["Acolhimento Institucional", "Acolhimento em República", "Acolhimento em Família Acolhedora"];
 
-const PROGRAMAS_QUAIS = ["Bolsa Família", "BPC - Benefício de Prestação Continuada", "Programa Família que Acolhe (FQA)",
+const PROGRAMAS_QUAIS = ["Programa Família que Acolhe (FQA)",
   "Projeto ArtCanto", "Programa Dedo Verde", "Programa Rumo Certo", "Projeto Cabelos de Prata", "Conviver",
-  "Cesta da Família", "Colo de Mãe"];
+  "Colo de Mãe"];
 const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte", "Em Pecúnia (dinheiro, cartão, cheque, depósito bancário)", "Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família"];
 
 // Sugestões extras para os campos de texto livre "Outros"/"Outro" (datalist).
 // O que já aparece nos checkboxes acima é removido automaticamente na hora de montar a lista,
 // então não é preciso manter isso sincronizado manualmente.
-const PROGRAMAS_OUTROS_SUGESTOES = ["Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família",
-  "Pé-de-Meia", "Programa Criança Feliz", "Programa de Erradicação do Trabalho Infantil (PETI)",
+const PROGRAMAS_OUTROS_SUGESTOES = ["Pé-de-Meia", "Programa Criança Feliz", "Programa de Erradicação do Trabalho Infantil (PETI)",
   "Programa Cisternas", "Seguro Defeso", "Programa Mulher Segura e Protegida", "Qualifica RR",
   "Pronatec", "Programa Bolsa Verde"];
 const BENEFICIOS_OUTROS_SUGESTOES = ["Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família",
@@ -1537,7 +1536,7 @@ function renderSection(id, paf) {
 
       <div class="section-card">
         <h2><span class="num">03c</span>Condições de Trabalho e Renda</h2>
-        ${notaTecnica("A Trilha do PAIF para o contexto da Insegurança Alimentar e Nutricional (MDS/UNICEF) trata a fome como um fenômeno multidimensional, que não se resume à insuficiência de renda. Quando a família procura o CRAS pedindo uma cesta básica, a resposta imediata (busca ativa no CadÚnico, inserção em programas de transferência de renda, encaminhamento a equipamentos de segurança alimentar) deve funcionar como porta de entrada para o acompanhamento continuado pelo PAIF — e não se esgotar na entrega pontual do benefício eventual.")}
+        ${notaTecnica("A Trilha do PAIF para o contexto da Insegurança Alimentar e Nutricional (MDS/UNICEF) trata a fome como um fenômeno multidimensional, que não se resume à insuficiência de renda. Quando a família procura o CRAS pedindo uma cesta básica, a resposta imediata (busca ativa no CadÚnico, inserção em programas de transferência de renda, encaminhamento a equipamentos de segurança alimentar) deve funcionar como porta de entrada para o acompanhamento continuado pelo PAIF — e não se esgotar na entrega pontual do benefício eventual. Para situar a gravidade do que a família relata, a Escala Brasileira de Insegurança Alimentar (EBIA) distingue três níveis: leve (incerteza quanto ao acesso futuro aos alimentos ou comprometimento da qualidade), moderada (redução na quantidade de alimentos entre os adultos) e grave (redução de alimentos também entre as crianças, caracterizando fome). A Trilha é enfática, porém, que instrumentos como a EBIA servem ao diagnóstico e não devem ser exigidos como pré-requisito para conceder benefícios eventuais ou incluir a família em programas de transferência de renda — a identificação continua sendo feita pela escuta qualificada, pela consulta ao CadÚnico, pelo conhecimento do território e pela busca ativa, como em qualquer outra situação atendida pelo SUAS.")}
         <div class="field-grid">
           <div class="f c6"><label>Renda total da família (sem programas sociais)</label><input type="text" data-field="rendaTotal" placeholder="R$" value="${escapeHtml(paf.rendaTotal)}"></div>
           <div class="f c6"><label>Renda familiar per capita (sem programas sociais)</label><input type="text" data-field="rendaPerCapita" placeholder="R$" value="${escapeHtml(paf.rendaPerCapita)}"></div>
