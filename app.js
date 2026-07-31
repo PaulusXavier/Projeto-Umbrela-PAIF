@@ -1429,7 +1429,7 @@ function renderEditorHTML() {
             `).join("")}
           </div>
         </div>
-        <div class="section-content" data-section="${state.activeSection}">
+        <div class="section-content" data-section-cat="${state.activeSection}">
           ${renderSection(state.activeSection, paf)}
         </div>
       </div>
