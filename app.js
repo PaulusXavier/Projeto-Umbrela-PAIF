@@ -188,6 +188,82 @@ const SECTIONS = [
   { id: "observacoes", label: "Observações" }
 ];
 
+// Ícones de linha (mesmo vocabulário visual do brasão do cabeçalho: traço fino,
+// currentColor, formas geométricas simples) — um por seção, para reforçar
+// visualmente do que trata cada etapa do PAF, sem virar decoração gratuita.
+const SECTION_ICONS = {
+  cabecalho: `<circle cx="12" cy="8.5" r="3.1"/><path d="M5.5 19.5c1.2-3.4 3.7-5 6.5-5s5.3 1.6 6.5 5"/>`,
+  familia: `<circle cx="8" cy="8" r="2.6"/><circle cx="16" cy="8" r="2.6"/><path d="M3.2 19c.9-2.8 2.6-4.2 4.8-4.2s3.9 1.4 4.8 4.2M10.2 19c.9-2.8 2.6-4.2 4.8-4.2s3.9 1.4 4.8 4.2"/>`,
+  diagnostico: `<circle cx="10.5" cy="10.5" r="5.3"/><path d="M14.6 14.6 19 19"/><path d="M8 10.5h5M10.5 8v5"/>`,
+  grupo: `<path d="M4 15c0-3 1.6-5 4-5s3.3 1.4 4 2.6c.7-1.2 1.6-2.6 4-2.6s4 2 4 5"/><path d="M4 15v2.2M20 15v2.2"/><path d="M9.5 9.5a3 2.2 0 1 0 5 0"/>`,
+  encaminhamentos: `<path d="M4 12h11"/><path d="m11 7 5 5-5 5"/><path d="M19 5v14"/>`,
+  programas: `<rect x="4" y="9.5" width="16" height="9.5" rx="1.4"/><path d="M4 13.5h16"/><path d="M12 9.5V19"/><path d="M9 9.5c0-2 1.3-4.5 3-4.5s3 2.5 3 4.5"/>`,
+  rede: `<circle cx="12" cy="5.3" r="1.9"/><circle cx="5.3" cy="17.5" r="1.9"/><circle cx="18.7" cy="17.5" r="1.9"/><path d="M12 7.2v5M12 12.2 6.6 16M12 12.2l5.4 3.8"/>`,
+  metas: `<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3.6"/><path d="m16.5 7.5 3-3"/>`,
+  estrategias: `<circle cx="12" cy="12" r="7.4"/><path d="m14.8 9.2-1.6 4.4-4.4 1.6 1.6-4.4z"/>`,
+  plano: `<path d="M6 3.8h9l3 3v13.4H6z"/><path d="M15 3.8v3h3"/><path d="M9 12h6M9 15.4h6M9 8.6h3"/>`,
+  encerramento: `<path d="M5 5.5h14v13H5z"/><path d="m8.5 12 2.4 2.4L16 9"/>`,
+  anexos: `<path d="M15.8 8.2 9.6 14.4a2.8 2.8 0 1 1-4-4l6.9-6.9a2 2 0 1 1 2.8 2.8l-6.6 6.6a1.2 1.2 0 1 1-1.7-1.7l5.7-5.7"/>`,
+  observacoes: `<path d="M5 5h14v10.5H10L6 19v-3.5H5z"/><path d="M8.3 8.5h7.4M8.3 11.6h4.8"/>`
+};
+
+function sectionIconSvg(id, size) {
+  const s = size || 15;
+  return `<svg class="section-icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SECTION_ICONS[id] || ""}</svg>`;
+}
+
+// Ilustração-assinatura do app: um arco de proteção (SUAS) acolhendo três
+// figuras entrelaçadas por um traço contínuo (o vínculo/a escuta, no
+// vocabulário da psicologia) — usada na tela de login e no estado vazio.
+function protecaoIllustration(size) {
+  const s = size || 84;
+  return `<svg class="protecao-ilustracao" width="${s}" height="${s}" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+    <path d="M10 58C10 30 26 10 48 10s38 20 38 48" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+    <path d="M18 62C18 38 31 22 48 22s30 16 30 40" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".3"/>
+    <circle cx="33" cy="52" r="6.4" stroke="currentColor" stroke-width="2"/>
+    <circle cx="63" cy="52" r="6.4" stroke="currentColor" stroke-width="2"/>
+    <circle cx="48" cy="40" r="7.4" stroke="currentColor" stroke-width="2"/>
+    <path d="M33 58.4C33 66 39 71 48 71s15-5 15-12.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M40.5 46c2.6 2.4 5 2.4 7.5 0M48 46.5c2.6 2.4 5 2.4 7.5 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".7"/>
+  </svg>`;
+}
+
+// Ícones dos três pilares do PAIF (Tipificação Nacional de Serviços Socioassistenciais:
+// seguranças de acolhida, convívio/vínculos e desenvolvimento da autonomia) — mesmo
+// vocabulário de traço fino dos SECTION_ICONS, usados na faixa de identidade da tela
+// inicial e reforçados na tela de login.
+const PILAR_ICONS = {
+  acolhida: `<path d="M6 20V11.5a2 2 0 0 1 .9-1.7l4.5-3a2 2 0 0 1 2.2 0l4.5 3a2 2 0 0 1 .9 1.7V20"/><path d="M9.5 20v-5.2a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V20"/><path d="M4 20h16"/>`,
+  convivio: `<circle cx="7.2" cy="9" r="2.6"/><circle cx="16.8" cy="9" r="2.6"/><circle cx="12" cy="6.2" r="2.3"/><path d="M2.6 19.4c.8-2.9 2.5-4.3 4.6-4.3M21.4 19.4c-.8-2.9-2.5-4.3-4.6-4.3"/><path d="M8 19.4c.6-3 2-4.6 4-4.6s3.4 1.6 4 4.6"/>`,
+  autonomia: `<path d="M4 20 10 12l3.2 3.8L20 6"/><path d="M14.8 5.6h5.4V11"/>`
+};
+function pilarIconSvg(id, size) {
+  const s = size || 20;
+  return `<svg class="pilar-icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PILAR_ICONS[id] || ""}</svg>`;
+}
+
+// Faixa de identidade visual: reforça, com traço e não com foto, os três eixos do
+// PAIF conforme a Tipificação Nacional — usada logo abaixo do cabeçalho da tela
+// inicial para ancorar visualmente do que trata o trabalho social com famílias.
+function pilaresPaifStripHTML() {
+  const itens = [
+    { id: "acolhida", titulo: "Acolhida", texto: "Escuta qualificada, sem exigência de comprovação prévia" },
+    { id: "convivio", titulo: "Convívio e vínculos", texto: "Fortalecimento dos laços familiares e comunitários" },
+    { id: "autonomia", titulo: "Autonomia", texto: "Protagonismo da família na construção do próprio percurso" }
+  ];
+  return `
+  <div class="home-pilares">
+    ${itens.map(it => `
+      <div class="pilar-item">
+        <span class="pilar-icon-badge">${pilarIconSvg(it.id, 19)}</span>
+        <div class="pilar-texto">
+          <strong>${it.titulo}</strong>
+          <span>${it.texto}</span>
+        </div>
+      </div>`).join("")}
+  </div>`;
+}
+
 /* ---------------------------- Anexos (PDF/imagem) ---------------------------- */
 
 // Limite de referência: um documento no Firestore não pode passar de ~1 MB no total.
@@ -1231,7 +1307,7 @@ function renderHomeHTML() {
 
   const empty = `
     <div class="empty-state">
-      <div class="empty-seal"><span>PAF</span></div>
+      <div class="empty-illustration">${protecaoIllustration(52)}</div>
       <p>${state.pafs.length === 0 ? "Nenhum Plano de Acompanhamento Familiar cadastrado ainda." : "Nenhum registro corresponde à busca/filtro."}</p>
       ${state.pafs.length === 0 ? '<button class="btn btn-primary" id="emptyNewBtn">+ Novo PAF</button>' : ""}
     </div>`;
@@ -1239,16 +1315,18 @@ function renderHomeHTML() {
   return `
   <div class="home-wrap">
     <div class="home-head">
-      <div>
+      <div class="home-head-text">
         <p class="home-eyebrow">Sistema de Prontuários · CRAS</p>
         <h1>Planos de Acompanhamento Familiar</h1>
         <p>PAF · Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
       </div>
+      <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-ghost" id="resumoMensalBtn">Resumo mensal</button>
         <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
       </div>
     </div>
+    ${pilaresPaifStripHTML()}
     <div class="search-row">
       <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF ou CRAS…" value="${escapeHtml(state.search)}">
       <div class="filter-tabs">${chips}</div>
@@ -1327,7 +1405,7 @@ function renderEditorHTML() {
   const progresso = Math.round((secoesCompletas / totalSecoes) * 100);
   const rail = SECTIONS.map(s => `
     <div class="tab-item ${state.activeSection === s.id ? "active" : ""} ${complete[s.id] ? "complete" : ""}" data-section="${s.id}">
-      <span class="rivet"></span>${s.label}
+      <span class="rivet"></span>${sectionIconSvg(s.id)}<span class="tab-item-label">${s.label}</span>
     </div>`).join("");
 
   return `
@@ -1351,7 +1429,9 @@ function renderEditorHTML() {
             `).join("")}
           </div>
         </div>
-        ${renderSection(state.activeSection, paf)}
+        <div class="section-content" data-section="${state.activeSection}">
+          ${renderSection(state.activeSection, paf)}
+        </div>
       </div>
     </div>
   </div>
@@ -1363,11 +1443,13 @@ function renderEditorHTML() {
 }
 
 function sectionHeader(num, title, sub) {
-  return `<h2><span class="num">${num}</span>${title}</h2>${sub ? `<p class="section-sub">${sub}</p>` : ""}`;
+  const secao = SECTIONS[parseInt(num, 10) - 1];
+  const icon = secao ? `<span class="section-icon-badge">${sectionIconSvg(secao.id, 17)}</span>` : "";
+  return `<h2><span class="num">${num}</span>${icon}${title}</h2>${sub ? `<p class="section-sub">${sub}</p>` : ""}`;
 }
 
 function notaTecnica(html) {
-  return `<div class="nota-tecnica"><span class="marca">Nota técnica</span><p>${html}</p></div>`;
+  return `<div class="nota-tecnica"><span class="marca"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10.5H10L6 19.5v-3.5H4z"/><path d="M8 9.3h8M8 12.4h5"/></svg>Nota técnica</span><p>${html}</p></div>`;
 }
 
 function chkList(groupName, options, selectedArr, cols) {
@@ -1595,6 +1677,7 @@ function renderSection(id, paf) {
       </div>
       <div class="section-card">
         <h2><span class="num">04b</span>Serviços da Rede Socioassistencial</h2>
+        ${notaTecnica("A Tipificação Nacional de Serviços Socioassistenciais lista a articulação em rede do PAIF: serviços socioassistenciais de proteção básica e especial; serviços setoriais de educação, saúde, trabalho, cultura, esporte e segurança pública; conselhos de políticas públicas e de defesa de direitos; instituições de ensino e pesquisa; serviços de enfrentamento à pobreza; programas de inclusão produtiva; e redes sociais locais (associações de moradores, OSCs). Registrar aqui em quais dessas frentes a família já está inserida ajuda a visualizar lacunas de proteção a serem trabalhadas.")}
         <div class="field-grid">
           <div class="f c4"><label>Proteção Social Básica</label>${chkList("servBasica", SERVICOS_BASICA, paf.servBasica)}</div>
           <div class="f c4"><label>Média Complexidade</label>${chkList("servMedia", SERVICOS_MEDIA, paf.servMedia)}</div>
@@ -1787,6 +1870,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         ${sectionHeader("11", "Encerramento do Acompanhamento Familiar", "")}
         ${notaTecnica("O PAIF não tem caráter terapêutico ou psicoterápico — demandas de saúde mental devem ser encaminhadas à rede intersetorial. Quando há indício de violação de direitos, o encaminhamento é ao CREAS/PAEFI, que assume o acompanhamento até a situação ser superada.")}
+        ${notaTecnica("A Tipificação Nacional situa o impacto social esperado do PAIF em quatro frentes: redução da ocorrência de vulnerabilidade social, prevenção de riscos sociais (seu agravamento ou reincidência), aumento do acesso a serviços socioassistenciais e setoriais, e melhoria da qualidade de vida da família. Vale usar esses quatro eixos como critério para avaliar, no encerramento, se o Plano cumpriu sua finalidade — e não apenas se a demanda inicial foi resolvida.")}
         <div class="radio-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
           ${ENCERRAMENTO_MOTIVOS.map(m => `<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="encerramentoMotivo" data-field="encerramentoMotivo" value="${m.v}" ${paf.encerramentoMotivo === m.v ? "checked" : ""}> (${m.v}) ${m.label}</label>`).join("")}
         </div>
@@ -1863,6 +1947,7 @@ function attachEditorHandlers() {
     el.addEventListener("click", () => {
       state.activeSection = el.dataset.section;
       state.railOpen = false;
+      document.getElementById("railOverlay")?.classList.remove("show");
       renderApp();
     });
   });
@@ -2039,11 +2124,21 @@ function attachEditorHandlers() {
 
 function attachGlobalHandlers() {
   const railToggle = document.getElementById("railToggleBtn");
+  const railOverlay = document.getElementById("railOverlay");
   if (railToggle) {
     railToggle.onclick = () => {
       state.railOpen = !state.railOpen;
       const rail = document.getElementById("tabRail");
       if (rail) rail.classList.toggle("open", state.railOpen);
+      if (railOverlay) railOverlay.classList.toggle("show", state.railOpen);
+    };
+  }
+  if (railOverlay) {
+    railOverlay.onclick = () => {
+      state.railOpen = false;
+      const rail = document.getElementById("tabRail");
+      if (rail) rail.classList.remove("open");
+      railOverlay.classList.remove("show");
     };
   }
 
@@ -2699,5 +2794,17 @@ function exportWord(paf) {
 /* ---------------------------- Inicialização do App ---------------------------- */
 
 window.addEventListener("DOMContentLoaded", () => {
+  const loginIlustracao = document.getElementById("loginIllustration");
+  if (loginIlustracao) loginIlustracao.innerHTML = protecaoIllustration(58);
+  const loginLeft = document.getElementById("loginSceneLeft");
+  if (loginLeft) loginLeft.innerHTML = pilarIconSvg("acolhida", 24);
+  const loginRight = document.getElementById("loginSceneRight");
+  if (loginRight) loginRight.innerHTML = pilarIconSvg("autonomia", 24);
+  const loginPilares = document.getElementById("loginPilares");
+  if (loginPilares) {
+    loginPilares.innerHTML = ["acolhida", "convivio", "autonomia"].map(id => `
+      <span class="login-pilar-item">${pilarIconSvg(id, 14)}<em>${id === "acolhida" ? "Acolhida" : id === "convivio" ? "Convívio" : "Autonomia"}</em></span>
+    `).join("");
+  }
   initAuth();
 });
