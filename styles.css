@@ -413,6 +413,16 @@ main { flex: 1; display: flex; min-height: 0; }
 .section-content .section-card { border-top-color: var(--cat, var(--gold-soft)); }
 
 .form-scroll { flex: 1; overflow-y: auto; }
+
+/* Todo o texto do formulário em negrito — rótulos, títulos de seção, notas técnicas
+   etc. — exceto o que o usuário efetivamente digita ou seleciona nos campos, que
+   fica em peso normal para se distinguir claramente do texto fixo do formulário. */
+.form-scroll, .form-scroll * { font-weight: 700; }
+.form-scroll input,
+.form-scroll textarea,
+.form-scroll select {
+  font-weight: 400;
+}
 .form-inner { max-width: 880px; margin: 0 auto; padding: 26px 30px 100px; animation: fadeIn .18s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
