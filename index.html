@@ -49,6 +49,8 @@
     <button class="icon-btn" id="settingsBtn" title="Configurações">⚙︎ Config</button>
   </header>
 
+  <div class="rail-overlay" id="railOverlay"></div>
+
   <main id="mainArea"></main>
 
   <footer class="app-footer">
@@ -73,16 +75,25 @@
 
 <div id="authScreen" class="login-wrap" style="display:none">
   <div class="login-card">
-    <div class="seal-lg">P</div>
-    <h1>Plano de Acompanhamento Familiar</h1>
-    <p class="login-org">Prefeitura Municipal de Boa Vista · SEMADS<br>CRAS Cristiana Vicente Nunes</p>
-    <p class="sub">Entre com sua conta para acessar os registros do PAF/PAIF.</p>
-    <div class="login-error" id="authError" style="display:none"></div>
-    <div class="f"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username" placeholder="seu.email@exemplo.com"></div>
-    <div class="f"><label>Senha</label><input type="password" id="authPassword" autocomplete="current-password" placeholder="••••••••"></div>
-    <button class="btn btn-primary" id="authSubmitBtn">Entrar</button>
-    <p class="login-hint"><a href="#" id="forgotPasswordLink">Esqueci minha senha</a></p>
-    <p class="login-hint">Não tem uma conta? Peça ao administrador do sistema para criá-la.</p>
+    <div class="login-card-band">
+      <div class="login-scene">
+        <span class="login-scene-side" id="loginSceneLeft" aria-hidden="true"></span>
+        <div class="seal-lg" id="loginIllustration"></div>
+        <span class="login-scene-side" id="loginSceneRight" aria-hidden="true"></span>
+      </div>
+      <h1>Plano de Acompanhamento Familiar</h1>
+      <p class="login-org">Prefeitura Municipal de Boa Vista · SEMADS<br>CRAS Cristiana Vicente Nunes</p>
+      <div class="login-pilares" id="loginPilares" aria-hidden="true"></div>
+    </div>
+    <div class="login-card-body">
+      <p class="sub">Entre com sua conta para acessar os registros do PAF/PAIF.</p>
+      <div class="login-error" id="authError" style="display:none"></div>
+      <div class="f"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username" placeholder="seu.email@exemplo.com"></div>
+      <div class="f"><label>Senha</label><input type="password" id="authPassword" autocomplete="current-password" placeholder="••••••••"></div>
+      <button class="btn btn-primary" id="authSubmitBtn">Entrar</button>
+      <p class="login-hint"><a href="#" id="forgotPasswordLink">Esqueci minha senha</a></p>
+      <p class="login-hint">Não tem uma conta? Peça ao administrador do sistema para criá-la.</p>
+    </div>
   </div>
 </div>
 
