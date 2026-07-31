@@ -141,8 +141,19 @@ os registros só para si (não compartilha com os outros).
 Além do formulário original em Word, o conteúdo do app (campos, notas técnicas
 e checklists) foi organizado com base em:
 
-- **Orientações Técnicas sobre o PAIF** (MDS, vols. 1 e 2);
-- **Tipificação Nacional de Serviços Socioassistenciais** (MDS);
+- **Tipificação Nacional de Serviços Socioassistenciais** (Resolução CNAS nº 109, de 11 de
+  novembro de 2009, com as alterações da Resolução CNAS nº 13, de 13 de maio de 2014) —
+  fonte da definição oficial do PAIF, de seus objetivos, usuários prioritários, provisões,
+  aquisições dos usuários (seguranças de acolhida, convívio e desenvolvimento da autonomia)
+  e articulação em rede, usados no checklist "Objetivos do PAIF" e nas notas técnicas das
+  seções Rede do Território e Encerramento;
+- **Orientações Técnicas sobre o PAIF** (MDS/Secretaria Nacional de Assistência Social):
+  - **Volume 1** — *O Serviço de Proteção e Atendimento Integral à Família – PAIF, segundo a
+    Tipificação Nacional de Serviços Socioassistenciais* (2012), que detalha usuários,
+    objetivos e o caráter não terapêutico do Serviço;
+  - **Volume 2** — *Trabalho Social com Famílias do Serviço de Proteção e Atendimento
+    Integral à Família – PAIF* (2012), base das notas sobre a diferença entre atendimento e
+    acompanhamento e sobre o caráter não tutelar do trabalho social com famílias;
 - **Prontuário SUAS** (MDS), para os campos de identificação, endereço e
   diagnóstico socioeconômico;
 - **Trilhas "Trabalho Social com Famílias e Territórios no PAIF"** (MDS/UNICEF),
