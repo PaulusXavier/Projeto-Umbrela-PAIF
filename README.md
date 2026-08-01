@@ -141,12 +141,29 @@ os registros só para si (não compartilha com os outros).
 Além do formulário original em Word, o conteúdo do app (campos, notas técnicas
 e checklists) foi organizado com base em:
 
+- **Lei Orgânica da Assistência Social — LOAS** (Lei nº 8.742, de 7 de dezembro de 1993,
+  alterada pela Lei nº 12.435, de 6 de julho de 2011), que institui o SUAS e, no art. 6º-C,
+  torna obrigatória a oferta do PAIF no CRAS — base legal citada na nota técnica introdutória
+  da seção Cabeçalho;
+- **Política Nacional de Assistência Social — PNAS** (2004), origem da concepção de
+  vulnerabilidade social usada nas notas técnicas das seções Cabeçalho e Diagnóstico;
 - **Tipificação Nacional de Serviços Socioassistenciais** (Resolução CNAS nº 109, de 11 de
   novembro de 2009, com as alterações da Resolução CNAS nº 13, de 13 de maio de 2014) —
   fonte da definição oficial do PAIF, de seus objetivos, usuários prioritários, provisões,
   aquisições dos usuários (seguranças de acolhida, convívio e desenvolvimento da autonomia)
   e articulação em rede, usados no checklist "Objetivos do PAIF" e nas notas técnicas das
   seções Rede do Território e Encerramento;
+- **Protocolo de Gestão Integrada de Serviços, Benefícios e Transferências de Renda no
+  âmbito do SUAS** (Resolução CIT nº 7, de 10 de setembro de 2009), que determina a
+  prioridade de inclusão no acompanhamento do PAIF das famílias do Bolsa Família, do BPC
+  e do PETI em maior vulnerabilidade — fundamenta, junto com a Trilha do PAIF sobre
+  condicionalidades (abaixo), a nota técnica da seção Programas e Benefícios;
+- **Decreto nº 6.307, de 14 de dezembro de 2007**, e o **Caderno de Orientações Técnicas
+  sobre Benefícios Eventuais no SUAS** (MDS) — regulamentam a cesta básica, o auxílio
+  natalidade, o auxílio funeral e o aluguel social como provisões suplementares e
+  provisórias diante de vulnerabilidade temporária, afirmando-os como direito de cidadania
+  e vedando comprovação vexatória de pobreza para concedê-los; fundamentam a segunda nota
+  técnica da seção Programas e Benefícios;
 - **Orientações Técnicas sobre o PAIF** (MDS/Secretaria Nacional de Assistência Social):
   - **Volume 1** — *O Serviço de Proteção e Atendimento Integral à Família – PAIF, segundo a
     Tipificação Nacional de Serviços Socioassistenciais* (2012), que detalha usuários,
