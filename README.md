@@ -220,6 +220,23 @@ e checklists) foi organizado com base em:
   Essas referências aparecem no app como "Notas técnicas" ao longo das
   seções do formulário.
 
+- **"Psicologia que sobe morro e desce ladeira: vinhetas não [tão] clínicas de
+  atuação da Psicologia no Centro de Referência de Assistência Social (CRAS)"**
+  (relato de experiência de uma psicóloga do Suas) — fundamenta, em especial:
+  a distinção entre matricialidade sociofamiliar e "atender todos os membros
+  juntos" (a centralidade na família é uma postura de não perder de vista o
+  contexto familiar, mesmo em atendimentos individuais, e não uma exigência de
+  reunir a família inteira), usada na nota técnica da seção Sobre o Grupo
+  Familiar; a compreensão de territorialização como território vivo — espaço
+  de disputas e potencialidades, não apenas localização geográfica dos
+  serviços —, também usada nessa seção; e a crítica ao vocabulário
+  estigmatizante ainda comum no cotidiano da assistência social (como
+  "carente", "família desestruturada" e a lógica de "ajuda"/favor), que
+  fundamenta o cuidado de linguagem indicado nas notas técnicas das seções
+  Diagnóstico e Elaboração do Plano — reforçando, com relatos de campo, o
+  caráter de direito (e não de tutela, caridade ou disciplinamento) que
+  já orienta o restante desta fundamentação.
+
 Nenhum desses documentos substitui o julgamento técnico da equipe do CRAS —
 servem apenas como referência para orientar o preenchimento e a leitura do
 Plano.
