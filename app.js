@@ -417,7 +417,7 @@ const state = {
   current: null,             // PAF em edição
   activeSection: "cabecalho",
   search: "",
-  statusFilter: "todos",
+  statusFilter: "ativos",
   mode: "local",             // 'cloud' | 'local'
   db: null,
   unsub: null,
@@ -1252,14 +1252,14 @@ function renderHomeHTML() {
   const q = state.search.trim().toLowerCase();
   let list = state.pafs.filter(p => {
     const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || (p.apelido || "").toLowerCase().includes(q) || (p.crasNome || "").toLowerCase().includes(q);
-    const matchesStatus = state.statusFilter === "todos" ? true
+    const matchesStatus = state.statusFilter === "ativos" ? (p.situacaoPAF === "andamento" || p.situacaoPAF === "encaminhado")
       : state.statusFilter === "arquivo" ? (p.situacaoPAF === "concluido" || p.situacaoPAF === "cancelado")
       : p.situacaoPAF === state.statusFilter;
     return matchesQ && matchesStatus;
   }).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
 
-  const chips = ["todos", "andamento", "encaminhado", "concluido", "cancelado", "arquivo"].map(s => {
-    const label = s === "todos" ? "Todos" : s === "arquivo" ? "Arquivo (encerrados)" : STATUS_LABELS[s];
+  const chips = ["ativos", "andamento", "encaminhado", "concluido", "cancelado", "arquivo"].map(s => {
+    const label = s === "ativos" ? "Ativos" : s === "arquivo" ? "Arquivo (encerrados)" : STATUS_LABELS[s];
     return `<button class="filter-chip ${state.statusFilter === s ? "active" : ""}" data-status="${s}">${label}</button>`;
   }).join("");
 
@@ -1408,6 +1408,10 @@ function renderEditorHTML() {
       <span class="rivet"></span>${sectionIconSvg(s.id)}<span class="tab-item-label">${s.label}</span>
     </div>`).join("");
 
+  const activeIdx = SECTIONS.findIndex(s => s.id === state.activeSection);
+  const prevSection = activeIdx > 0 ? SECTIONS[activeIdx - 1] : null;
+  const nextSection = activeIdx < SECTIONS.length - 1 ? SECTIONS[activeIdx + 1] : null;
+
   return `
   <div class="editor-wrap">
     <nav class="tab-rail ${state.railOpen ? "open" : ""}" id="tabRail">
@@ -1423,6 +1427,7 @@ function renderEditorHTML() {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="backHomeBtn">← Voltar à lista</button>
           <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
+          <span class="section-pos-tag">Seção ${activeIdx + 1} de ${totalSecoes}</span>
           <div class="status-picker" style="margin-left:auto">
             ${["andamento", "encaminhado", "concluido", "cancelado"].map(s => `
               <button class="status-opt ${paf.situacaoPAF === s ? "selected " + s : ""}" data-set-status="${s}">${STATUS_LABELS[s]}</button>
@@ -1431,6 +1436,14 @@ function renderEditorHTML() {
         </div>
         <div class="section-content" data-section-cat="${state.activeSection}">
           ${renderSection(state.activeSection, paf)}
+        </div>
+        <div class="section-nav">
+          ${prevSection
+            ? `<button class="btn btn-ghost section-nav-btn prev" data-section="${prevSection.id}"><span class="section-nav-arrow">←</span><span class="section-nav-text"><em>Seção anterior</em><span class="section-nav-label">${prevSection.label}</span></span></button>`
+            : `<span class="section-nav-spacer"></span>`}
+          ${nextSection
+            ? `<button class="btn btn-primary section-nav-btn next" data-section="${nextSection.id}"><span class="section-nav-text"><em>Próxima seção</em><span class="section-nav-label">${nextSection.label}</span></span><span class="section-nav-arrow">→</span></button>`
+            : `<span class="section-nav-spacer"></span>`}
         </div>
       </div>
     </div>
@@ -1487,7 +1500,7 @@ function renderSection(id, paf) {
     case "cabecalho": return `
       <div class="section-card">
         ${sectionHeader("01", "Cabeçalho", "Identificação do CRAS, do responsável familiar e do plano.")}
-        ${notaTecnica("O PAIF acompanha famílias de forma contínua, com caráter preventivo, protetivo e proativo — não se limita a resolver um \"caso\" pontual. Este PAF é o registro desse processo, conforme as Orientações Técnicas do PAIF (MDS) e a Tipificação Nacional de Serviços Socioassistenciais.")}
+        ${notaTecnica("O PAIF acompanha famílias de forma contínua, com caráter preventivo, protetivo e proativo — não se limita a resolver um \"caso\" pontual. Este PAF é o registro desse processo, com base na Lei Orgânica da Assistência Social (Lei nº 8.742/1993, alterada pela Lei nº 12.435/2011, que torna obrigatória a oferta do PAIF no CRAS), na Política Nacional de Assistência Social (PNAS/2004), nas Orientações Técnicas do PAIF (MDS) e na Tipificação Nacional de Serviços Socioassistenciais.")}
         <div class="field-grid">
           <div class="f c6"><label>Nome do CRAS</label><input type="text" data-field="crasNome" value="${escapeHtml(paf.crasNome)}"></div>
           <div class="f c6"><label>Responsável Familiar</label><input type="text" data-field="responsavel" value="${escapeHtml(paf.responsavel)}"></div>
@@ -1515,6 +1528,7 @@ function renderSection(id, paf) {
           <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
           <div class="f c3"><label>NIS</label><input type="text" data-field="nis" value="${escapeHtml(paf.nis)}"></div>
           <div class="f c3"><label>Data inicial do PAF</label><input type="date" data-field="dataInicial" value="${escapeHtml(paf.dataInicial)}"></div>
+          <div class="f c3"><label>Data de inclusão no sistema</label><input type="date" data-field="createdAt" value="${escapeHtml((paf.createdAt || "").slice(0, 10))}"></div>
           <div class="f c4"><label>Periodicidade de acompanhamento</label><input type="text" data-field="periodicidade" placeholder="Ex.: mensal, quinzenal…" value="${escapeHtml(paf.periodicidade)}"></div>
           <div class="f c2"><label>RG</label><input type="text" data-field="rg" value="${escapeHtml(paf.rg)}"></div>
           <div class="f c2"><label>Órgão</label><input type="text" data-field="rgOrgao" value="${escapeHtml(paf.rgOrgao)}"></div>
@@ -1522,6 +1536,7 @@ function renderSection(id, paf) {
           <div class="f c3"><label>Data de emissão</label><input type="date" data-field="rgDataEmissao" value="${escapeHtml(paf.rgDataEmissao)}"></div>
           <div class="f c3"><label>Data da situação atual</label><input type="date" data-field="situacaoData" value="${escapeHtml(paf.situacaoData)}"></div>
         </div>
+        <p class="hint" style="margin-top:6px;">"Data de inclusão no sistema" define a posição deste PAF no número de protocolo e serve para lançar registros antigos, de antes da criação do aplicativo, com uma data anterior à de hoje. Ela não altera a "Data inicial do PAF" (data em que o acompanhamento com a família começou de fato), usada no Resumo mensal.</p>
       </div>
       <div class="section-card">
         <h2><span class="num">01a</span>Endereço</h2>
@@ -1723,7 +1738,8 @@ function renderSection(id, paf) {
     case "programas": return `
       <div class="section-card">
         ${sectionHeader("06", "Programas, Projetos, Serviços e Benefícios Socioassistenciais", "")}
-        ${notaTecnica("A Trilha do PAIF para o Contexto das Condicionalidades do Programa Bolsa Família (MDS/UNICEF) orienta que o não cumprimento das condicionalidades de saúde e educação não deve ser lido como culpa ou punição da família, e sim como um sinal de possíveis desproteções sociais a serem investigadas. Essas famílias devem ser priorizadas no acompanhamento do PAIF, com busca ativa proativa da equipe — e não apenas uma resposta ao aviso de bloqueio do benefício.")}
+        ${notaTecnica("A Trilha do PAIF para o Contexto das Condicionalidades do Programa Bolsa Família (MDS/UNICEF) orienta que o não cumprimento das condicionalidades de saúde e educação não deve ser lido como culpa ou punição da família, e sim como um sinal de possíveis desproteções sociais a serem investigadas. O Protocolo de Gestão Integrada de Serviços, Benefícios e Transferências de Renda no âmbito do SUAS (Resolução CIT nº 7/2009) reforça essa leitura ao determinar que famílias do PBF, do BPC e do PETI em maior vulnerabilidade — entre elas as em descumprimento de condicionalidades — têm prioridade de inclusão no acompanhamento do PAIF, com busca ativa proativa da equipe, e não apenas uma resposta ao aviso de bloqueio do benefício.")}
+        ${notaTecnica("O Decreto nº 6.307/2007 e o Caderno de Orientações Técnicas sobre Benefícios Eventuais no SUAS (MDS) tratam a cesta básica, o auxílio natalidade, o auxílio funeral e o aluguel social como provisões suplementares e provisórias diante de nascimento, morte, calamidade pública ou vulnerabilidade temporária — e não como favor discricionário da equipe técnica. Entre os princípios que orientam sua concessão estão a afirmação do benefício eventual como direito relativo à cidadania, a ampla divulgação dos critérios de acesso e a vedação de qualquer comprovação vexatória de pobreza para concedê-lo.")}
         <div class="field-grid">
           <div class="f c6">
             <label>a) Participa de programas, projetos sociais ou de geração de renda?</label>
