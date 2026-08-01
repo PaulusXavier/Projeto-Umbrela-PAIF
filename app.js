@@ -1252,14 +1252,14 @@ function renderHomeHTML() {
   const q = state.search.trim().toLowerCase();
   let list = state.pafs.filter(p => {
     const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || (p.apelido || "").toLowerCase().includes(q) || (p.crasNome || "").toLowerCase().includes(q);
-    const matchesStatus = state.statusFilter === "ativos" ? (p.situacaoPAF === "andamento" || p.situacaoPAF === "encaminhado")
-      : state.statusFilter === "arquivo" ? (p.situacaoPAF === "concluido" || p.situacaoPAF === "cancelado")
+    const matchesStatus = state.statusFilter === "ativos" ? p.situacaoPAF === "andamento"
+      : state.statusFilter === "arquivados" ? (p.situacaoPAF === "encaminhado" || p.situacaoPAF === "concluido")
       : p.situacaoPAF === state.statusFilter;
     return matchesQ && matchesStatus;
   }).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
 
-  const chips = ["ativos", "andamento", "encaminhado", "concluido"].map(s => {
-    const label = s === "ativos" ? "Ativos" : STATUS_LABELS[s];
+  const chips = ["ativos", "arquivados"].map(s => {
+    const label = s === "ativos" ? "Ativos" : "Arquivados (Encaminhados/Concluídos)";
     return `<button class="filter-chip ${state.statusFilter === s ? "active" : ""}" data-status="${s}">${label}</button>`;
   }).join("");
 
