@@ -1258,8 +1258,8 @@ function renderHomeHTML() {
     return matchesQ && matchesStatus;
   }).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
 
-  const chips = ["ativos", "andamento", "encaminhado", "concluido", "cancelado", "arquivo"].map(s => {
-    const label = s === "ativos" ? "Ativos" : s === "arquivo" ? "Arquivo (encerrados)" : STATUS_LABELS[s];
+  const chips = ["ativos", "andamento", "encaminhado", "concluido"].map(s => {
+    const label = s === "ativos" ? "Ativos" : STATUS_LABELS[s];
     return `<button class="filter-chip ${state.statusFilter === s ? "active" : ""}" data-status="${s}">${label}</button>`;
   }).join("");
 
@@ -1971,7 +1971,16 @@ function attachEditorHandlers() {
   // Troca rápida de status da capa
   document.querySelectorAll("[data-set-status]").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.current.situacaoPAF = btn.dataset.setStatus;
+      const novoStatus = btn.dataset.setStatus;
+      if (novoStatus === "cancelado") {
+        const ok = confirm("Cancelar este PAF vai excluí-lo definitivamente (de todos os dispositivos, se a nuvem estiver ativa). Essa ação não pode ser desfeita. Deseja continuar?");
+        if (!ok) return;
+        const id = state.current.id;
+        deletePAFRecord(id);
+        goHome();
+        return;
+      }
+      state.current.situacaoPAF = novoStatus;
       scheduleAutosave();
       renderApp();
     });
