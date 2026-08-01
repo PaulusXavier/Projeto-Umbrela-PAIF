@@ -181,6 +181,22 @@ const HABITACAO_ENERGIA = ["Com medidor próprio", "Com medidor compartilhado", 
 const HABITACAO_ESGOTO = ["Rede coletora de esgoto ou pluvial", "Fossa séptica", "Fossa rudimentar", "Direto para vala, rio, lago ou mar", "Domicílio sem banheiro"];
 const HABITACAO_LIXO = ["Coleta direta", "Coleta indireta", "Não possui coleta"];
 
+// Instrumentais técnicos do trabalho social com famílias, reconhecidos tanto pelas
+// Orientações Técnicas do PAIF (MDS) quanto pelas Referências Técnicas do CFP/CREPOP
+// para a atuação de psicólogas(os) no CRAS/SUAS — usados para a leitura da dinâmica e
+// dos vínculos familiares, sem função clínica ou de diagnóstico individual.
+const INSTRUMENTAIS_TECNICOS = [
+  "Entrevista individual/familiar",
+  "Escuta qualificada",
+  "Observação",
+  "Visita domiciliar",
+  "Genograma",
+  "Ecomapa",
+  "Dinâmica de grupo/oficina",
+  "Estudo Social",
+  "Registro fotográfico do território (com autorização)"
+];
+
 const ENCAMINHAMENTO_AREAS = [
   "Outra Unidade/Serviço da Assistência Social", "Saúde", "Educação", "INSS", "Habitação", "Defensoria Pública", "Outra"
 ];
@@ -253,6 +269,19 @@ const PILAR_ICONS = {
 function pilarIconSvg(id, size) {
   const s = size || 20;
   return `<svg class="pilar-icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PILAR_ICONS[id] || ""}</svg>`;
+}
+
+// Ícone dos Aspectos Psicossociais e Instrumentais Técnicos (genograma/ecomapa):
+// três núcleos entrelaçados por linhas de geração, no mesmo vocabulário de traço
+// fino dos demais ícones do app — referência visual à leitura sistêmica dos
+// vínculos familiares, sem remeter a um símbolo clínico ou terapêutico.
+function psicossocialIconSvg(size) {
+  const s = size || 17;
+  return `<svg class="section-icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="6.5" cy="6" r="2.1"/><circle cx="17.5" cy="6" r="2.1"/><circle cx="12" cy="13.2" r="2.4"/>
+    <path d="M6.5 8.1V10.7M17.5 8.1V10.7M9.1 12.2 12 10.9M14.9 12.2 12 10.9"/>
+    <path d="M12 15.6v3M8.7 21.5h6.6"/>
+  </svg>`;
 }
 
 // Faixa de identidade visual: reforça, com traço e não com foto, os três eixos do
@@ -490,6 +519,8 @@ function emptyPAF() {
     saudeMedicacaoControlada: "", saudeMedicacaoQuem: "",
     saudeAlcool: "", saudeAlcoolQuem: "", saudeDrogas: "", saudeDrogasQuem: "",
     saudeGestante: "", saudeGestanteQuem: "", saudeObs: "",
+    instrumentaisTecnicos: [],
+    aspectosPsicossociaisObs: "",
     encaminhamentosForm: [],
     participaProgramas: "",
     programasQuais: [],
@@ -1488,6 +1519,19 @@ function chkList(groupName, options, selectedArr, cols) {
     </label>`).join("") + `</div>`;
 }
 
+// Mesma lista de SEGURANCAS_SOCIOASSISTENCIAIS, mas exibida com o ícone do pilar
+// correspondente (acolhida/convívio/autonomia) — reforça visualmente que estas três
+// seguranças são os mesmos três pilares do PAIF já apresentados na tela inicial.
+function segurancasChkList(selectedArr) {
+  const pilarPorOpcao = (opt) => opt.includes("acolhida") ? "acolhida" : opt.includes("convívio") ? "convivio" : "autonomia";
+  return `<div class="check-list">` + SEGURANCAS_SOCIOASSISTENCIAIS.map(opt => `
+    <label class="chk chk-pilar">
+      <input type="checkbox" data-check-group="segurancasSocioassistenciais" data-check-value="${escapeHtml(opt)}" ${selectedArr.includes(opt) ? "checked" : ""}>
+      <span class="chk-pilar-icon">${pilarIconSvg(pilarPorOpcao(opt), 16)}</span>
+      <span>${escapeHtml(opt)}</span>
+    </label>`).join("") + `</div>`;
+}
+
 function situacaoMembrosField(paf, i, row) {
   const nomes = [...new Set((paf.membros || []).map(m => (m.nome || "").trim()).filter(Boolean))];
   if (!nomes.length) {
@@ -1626,7 +1670,7 @@ function renderSection(id, paf) {
       return `
       <div class="section-card">
         ${sectionHeader("03", "Diagnóstico", "Família inserida em acompanhamento familiar no PAIF para superação da(s) seguinte(s) vulnerabilidade(s):")}
-        ${notaTecnica("Vulnerabilidade, para a PNAS, vai além da renda: é uma leitura dinâmica das situações de desproteção social vividas pela família, moldadas por seus recursos e pelo território — e não um traço fixo ou definitivo de quem é atendido. As Referências Técnicas do CFP/CREPOP para o CRAS/SUAS reforçam que a vulnerabilidade não deve ser tratada como atributo individual da família nem usada para culpabilizá-la por sua condição de pobreza, mas compreendida à luz de condições sociais, econômicas e históricas mais amplas — sem prejuízo do reconhecimento das potencialidades e da capacidade de protagonismo de cada família no seu próprio processo.")}
+        ${notaTecnica("Vulnerabilidade, para a PNAS, vai além da renda: é uma leitura dinâmica das situações de desproteção social vividas pela família, moldadas por seus recursos e pelo território — e não um traço fixo ou definitivo de quem é atendido. As Referências Técnicas do CFP/CREPOP para o CRAS/SUAS reforçam que a vulnerabilidade não deve ser tratada como atributo individual da família nem usada para culpabilizá-la por sua condição de pobreza, mas compreendida à luz de condições sociais, econômicas e históricas mais amplas — sem prejuízo do reconhecimento das potencialidades e da capacidade de protagonismo de cada família no seu próprio processo. Vale cuidado também com o vocabulário usado no registro: termos como \"carente\" reduzem a família a uma simples falta e escondem o caráter relacional da pobreza; \"família desestruturada\" supõe um modelo único e ideal de família e tende a culpabilizá-la por dificuldades que têm origem em condições sociais, econômicas e históricas mais amplas. Prefira descrever a situação concreta vivida pela família (renda, moradia, acesso a serviços, vínculos) a rotulá-la com esses termos.")}
         ${chkList("vulnerabilidades", VULNERABILIDADES_FAMILIA, paf.vulnerabilidades)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="vulnerabilidadesOutros" value="${escapeHtml(paf.vulnerabilidadesOutros)}"></div>
       </div>
@@ -1684,13 +1728,21 @@ function renderSection(id, paf) {
           <div class="f c12"><label>Observações sobre saúde</label><textarea rows="2" data-field="saudeObs">${escapeHtml(paf.saudeObs)}</textarea></div>
         </div>
         <p class="hint">A presença de PCD e a necessidade de cuidados constantes devem ser registradas na lista de vulnerabilidades acima e/ou no campo de observações do Diagnóstico.</p>
+      </div>
+
+      <div class="section-card">
+        <h2><span class="num">03e</span><span class="section-icon-badge">${psicossocialIconSvg(17)}</span>Aspectos Psicossociais e Instrumentais Técnicos</h2>
+        <p class="section-sub">Recursos técnicos utilizados para a leitura da dinâmica e dos vínculos familiares.</p>
+        ${notaTecnica("Genograma e ecomapa são instrumentais de leitura sistêmica da família e de sua rede de relações — recursos reconhecidos pelas Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS —, e não instrumentos de diagnóstico clínico individual. Seu uso no PAIF apoia a compreensão dos vínculos, papéis e potencialidades da família e do território, sempre a serviço do caráter preventivo e protetivo do Serviço, e nunca como avaliação psicológica formal ou psicoterapia, que estão fora do escopo do PAIF.")}
+        ${chkList("instrumentaisTecnicos", INSTRUMENTAIS_TECNICOS, paf.instrumentaisTecnicos || [], true)}
+        <div class="f c12" style="margin-top:12px"><label>Aspectos relacionais observados (dinâmica, comunicação, papéis, potencialidades e vínculos da família)</label><textarea rows="3" data-field="aspectosPsicossociaisObs">${escapeHtml(paf.aspectosPsicossociaisObs)}</textarea></div>
       </div>`;
     }
 
     case "grupo": return `
       <div class="section-card">
         ${sectionHeader("04", "Sobre o Grupo Familiar", "Vulnerabilidades e riscos sociais a serem superados, gerados pelas múltiplas expressões da questão social.")}
-        ${notaTecnica("O trabalho do PAIF é, antes de tudo, territorial e comunitário: as Referências Técnicas do CFP/CREPOP para o CRAS/SUAS situam o fortalecimento de vínculos familiares e comunitários — e não apenas o atendimento individual — como eixo central da atuação da equipe técnica, incluindo a psicóloga(o), junto a essa família.")}
+        ${notaTecnica("O trabalho do PAIF é, antes de tudo, territorial e comunitário: as Referências Técnicas do CFP/CREPOP para o CRAS/SUAS situam o fortalecimento de vínculos familiares e comunitários — e não apenas o atendimento individual — como eixo central da atuação da equipe técnica, incluindo a psicóloga(o), junto a essa família. A matricialidade sociofamiliar, eixo estruturante da PNAS, não exige atender todos os membros da família sempre juntos: significa não perder de vista o contexto familiar e comunitário do sujeito atendido, mesmo quando o acompanhamento é individual, e reconhecer que a responsabilidade por superar as vulnerabilidades não recai só sobre a família. Já a territorialização vai além de localizar o serviço perto da população: trata o território como espaço vivo, de disputas e potencialidades, e não apenas como um lugar geográfico.")}
         ${paf.situacoesSociais.map((row, i) => `
           <div class="matrix-row">
             <div class="situ-label">${escapeHtml(row.situacao)}</div>
@@ -1879,13 +1931,13 @@ function renderSection(id, paf) {
     case "plano": return `
       <div class="section-card">
         ${sectionHeader("10", "Elaboração do Plano", "")}
-        ${notaTecnica("Marque os objetivos do PAIF (conforme a Tipificação Nacional de Serviços Socioassistenciais) que este Plano pretende trabalhar com a família — isso ajuda a manter o acompanhamento alinhado à finalidade do Serviço, e não apenas à resolução de uma demanda pontual. As Referências Técnicas do CFP/CREPOP destacam que o Plano deve ter caráter não tutelar: a família participa ativamente da definição de suas metas, e o trabalho técnico busca fortalecer sua autonomia e protagonismo, e não apenas prover respostas assistencialistas às suas demandas.")}
+        ${notaTecnica("Marque os objetivos do PAIF (conforme a Tipificação Nacional de Serviços Socioassistenciais) que este Plano pretende trabalhar com a família — isso ajuda a manter o acompanhamento alinhado à finalidade do Serviço, e não apenas à resolução de uma demanda pontual. As Referências Técnicas do CFP/CREPOP destacam que o Plano deve ter caráter não tutelar: a família participa ativamente da definição de suas metas, e o trabalho técnico busca fortalecer sua autonomia e protagonismo, e não apenas prover respostas assistencialistas às suas demandas. O SUAS busca superar a antiga lógica de \"polícia das famílias\" — palestras e oficinas educativas desarticuladas dos serviços, oferecidas como condição ou favor — e também a ideia de que a assistência social é \"ajuda\": trata-se de direito do cidadão e dever do Estado. Evite, portanto, redigir metas e estratégias em tom de condição, favor ou disciplinamento de comportamento.")}
         <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
         ${chkList("objetivosPaif", OBJETIVOS_PAIF, paf.objetivosPaif || [], true)}
         <div class="f" style="margin:12px 0 20px"><label>Outros objetivos</label><input type="text" data-field="objetivosPaifOutros" value="${escapeHtml(paf.objetivosPaifOutros)}"></div>
         ${notaTecnica("A Política Nacional de Assistência Social (PNAS/2004) e a Norma Operacional Básica do SUAS (NOB-SUAS/2012) organizam a proteção socioassistencial em torno de seguranças a serem afiançadas aos usuários. Indicar aqui qual(is) delas este Plano busca garantir para a família ajuda a explicitar a finalidade protetiva do acompanhamento, para além da resposta a uma demanda pontual.")}
         <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Seguranças socioassistenciais afiançadas por este Plano</label>
-        ${chkList("segurancasSocioassistenciais", SEGURANCAS_SOCIOASSISTENCIAIS, paf.segurancasSocioassistenciais || [], true)}
+        ${segurancasChkList(paf.segurancasSocioassistenciais || [])}
         <div class="f" style="margin:12px 0 20px"><label>Outras</label><input type="text" data-field="segurancasSocioassistenciaisOutras" value="${escapeHtml(paf.segurancasSocioassistenciaisOutras)}"></div>
         <div class="field-grid">
           <div class="f c6">
@@ -1992,15 +2044,17 @@ function attachEditorHandlers() {
     btn.addEventListener("click", () => {
       const novoStatus = btn.dataset.setStatus;
       if (novoStatus === "cancelado") {
-        const ok = confirm("Cancelar este PAF vai excluí-lo definitivamente (de todos os dispositivos, se a nuvem estiver ativa). Essa ação não pode ser desfeita. Deseja continuar?");
-        if (!ok) return;
-        const id = state.current.id;
-        deletePAFRecord(id);
-        goHome();
+        confirmModal("Cancelar este PAF?", "Cancelar este PAF vai excluí-lo definitivamente (de todos os dispositivos, se a nuvem estiver ativa). Essa ação não pode ser desfeita.", () => {
+          const id = state.current.id;
+          deletePAFRecord(id);
+          goHome();
+        });
         return;
       }
+      if (novoStatus === state.current.situacaoPAF) return;
       state.current.situacaoPAF = novoStatus;
-      scheduleAutosave();
+      if (!state.current.situacaoData) state.current.situacaoData = todayISO();
+      savePAF(state.current, { silent: true });
       renderApp();
     });
   });
@@ -2544,6 +2598,11 @@ function exportPDF(paf) {
       </div>
       ${[paf.habitacaoObs, paf.eduObs, paf.rendaObs, paf.saudeObs].filter(Boolean).map(o => `<p class="muted" style="margin:4px 0;">${escapeHtml(o)}</p>`).join("")}
 
+      ${(paf.instrumentaisTecnicos || []).length || paf.aspectosPsicossociaisObs ? `
+      <h2>Aspectos Psicossociais e Instrumentais Técnicos</h2>
+      ${(paf.instrumentaisTecnicos || []).length ? `<div>${paf.instrumentaisTecnicos.map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
+      ${paf.aspectosPsicossociaisObs ? `<p class="muted" style="margin:6px 0 0;">${escapeHtml(paf.aspectosPsicossociaisObs)}</p>` : ""}` : ""}
+
       ${(paf.encaminhamentosForm || []).length ? `
       <h2>Encaminhamentos Realizados</h2>
       <table>
@@ -2826,6 +2885,10 @@ function exportWord(paf) {
       <b>Educação:</b> Fora da escola (0-5/6-14/15-17): ${escapeHtml(paf.eduForaEscola06) || "0"}/${escapeHtml(paf.eduForaEscola614) || "0"}/${escapeHtml(paf.eduForaEscola1517) || "0"}<br>
       <b>Trabalho e Renda:</b> Renda total: ${escapeHtml(paf.rendaTotal) || "—"} | Per capita: ${escapeHtml(paf.rendaPerCapita) || "—"}<br>
       <b>Saúde:</b> Doença grave: ${escapeHtml(paf.saudeDoencaGrave) || "—"} | Medicação controlada: ${escapeHtml(paf.saudeMedicacaoControlada) || "—"} | Uso de álcool: ${escapeHtml(paf.saudeAlcool) || "—"} | Uso de drogas: ${escapeHtml(paf.saudeDrogas) || "—"} | Gestante: ${escapeHtml(paf.saudeGestante) || "—"}</p>
+
+      <h2>03e. Aspectos Psicossociais e Instrumentais Técnicos</h2>
+      <p><b>Instrumentais utilizados:</b> ${(paf.instrumentaisTecnicos || []).join(", ") || "—"}<br>
+      <b>Aspectos relacionais observados:</b> ${escapeHtml(paf.aspectosPsicossociaisObs) || "—"}</p>
 
       <h2>04. Registro de Atendimentos</h2>
       <table>
