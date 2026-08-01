@@ -48,8 +48,12 @@ const SITUACOES_SOCIAIS = [
 ];
 
 const SERVICOS_BASICA = ["PAIF", "SCFV", "Serviço de Proteção Social Básica no Domicílio para Pessoas com Deficiência e Idosas"];
-const SERVICOS_MEDIA = ["PAEFI", "Medidas Socioeducativas em Meio Aberto", "Para idosos, PCD e suas famílias", "Para pessoas em situação de rua"];
-const SERVICOS_ALTA = ["Acolhimento Institucional", "Acolhimento em República", "Acolhimento em Família Acolhedora"];
+const SERVICOS_MEDIA = ["PAEFI", "Serviço Especializado em Abordagem Social",
+  "Serviço de Proteção Social a Adolescentes em Cumprimento de Medida Socioeducativa (Liberdade Assistida e PSC)",
+  "Serviço de Proteção Social Especial para Pessoas com Deficiência, Idosas e suas Famílias",
+  "Serviço Especializado para Pessoas em Situação de Rua"];
+const SERVICOS_ALTA = ["Acolhimento Institucional", "Acolhimento em República", "Acolhimento em Família Acolhedora",
+  "Proteção em Situações de Calamidades Públicas e de Emergências"];
 
 const PROGRAMAS_QUAIS = ["Programa Família que Acolhe (FQA)",
   "Projeto ArtCanto", "Programa Dedo Verde", "Programa Rumo Certo", "Projeto Cabelos de Prata", "Conviver",
@@ -94,12 +98,21 @@ const TIPOS_ATENDIMENTO = ["Atendimento no CRAS", "Visita Domiciliar", "Contato 
 // usados para que a equipe registre, no Plano, quais objetivos do Serviço estão
 // sendo trabalhados com esta família específica (evita que o PAF vire só "resolução de caso").
 const OBJETIVOS_PAIF = [
-  "Fortalecer a função protetiva da família, contribuindo para a melhoria da sua qualidade de vida",
-  "Prevenir a ruptura de vínculos familiares e comunitários, apoiando a superação de situações de fragilidade social",
-  "Promover aquisições sociais e materiais à família, fortalecendo seu protagonismo e autonomia",
-  "Ampliar o acesso a benefícios, programas de transferência de renda e serviços socioassistenciais",
-  "Ampliar o acesso a serviços setoriais (saúde, educação, trabalho e outros), contribuindo para o usufruto de direitos",
-  "Apoiar a família que tem, entre seus membros, pessoas que demandam cuidados, por meio de espaços coletivos de escuta e troca de experiências"
+  "Fortalecer a função protetiva da família, contribuindo na melhoria da sua qualidade de vida",
+  "Prevenir a ruptura dos vínculos familiares e comunitários, possibilitando a superação de situações de fragilidade social vivenciadas",
+  "Promover aquisições sociais e materiais às famílias, potencializando o protagonismo e a autonomia das famílias e comunidades",
+  "Promover acessos a benefícios, programas de transferência de renda e serviços socioassistenciais, contribuindo para a inserção das famílias na rede de proteção social de assistência social",
+  "Promover acesso a serviços setoriais, contribuindo para o usufruto de direitos",
+  "Apoiar famílias que possuem, dentre seus membros, indivíduos que necessitam de cuidados, por meio da promoção de espaços coletivos de escuta e troca de vivências familiares"
+];
+
+// Seguranças socioassistenciais afiançadas pela Política Nacional de Assistência Social
+// (PNAS/2004) e pela NOB-SUAS/2012 — o Plano deve indicar qual(is) delas está(ão)
+// sendo trabalhada(s)/afiançada(s) para esta família, e não apenas os objetivos do Serviço.
+const SEGURANCAS_SOCIOASSISTENCIAIS = [
+  "Segurança de acolhida",
+  "Segurança de convívio ou vivência familiar, comunitária e social",
+  "Segurança de desenvolvimento da autonomia individual, familiar e social"
 ];
 
 // Trabalho social coletivo do PAIF (distinto dos encaminhamentos a outros serviços/órgãos):
@@ -495,6 +508,8 @@ function emptyPAF() {
     familiaParticipou: "",
     objetivosPaif: [],
     objetivosPaifOutros: "",
+    segurancasSocioassistenciais: [],
+    segurancasSocioassistenciaisOutras: "",
     prazoExecucaoPlano: "",
     prazoAvaliacaoPlano: "",
     tecnicoReferencia: "",
@@ -1868,6 +1883,10 @@ function renderSection(id, paf) {
         <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
         ${chkList("objetivosPaif", OBJETIVOS_PAIF, paf.objetivosPaif || [], true)}
         <div class="f" style="margin:12px 0 20px"><label>Outros objetivos</label><input type="text" data-field="objetivosPaifOutros" value="${escapeHtml(paf.objetivosPaifOutros)}"></div>
+        ${notaTecnica("A Política Nacional de Assistência Social (PNAS/2004) e a Norma Operacional Básica do SUAS (NOB-SUAS/2012) organizam a proteção socioassistencial em torno de seguranças a serem afiançadas aos usuários. Indicar aqui qual(is) delas este Plano busca garantir para a família ajuda a explicitar a finalidade protetiva do acompanhamento, para além da resposta a uma demanda pontual.")}
+        <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Seguranças socioassistenciais afiançadas por este Plano</label>
+        ${chkList("segurancasSocioassistenciais", SEGURANCAS_SOCIOASSISTENCIAIS, paf.segurancasSocioassistenciais || [], true)}
+        <div class="f" style="margin:12px 0 20px"><label>Outras</label><input type="text" data-field="segurancasSocioassistenciaisOutras" value="${escapeHtml(paf.segurancasSocioassistenciaisOutras)}"></div>
         <div class="field-grid">
           <div class="f c6">
             <label>A família participou da construção do Plano de Acompanhamento?</label>
@@ -2277,13 +2296,45 @@ function exportPDF(paf) {
       <meta charset="UTF-8">
       <title>Prontuário PAF - ${escapeHtml(paf.responsavel)}</title>
       <style>
-        @page { margin: 16mm 14mm; }
+        @page { margin: 30mm 14mm 24mm; }
         * { box-sizing: border-box; }
         body {
           font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F;
-          line-height: 1.5; margin: 0; padding: 0;
+          line-height: 1.5; margin: 0; padding: 5mm 0 3mm; position: relative;
         }
         .brasao { font-family: Georgia, 'Times New Roman', serif; }
+
+        /* ---- Cabeçalho e rodapé fixos (repetem em toda página impressa) ---- */
+        .page-header-fixed {
+          position: fixed; top: 0; left: 0; right: 0;
+          display: flex; align-items: center; gap: 8px;
+          border-bottom: 1px solid #C9D2D9; padding-bottom: 5px; font-size: 8px; color: #6C7D8F;
+          white-space: nowrap;
+        }
+        .page-header-fixed .brasao-mini { flex-shrink: 0; color: #B98A34; }
+        .page-header-fixed > div:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+        .page-header-fixed .ph-org { font-weight: 700; color: #1F3A5F; font-size: 9px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-header-fixed .ph-sub { display: block; font-weight: 400; color: #8496A8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-header-fixed .ph-right { flex: 0 0 auto; max-width: 42%; margin-left: auto; text-align: right; overflow: hidden; }
+        .page-header-fixed .ph-right b { display: block; color: #1F3A5F; font-family: 'IBM Plex Mono', 'Courier New', monospace; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-header-fixed .ph-right span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .page-footer-fixed {
+          position: fixed; bottom: 0; left: 0; right: 0;
+          display: flex; align-items: center; justify-content: space-between; gap: 10px;
+          border-top: 1px solid #C9D2D9; padding-top: 5px; font-size: 7.3px; color: #8496A8; line-height: 1.45;
+        }
+        .page-footer-fixed .pf-selo {
+          flex-shrink: 0; font-size: 6.6px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+          color: #52667C; border: 1px solid #C9D2D9; border-radius: 3px; padding: 2px 6px; white-space: nowrap;
+        }
+
+        /* ---- Marca d'água de confidencialidade, repetida em cada página ---- */
+        .watermark {
+          position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-32deg);
+          font-family: Georgia, serif; font-size: 62px; font-weight: 700; letter-spacing: .08em;
+          color: #1F3A5F; opacity: 0.045; white-space: nowrap; pointer-events: none;
+        }
 
         .orgao-header {
           display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
@@ -2294,20 +2345,27 @@ function exportPDF(paf) {
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
 
         .capa-header {
-          display: flex; align-items: center; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
-          border-bottom: 2.5px solid #1F3A5F; padding: 11px 12px; margin-bottom: 16px; border-radius: 0 0 5px 5px;
+          display: flex; align-items: flex-start; gap: 14px; border: 1px solid #1F3A5F;
+          border-bottom: 2.5px solid #1F3A5F; padding: 12px 14px; margin-bottom: 14px; border-radius: 6px;
+          position: relative; background: linear-gradient(180deg,#F8FAFB 0%,#fff 60%);
         }
         .capa-selo {
-          width: 40px; height: 40px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 18px; color: #B98A34;
+          width: 42px; height: 42px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 19px; color: #B98A34;
         }
+        .capa-titulos { flex: 1; }
+        .capa-titulos .capa-eyebrow { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: .1em; color: #B98A34; font-weight: 700; margin-bottom: 2px; }
         .capa-titulos h1 { font-family: Georgia, serif; font-size: 17px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
         .capa-titulos p { margin: 3px 0 0; font-size: 10.5px; color: #2E7D6B; font-weight: 600; }
-        .capa-meta { margin-left: auto; text-align: right; font-size: 9.5px; color: #8496A8; line-height: 1.6; border-left: 1px solid #D7E0E6; padding-left: 14px; }
-        .capa-meta strong { color: #1F3A5F; }
+        .capa-ficha {
+          margin-left: auto; text-align: right; font-size: 9px; color: #52667C; line-height: 1.7;
+          border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 5px; padding: 7px 12px; min-width: 132px;
+        }
+        .capa-ficha .num { font-family: 'IBM Plex Mono', 'Courier New', monospace; font-size: 13px; font-weight: 700; color: #7A5A1E; letter-spacing: .01em; }
+        .capa-ficha .lbl { display: block; font-size: 7px; text-transform: uppercase; letter-spacing: .06em; color: #8496A8; }
 
         .id-band {
-          background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 6px; padding: 13px 16px; margin-bottom: 18px;
+          background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 6px; padding: 13px 16px; margin-bottom: 16px;
           display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
         }
         .id-nome-wrap { flex: 1 1 200px; }
@@ -2332,18 +2390,27 @@ function exportPDF(paf) {
         .id-stat .n { display: block; font-family: Georgia, serif; font-size: 16px; font-weight: bold; color: #B98A34; line-height: 1; }
         .id-stat .l { display: block; font-size: 7.5px; text-transform: uppercase; color: #8496A8; margin-top: 3px; letter-spacing: .02em; }
 
+        body { counter-reset: secao; }
         h2 {
+          counter-increment: secao;
+          display: flex; align-items: center; gap: 8px;
           font-size: 12.5px; color: #1F5C4E; margin: 22px 0 8px; padding-bottom: 4px;
           border-bottom: 1.6px solid #DEEAE6; page-break-after: avoid; letter-spacing: .01em;
         }
-        h2::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #B98A34; margin-right: 7px; vertical-align: middle; }
+        h2::before {
+          content: counter(secao, decimal-leading-zero); flex-shrink: 0;
+          display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px;
+          border-radius: 4px; background: #1F5C4E; color: #fff; font-size: 8px; font-weight: 700;
+          font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        }
         .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 18px; margin-bottom: 6px; }
         .field { margin-bottom: 4px; }
         .label { font-weight: bold; font-size: 9px; text-transform: uppercase; letter-spacing: .02em; color: #52667C; display: block; margin-bottom: 1px; }
         table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; }
         th, td { border: 1px solid #D7E0E6; padding: 6px 7px; text-align: left; vertical-align: top; }
-        th { background: #F6F8F9; font-weight: bold; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; border-bottom: 1.6px solid #D7E0E6; }
+        th { background: #EEF3F1; font-weight: bold; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; border-bottom: 1.6px solid #1F5C4E; color: #1F5C4E; }
         tbody tr:nth-child(even) td { background: #FAFBFC; }
+        tr { page-break-inside: avoid; }
         .tag { display: inline-block; background: #DEEAE6; color: #1F5C4E; padding: 3px 8px; border-radius: 4px; font-size: 9.5px; margin: 2px 5px 2px 0; font-weight: 600; }
         .muted { color: #8496A8; font-style: italic; }
 
@@ -2364,14 +2431,17 @@ function exportPDF(paf) {
         .reg-evolucao { margin: 0 0 4px; font-size: 10.5px; }
         .reg-encam { margin: 0; font-size: 10px; color: #52667C; }
 
-        .assinaturas { display: flex; gap: 44px; margin-top: 46px; page-break-inside: avoid; }
+        .fechamento { margin-top: 34px; page-break-inside: avoid; }
+        .fechamento .local-data { font-size: 10px; color: #52667C; margin-bottom: 26px; }
+        .assinaturas { display: flex; gap: 44px; }
         .assinatura { flex: 1; text-align: center; }
         .assinatura .linha { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; font-weight: 600; }
+        .assinatura .cpf-linha { font-size: 9px; color: #8496A8; font-weight: 400; margin-top: 1px; }
         .assinatura .titulo { font-size: 9px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
 
-        .rodape-print {
-          margin-top: 26px; padding-top: 9px; border-top: 1px solid #D7E0E6;
-          font-size: 8.5px; color: #8496A8; text-align: center; line-height: 1.5;
+        .rodape-doc {
+          margin-top: 22px; padding-top: 8px; border-top: 1px dashed #D7E0E6;
+          font-size: 7.8px; color: #A6B4C0; text-align: center; line-height: 1.5; font-style: italic;
         }
 
         .anexos-print-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
@@ -2389,32 +2459,45 @@ function exportPDF(paf) {
         @media print {
           .capa-header, h2 { page-break-after: avoid; }
         }
+        @media screen {
+          .page-header-fixed, .page-footer-fixed, .watermark { display: none; }
+        }
       </style>
     </head>
     <body>
-      <div class="orgao-header">
+      <div class="watermark">CONFIDENCIAL</div>
+
+      <div class="page-header-fixed">
         <div class="brasao-mini">
-          <svg viewBox="0 0 48 48" width="22" height="22"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+          <svg viewBox="0 0 48 48" width="16" height="16"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
         </div>
         <div>
-          <strong>Prefeitura Municipal de Boa Vista</strong>
-          Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
-          Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes
+          <span class="ph-org">Prefeitura Municipal de Boa Vista · SEMADS</span>
+          <span class="ph-sub">CRAS Cristiana Vicente Nunes — Prontuário do Plano de Acompanhamento Familiar (PAF/PAIF)</span>
         </div>
-        <div class="orgao-contato">
-          Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>
-          (95) 98402-6627 · crascentenariosemges@gmail.com
+        <div class="ph-right">
+          <b>Ficha nº ${protocoloNumero(paf)}</b>
+          <span>${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
         </div>
       </div>
+
+      <div class="page-footer-fixed">
+        <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR · (95) 98402-6627 · crascentenariosemges@gmail.com</span>
+        <span class="pf-selo">Documento de uso interno · CRAS/SEMADS</span>
+      </div>
+
       <div class="capa-header">
         <div class="capa-selo">P</div>
         <div class="capa-titulos">
-          <h1>Plano de Acompanhamento Familiar — Prontuário</h1>
+          <span class="capa-eyebrow">Prontuário SUAS · Proteção Social Básica</span>
+          <h1>Plano de Acompanhamento Familiar</h1>
           <p>Serviço de Proteção e Atendimento Integral à Família (PAIF) ${paf.crasNome ? "· " + escapeHtml(paf.crasNome) : ""}</p>
         </div>
-        <div class="capa-meta">
-          Ficha nº <strong>${protocoloNumero(paf)}</strong><br>
-          Emitido em ${fmtDateBR(todayISO())}
+        <div class="capa-ficha">
+          <span class="lbl">Ficha nº</span>
+          <span class="num">${protocoloNumero(paf)}</span>
+          <span class="lbl" style="margin-top:4px;">Emitido em</span>
+          ${fmtDateBR(todayISO())}
         </div>
       </div>
 
@@ -2518,6 +2601,10 @@ function exportPDF(paf) {
       <div>${(paf.objetivosPaif || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
       ${paf.objetivosPaifOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.objetivosPaifOutros)}</p>` : ""}
 
+      <h2>Seguranças Socioassistenciais Afiançadas</h2>
+      <div>${(paf.segurancasSocioassistenciais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
+      ${paf.segurancasSocioassistenciaisOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.segurancasSocioassistenciaisOutras)}</p>` : ""}
+
       <h2>Elaboração e Encerramento</h2>
       <div class="grid">
         <div class="field"><span class="label">Família participou da elaboração</span>${escapeHtml(paf.familiaParticipou) || "—"}</div>
@@ -2535,19 +2622,24 @@ function exportPDF(paf) {
 
       ${anexosHTML}
 
-      <div class="assinaturas">
-        <div class="assinatura">
-          <div class="linha">${escapeHtml(paf.tecnicoReferencia) || "Técnico de Referência"}</div>
-          <div class="titulo">Assinatura do Técnico de Referência</div>
-        </div>
-        <div class="assinatura">
-          <div class="linha">${escapeHtml(paf.responsavel) || "Responsável Familiar"}</div>
-          <div class="titulo">Assinatura do Responsável Familiar</div>
+      <div class="fechamento">
+        <p class="local-data">Boa Vista/RR, ${fmtDateBR(todayISO())}.</p>
+        <div class="assinaturas">
+          <div class="assinatura">
+            <div class="linha">${escapeHtml(paf.tecnicoReferencia) || "Técnico de Referência"}</div>
+            <div class="cpf-linha">Assinatura e carimbo</div>
+            <div class="titulo">Técnico de Referência</div>
+          </div>
+          <div class="assinatura">
+            <div class="linha">${escapeHtml(paf.responsavel) || "Responsável Familiar"}</div>
+            <div class="cpf-linha">${escapeHtml(paf.cpf) ? "CPF " + escapeHtml(paf.cpf) : "&nbsp;"}</div>
+            <div class="titulo">Responsável Familiar</div>
+          </div>
         </div>
       </div>
 
-      <div class="rodape-print">
-        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes — Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
+      <div class="rodape-doc">
+        Documento gerado eletronicamente pelo sistema de gestão do PAF/PAIF do CRAS Cristiana Vicente Nunes em ${fmtDateBR(todayISO())}, para uso exclusivo da equipe técnica do SUAS — sujeito a sigilo profissional.<br>
         Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </div>
 
@@ -2767,6 +2859,7 @@ function exportWord(paf) {
 
       <h2>06. Elaboração e Encerramento</h2>
       <p><b>Objetivos do PAIF trabalhados neste Plano:</b> ${(paf.objetivosPaif || []).join("; ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? " | Outros: " + escapeHtml(paf.objetivosPaifOutros) : ""}<br>
+      <b>Seguranças socioassistenciais afiançadas:</b> ${(paf.segurancasSocioassistenciais || []).join("; ") || "Nenhuma selecionada"}${paf.segurancasSocioassistenciaisOutras ? " | Outras: " + escapeHtml(paf.segurancasSocioassistenciaisOutras) : ""}<br>
       <b>Família participou da elaboração:</b> ${escapeHtml(paf.familiaParticipou) || "—"}<br>
       <b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia) || "—"}<br>
       <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao) || "—"}<br>
