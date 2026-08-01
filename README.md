@@ -100,6 +100,11 @@ os registros só para si (não compartilha com os outros).
   os objetivos do Serviço conforme a Tipificação Nacional de Serviços Socioassistenciais,
   para deixar claro qual finalidade do PAIF está sendo perseguida com aquela família —
   também aparece no PDF e no Word exportados.
+- **Seguranças socioassistenciais afiançadas por este Plano** (seção Elaboração do Plano):
+  checklist com as seguranças da Política Nacional de Assistência Social e da NOB-SUAS
+  (acolhida; convívio ou vivência familiar, comunitária e social; desenvolvimento de
+  autonomia), para registrar qual(is) delas o Plano se propõe a garantir para a família —
+  também aparece no PDF e no Word exportados.
 - **Diagnóstico socioeconômico** (dentro da seção Diagnóstico): blocos objetivos de
   Condições Habitacionais, Condições Educacionais, Condições de Trabalho e Renda e
   Condições de Saúde, no mesmo padrão do Prontuário SUAS — mais rápidos de preencher do
@@ -146,13 +151,30 @@ e checklists) foi organizado com base em:
   torna obrigatória a oferta do PAIF no CRAS — base legal citada na nota técnica introdutória
   da seção Cabeçalho;
 - **Política Nacional de Assistência Social — PNAS** (2004), origem da concepção de
-  vulnerabilidade social usada nas notas técnicas das seções Cabeçalho e Diagnóstico;
+  vulnerabilidade social usada nas notas técnicas das seções Cabeçalho e Diagnóstico, e
+  das seguranças socioassistenciais (acolhida; convívio ou vivência familiar, comunitária
+  e social; desenvolvimento de autonomia) que o Plano indica no checklist da seção
+  Elaboração do Plano;
+- **Norma Operacional Básica do SUAS — NOB-SUAS** (Resolução CNAS nº 33, de 12 de dezembro
+  de 2012), que organiza a oferta socioassistencial em torno dessas seguranças e da
+  hierarquização dos serviços em Proteção Social Básica e Especial (de Média e Alta
+  Complexidade) — usada no checklist "Seguranças socioassistenciais afiançadas" e na
+  lista de serviços da rede socioassistencial (seção Situações, Trabalho Coletivo e
+  Serviços);
 - **Tipificação Nacional de Serviços Socioassistenciais** (Resolução CNAS nº 109, de 11 de
   novembro de 2009, com as alterações da Resolução CNAS nº 13, de 13 de maio de 2014) —
-  fonte da definição oficial do PAIF, de seus objetivos, usuários prioritários, provisões,
-  aquisições dos usuários (seguranças de acolhida, convívio e desenvolvimento da autonomia)
-  e articulação em rede, usados no checklist "Objetivos do PAIF" e nas notas técnicas das
-  seções Rede do Território e Encerramento;
+  fonte da definição oficial do PAIF, de seus objetivos (reproduzidos no checklist
+  "Objetivos do PAIF" com a redação da própria Tipificação), usuários prioritários,
+  provisões, aquisições dos usuários e articulação em rede, e também da relação completa
+  de serviços por nível de complexidade (Proteção Social Básica: PAIF, SCFV e Serviço de
+  Proteção Social Básica no Domicílio para Pessoas com Deficiência e Idosas; Média
+  Complexidade: PAEFI, Serviço Especializado em Abordagem Social, Serviço de Proteção
+  Social a Adolescentes em Cumprimento de Medida Socioeducativa, Serviço de Proteção
+  Social Especial para Pessoas com Deficiência, Idosas e suas Famílias, e Serviço
+  Especializado para Pessoas em Situação de Rua; Alta Complexidade: Acolhimento
+  Institucional, em República, em Família Acolhedora, e Proteção em Situações de
+  Calamidades Públicas e de Emergências) — usados no checklist "Serviços da Rede
+  Socioassistencial" e nas notas técnicas das seções Rede do Território e Encerramento;
 - **Protocolo de Gestão Integrada de Serviços, Benefícios e Transferências de Renda no
   âmbito do SUAS** (Resolução CIT nº 7, de 10 de setembro de 2009), que determina a
   prioridade de inclusão no acompanhamento do PAIF das famílias do Bolsa Família, do BPC
