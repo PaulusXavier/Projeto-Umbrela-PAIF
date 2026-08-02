@@ -44,6 +44,7 @@ const SITUACOES_SOCIAIS = [
   "Membro com problemas de saúde com doença limitadora de atividades cotidianas",
   "Pessoa(s) com deficiência(s)",
   "Maternidade/Paternidade na adolescência",
+  "Família migrante/refugiada em situação de abrigamento (Operação Acolhida)",
   "Outras situações"
 ];
 
@@ -89,7 +90,14 @@ const REDE_APOIO = [
   "Defensoria Pública", "Ministério Público", "Vara da Infância e Juventude", "Delegacia (DEAM/Delegacia da Mulher)",
   "Poder Judiciário/Fórum",
   // Comunidade e sociedade civil
-  "OSC's e/ou associação de bairro", "Igrejas e instituições religiosas", "Conselhos Municipais de Direitos"
+  "OSC's e/ou associação de bairro", "Igrejas e instituições religiosas", "Conselhos Municipais de Direitos",
+  // Migração e Refúgio
+  "Abrigo/Operação Acolhida", "ACNUR - Alto Comissariado das Nações Unidas para Refugiados",
+  "OIM - Organização Internacional para as Migrações", "Pastoral do Migrante/Cáritas Arquidiocesana",
+  "Polícia Federal (regularização migratória)",
+  // Povos Indígenas
+  "FUNAI - Fundação Nacional dos Povos Indígenas", "Conselho Indígena de Roraima (CIR)",
+  "SESAI - Secretaria Especial de Saúde Indígena (Polo Base/DSEI)"
 ];
 
 const TIPOS_ATENDIMENTO = ["Atendimento no CRAS", "Visita Domiciliar", "Contato Telefônico", "Encaminhamento", "Reunião de Rede", "Grupo/SCFV", "Outro"];
@@ -175,7 +183,16 @@ const STATUS_LABELS = { andamento: "Em andamento", encaminhado: "Encaminhado", c
 
 /* ---- Aproveitado do Prontuário SUAS (MDS): habitação, saúde e encaminhamentos ---- */
 
-const HABITACAO_TIPO = ["Própria", "Alugada", "Cedida", "Ocupada"];
+const HABITACAO_TIPO = ["Própria", "Alugada", "Cedida", "Ocupada", "Abrigo/Casa de Acolhimento (Operação Acolhida)"];
+
+// Situação documental de famílias migrantes e refugiadas (ex.: venezuelanas atendidas
+// no âmbito da Operação Acolhida em Boa Vista/RR) — usada para orientar encaminhamentos
+// à rede de proteção ao migrante, sem condicionar o atendimento do PAIF à regularização.
+const MIGRACAO_DOCUMENTACAO = [
+  "RNM - Registro Nacional Migratório", "Protocolo de Solicitação de Refúgio",
+  "CPF", "Passaporte", "Certidão de Nascimento/Casamento apostilada",
+  "Sem documentação até o momento"
+];
 const HABITACAO_PAREDES = ["Alvenaria ou madeira aparelhada", "Madeira aproveitada, taipa ou outros materiais precários"];
 const HABITACAO_ENERGIA = ["Com medidor próprio", "Com medidor compartilhado", "Sem medidor", "Não possui energia elétrica"];
 const HABITACAO_ESGOTO = ["Rede coletora de esgoto ou pluvial", "Fossa séptica", "Fossa rudimentar", "Direto para vala, rio, lago ou mar", "Domicílio sem banheiro"];
@@ -487,6 +504,7 @@ function emptyPAF() {
     responsavel: "",
     responsavelSexo: "",
     responsavelNacionalidade: "",
+    responsavelEtnia: "",
     responsavelNascimento: "",
     apelido: "",
     nomeMae: "",
@@ -501,7 +519,7 @@ function emptyPAF() {
     periodicidade: "",
     situacaoPAF: "andamento",
     situacaoData: "",
-    membros: [{ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", pcd: false }],
+    membros: [{ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", etnia: "", pcd: false }],
     vulnerabilidades: [],
     vulnerabilidadesOutros: "",
     situacoesSociais: SITUACOES_SOCIAIS.map(s => ({ situacao: s, membros: "", superada: false })),
@@ -511,7 +529,10 @@ function emptyPAF() {
     // Diagnóstico socioeconômico (aproveitado do Prontuário SUAS)
     habitacaoTipo: "", habitacaoParedes: "", habitacaoEnergia: "", habitacaoAgua: "",
     habitacaoEsgoto: "", habitacaoLixo: "", habitacaoComodos: "", habitacaoDormitorios: "",
-    habitacaoAreaRisco: "", habitacaoObs: "",
+    habitacaoAreaRisco: "", habitacaoObs: "", habitacaoAbrigoNome: "",
+    // Situação migratória (famílias migrantes/refugiadas, ex.: Operação Acolhida)
+    migracaoDataChegadaBrasil: "", migracaoDocumentacao: [], migracaoDocumentacaoOutro: "",
+    migracaoInteriorizacao: "",
     eduForaEscola06: "", eduForaEscola614: "", eduForaEscola1517: "",
     eduAnalfabetismo1017: "", eduAnalfabetismo1859: "", eduAnalfabetismo60mais: "", eduObs: "",
     rendaTotal: "", rendaPerCapita: "", rendaObs: "",
@@ -1582,6 +1603,10 @@ function renderSection(id, paf) {
             <label>Nacionalidade (Responsável)</label>
             <input type="text" list="nacionalidadesList" data-field="responsavelNacionalidade" value="${escapeHtml(paf.responsavelNacionalidade)}">
           </div>
+          <div class="f c4">
+            <label>Etnia/Povo indígena (se houver)</label>
+            <input type="text" list="etniasIndigenasList" placeholder="Ex.: Warao, Macuxi, Wapichana…" data-field="responsavelEtnia" value="${escapeHtml(paf.responsavelEtnia)}">
+          </div>
           <div class="f c4"><label>Apelido (se relevante)</label><input type="text" data-field="apelido" value="${escapeHtml(paf.apelido)}"></div>
           <div class="f c4"><label>Nome da mãe</label><input type="text" data-field="nomeMae" value="${escapeHtml(paf.nomeMae)}"></div>
           <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
@@ -1624,7 +1649,7 @@ function renderSection(id, paf) {
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
         ${notaTecnica("O campo \"Parentesco\" deve refletir o arranjo familiar real da família atendida, sem pressupor o modelo nuclear tradicional (pai, mãe e filhos). As Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS chamam atenção para a diversidade de configurações familiares — famílias monoparentais, homoafetivas, chefiadas por mulheres, ou pessoas sem núcleo familiar de referência — como parte legítima do público do PAIF.")}
         <table class="dyn-table">
-          <thead><tr><th style="width:19%">Nome</th><th style="width:12%">Nascimento</th><th style="width:7%">Sexo</th><th style="width:15%">Parentesco</th><th style="width:17%">Nacionalidade</th><th style="width:7%">PCD</th><th></th></tr></thead>
+          <thead><tr><th style="width:15%">Nome</th><th style="width:11%">Nascimento</th><th style="width:6%">Sexo</th><th style="width:12%">Parentesco</th><th style="width:14%">Nacionalidade</th><th style="width:14%">Etnia indígena</th><th style="width:6%">PCD</th><th></th></tr></thead>
           <tbody>
             ${paf.membros.map((m, i) => `
               <tr>
@@ -1642,12 +1667,35 @@ function renderSection(id, paf) {
                 </td>
                 <td><input type="text" data-field="membros.${i}.parentesco" value="${escapeHtml(m.parentesco)}"></td>
                 <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade)}"></td>
+                <td><input type="text" list="etniasIndigenasList" data-field="membros.${i}.etnia" value="${escapeHtml(m.etnia)}"></td>
                 <td style="text-align:center;"><input type="checkbox" data-field-check="membros.${i}.pcd" ${m.pcd ? "checked" : ""} title="Pessoa com deficiência"></td>
                 <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover" aria-label="Remover membro">✕</button></td>
               </tr>`).join("")}
           </tbody>
         </table>
         <button class="add-row-btn" data-action="add-membro">+ Adicionar membro</button>
+      </div>
+
+      <div class="section-card">
+        <h2><span class="num">02a</span>Situação Migratória e de Abrigamento</h2>
+        ${notaTecnica("Boa Vista/RR é uma das principais portas de entrada da migração venezuelana no Brasil, e muitas famílias atendidas pelo CRAS vivem em abrigos federais da Operação Acolhida enquanto aguardam regularização documental ou interiorização para outros estados. O PAIF deve acolher essas famílias sem exigir comprovação migratória prévia como condição de atendimento — a situação documental orienta os encaminhamentos à rede de proteção ao migrante e ao refugiado, mas não restringe o acesso ao Serviço. Preencher esta seção apenas quando aplicável.")}
+        <div class="field-grid">
+          <div class="f c4">
+            <label>Data de chegada ao Brasil</label>
+            <input type="date" data-field="migracaoDataChegadaBrasil" value="${escapeHtml(paf.migracaoDataChegadaBrasil)}">
+          </div>
+          <div class="f c8">
+            <label>Aguarda ou já passou por interiorização (Operação Acolhida)?</label>
+            <div class="radio-row">
+              ${["Aguardando interiorização", "Já interiorizada(o)", "Não se aplica"].map(v => `<label><input type="radio" name="migracaoInteriorizacao" data-field="migracaoInteriorizacao" value="${v}" ${paf.migracaoInteriorizacao === v ? "checked" : ""}> ${v}</label>`).join("")}
+            </div>
+          </div>
+          <div class="f c12">
+            <label>Situação documental migratória</label>
+            ${chkList("migracaoDocumentacao", MIGRACAO_DOCUMENTACAO, paf.migracaoDocumentacao || [], true)}
+          </div>
+          <div class="f c12"><label>Outro documento</label><input type="text" data-field="migracaoDocumentacaoOutro" value="${escapeHtml(paf.migracaoDocumentacaoOutro)}"></div>
+        </div>
       </div>`;
 
     case "diagnostico": {
@@ -1679,6 +1727,7 @@ function renderSection(id, paf) {
         <h2><span class="num">03a</span>Condições Habitacionais</h2>
         <div class="field-grid">
           <div class="f c3"><label>Tipo de residência</label><select data-field="habitacaoTipo"><option value="">—</option>${HABITACAO_TIPO.map(v => `<option value="${v}" ${paf.habitacaoTipo === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+          <div class="f c3"><label>Nome do abrigo (se aplicável)</label><input type="text" data-field="habitacaoAbrigoNome" placeholder="Preencher se a família mora em abrigo" value="${escapeHtml(paf.habitacaoAbrigoNome)}"></div>
           <div class="f c5"><label>Material das paredes externas</label><select data-field="habitacaoParedes"><option value="">—</option>${HABITACAO_PAREDES.map(v => `<option value="${v}" ${paf.habitacaoParedes === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
           <div class="f c4"><label>Acesso a energia elétrica</label><select data-field="habitacaoEnergia"><option value="">—</option>${HABITACAO_ENERGIA.map(v => `<option value="${v}" ${paf.habitacaoEnergia === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
           <div class="f c3">
@@ -2125,7 +2174,7 @@ function attachEditorHandlers() {
   // Ações de Tabela Dinâmica (Membros da Família)
   container.querySelectorAll("[data-action='add-membro']").forEach(btn => {
     btn.addEventListener("click", () => {
-      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", pcd: false });
+      state.current.membros.push({ nome: "", nascimento: "", parentesco: "", sexo: "", nacionalidade: "", etnia: "", pcd: false });
       savePAF(state.current, { silent: true });
       renderApp();
     });
@@ -2280,9 +2329,20 @@ function exportPDF(paf) {
       <td>${escapeHtml(m.sexo)}</td>
       <td>${escapeHtml(m.parentesco)}</td>
       <td>${escapeHtml(m.nacionalidade) || "—"}</td>
+      <td>${escapeHtml(m.etnia) || "—"}</td>
       <td>${m.pcd ? "Sim" : "—"}</td>
     </tr>
-  `).join("") || "<tr><td colspan='6'>Nenhum membro informado</td></tr>";
+  `).join("") || "<tr><td colspan='7'>Nenhum membro informado</td></tr>";
+
+  const temMigracao = paf.migracaoDataChegadaBrasil || (paf.migracaoDocumentacao || []).length || paf.migracaoDocumentacaoOutro || paf.migracaoInteriorizacao || paf.habitacaoAbrigoNome;
+  const migracaoHTML = !temMigracao ? "" : `
+    <h2>Situação Migratória e de Abrigamento</h2>
+    <div class="grid">
+      <div class="field"><span class="label">Abrigo</span>${escapeHtml(paf.habitacaoAbrigoNome) || "—"}</div>
+      <div class="field"><span class="label">Data de chegada ao Brasil</span>${fmtDateBR(paf.migracaoDataChegadaBrasil) || "—"}</div>
+      <div class="field"><span class="label">Interiorização</span>${escapeHtml(paf.migracaoInteriorizacao) || "—"}</div>
+      <div class="field"><span class="label">Documentação</span>${(paf.migracaoDocumentacao || []).map(escapeHtml).join(", ") || "—"}${paf.migracaoDocumentacaoOutro ? " · Outro: " + escapeHtml(paf.migracaoDocumentacaoOutro) : ""}</div>
+    </div>`;
 
   const situacoesHTML = (paf.situacoesSociais || [])
     .filter(s => s.membros || s.superada)
@@ -2564,7 +2624,7 @@ function exportPDF(paf) {
           <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
           <div><span class="k">NIS</span><span class="v">${escapeHtml(paf.nis) || "—"}</span></div>
           <div><span class="k">Sexo</span><span class="v">${escapeHtml(paf.responsavelSexo) || "—"}</span></div>
-          <div><span class="k">Nacionalidade</span><span class="v">${escapeHtml(paf.responsavelNacionalidade) || "—"}</span></div>
+          <div><span class="k">Nacionalidade</span><span class="v">${escapeHtml(paf.responsavelNacionalidade) || "—"}${paf.responsavelEtnia ? " · " + escapeHtml(paf.responsavelEtnia) : ""}</span></div>
           <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
           <div><span class="k">Endereço</span><span class="v">${escapeHtml(enderecoCompleto(paf)) || "—"}</span></div>
           <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
@@ -2579,9 +2639,10 @@ function exportPDF(paf) {
 
       <h2>Membros da Família</h2>
       <table>
-        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>PCD</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Etnia indígena</th><th>PCD</th></tr></thead>
         <tbody>${membrosHTML}</tbody>
       </table>
+      ${migracaoHTML}
 
       <h2>Diagnóstico e Vulnerabilidades</h2>
       <div>${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
@@ -2589,7 +2650,7 @@ function exportPDF(paf) {
 
       <h2>Diagnóstico Socioeconômico</h2>
       <div class="grid">
-        <div class="field"><span class="label">Habitação</span>${escapeHtml(paf.habitacaoTipo) || "—"}${paf.habitacaoAreaRisco === "Sim" ? " · Em área de risco" : ""}</div>
+        <div class="field"><span class="label">Habitação</span>${escapeHtml(paf.habitacaoTipo) || "—"}${paf.habitacaoAbrigoNome ? " (" + escapeHtml(paf.habitacaoAbrigoNome) + ")" : ""}${paf.habitacaoAreaRisco === "Sim" ? " · Em área de risco" : ""}</div>
         <div class="field"><span class="label">Saneamento</span>${escapeHtml(paf.habitacaoEsgoto) || "—"}</div>
         <div class="field"><span class="label">Crianças/adolesc. fora da escola</span>${[paf.eduForaEscola06, paf.eduForaEscola614, paf.eduForaEscola1517].filter(Boolean).join(" / ") || "—"}</div>
         <div class="field"><span class="label">Renda total / per capita</span>${[paf.rendaTotal, paf.rendaPerCapita].filter(Boolean).join(" / ") || "—"}</div>
@@ -2818,6 +2879,12 @@ function exportWord(paf) {
     .map(s => `<tr><td>${escapeHtml(s.situacao)}</td><td>${escapeHtml(s.membros)}</td><td>${s.superada ? "Sim" : "Não"}</td></tr>`)
     .join("") || "<tr><td colspan='3'>Nenhuma situação registrada</td></tr>";
 
+  const temMigracaoWord = paf.migracaoDataChegadaBrasil || (paf.migracaoDocumentacao || []).length || paf.migracaoDocumentacaoOutro || paf.migracaoInteriorizacao || paf.habitacaoAbrigoNome;
+  const migracaoWordHTML = !temMigracaoWord ? "" : `
+    <h2>02a. Situação Migratória e de Abrigamento</h2>
+    <p><b>Abrigo:</b> ${escapeHtml(paf.habitacaoAbrigoNome) || "—"} | <b>Data de chegada ao Brasil:</b> ${fmtDateBR(paf.migracaoDataChegadaBrasil) || "—"} | <b>Interiorização:</b> ${escapeHtml(paf.migracaoInteriorizacao) || "—"}<br>
+    <b>Documentação:</b> ${(paf.migracaoDocumentacao || []).map(escapeHtml).join(", ") || "—"}${paf.migracaoDocumentacaoOutro ? " | Outro: " + escapeHtml(paf.migracaoDocumentacaoOutro) : ""}</p>`;
+
   const content = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
@@ -2850,7 +2917,7 @@ function exportWord(paf) {
       <h2>01. Identificação</h2>
       <p><b>Responsável:</b> ${escapeHtml(paf.responsavel)} ${paf.apelido ? "(" + escapeHtml(paf.apelido) + ")" : ""}<br>
       <b>Nome da mãe:</b> ${escapeHtml(paf.nomeMae) || "—"}<br>
-      <b>Sexo:</b> ${escapeHtml(paf.responsavelSexo) || "—"} | <b>Nacionalidade:</b> ${escapeHtml(paf.responsavelNacionalidade) || "—"}<br>
+      <b>Sexo:</b> ${escapeHtml(paf.responsavelSexo) || "—"} | <b>Nacionalidade:</b> ${escapeHtml(paf.responsavelNacionalidade) || "—"}${paf.responsavelEtnia ? " (" + escapeHtml(paf.responsavelEtnia) + ")" : ""}<br>
       <b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)} | <b>RG:</b> ${escapeHtml(paf.rg)} ${escapeHtml(paf.rgOrgao)}/${escapeHtml(paf.rgUf)}<br>
       <b>Endereço:</b> ${escapeHtml(enderecoCompleto(paf))}${paf.localizacaoDomicilio ? " (" + escapeHtml(paf.localizacaoDomicilio) + ")" : ""}<br>
       <b>Ponto de referência:</b> ${escapeHtml(paf.pontoReferencia) || "—"} | <b>Telefones:</b> ${escapeHtml(paf.telefones) || "—"}<br>
@@ -2858,12 +2925,13 @@ function exportWord(paf) {
 
       <h2>02. Composição Familiar</h2>
       <table>
-        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>PCD</th></tr>
-        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade) || "—"}</td><td>${m.pcd ? "Sim" : "—"}</td></tr>`).join("")}
+        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Etnia indígena</th><th>PCD</th></tr>
+        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade) || "—"}</td><td>${escapeHtml(m.etnia) || "—"}</td><td>${m.pcd ? "Sim" : "—"}</td></tr>`).join("")}
       </table>
+      ${migracaoWordHTML}
 
       <h2>03. Diagnóstico e Vulnerabilidades</h2>
-      <p>${(paf.vulnerabilidades || []).join(", ") || "Nenhuma registrada"}</p>
+      <p>${(paf.vulnerabilidades || []).map(escapeHtml).join(", ") || "Nenhuma registrada"}</p>
 
       <h2>03a. Situações Sociais Registradas</h2>
       <table>
@@ -2872,22 +2940,22 @@ function exportWord(paf) {
       </table>
 
       <h2>03b. Trabalho Social Coletivo do PAIF</h2>
-      <p>${(paf.atividadesColetivas || []).join(", ") || "Nenhuma registrada"}${paf.atividadesColetivasOutras ? " | Outras: " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
+      <p>${(paf.atividadesColetivas || []).map(escapeHtml).join(", ") || "Nenhuma registrada"}${paf.atividadesColetivasOutras ? " | Outras: " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
 
       <h2>03c. Serviços da Rede Socioassistencial</h2>
-      <p><b>Proteção Social Básica:</b> ${(paf.servBasica || []).join(", ") || "—"}<br>
-      <b>Média Complexidade:</b> ${(paf.servMedia || []).join(", ") || "—"}<br>
-      <b>Alta Complexidade:</b> ${(paf.servAlta || []).join(", ") || "—"}</p>
+      <p><b>Proteção Social Básica:</b> ${(paf.servBasica || []).map(escapeHtml).join(", ") || "—"}<br>
+      <b>Média Complexidade:</b> ${(paf.servMedia || []).map(escapeHtml).join(", ") || "—"}<br>
+      <b>Alta Complexidade:</b> ${(paf.servAlta || []).map(escapeHtml).join(", ") || "—"}</p>
 
       <h2>03d. Diagnóstico Socioeconômico</h2>
       <p>
-      <b>Habitação:</b> ${escapeHtml(paf.habitacaoTipo) || "—"} | ${escapeHtml(paf.habitacaoParedes) || "—"} | Energia: ${escapeHtml(paf.habitacaoEnergia) || "—"} | Esgoto: ${escapeHtml(paf.habitacaoEsgoto) || "—"} | Área de risco: ${escapeHtml(paf.habitacaoAreaRisco) || "—"}<br>
+      <b>Habitação:</b> ${escapeHtml(paf.habitacaoTipo) || "—"}${paf.habitacaoAbrigoNome ? " (" + escapeHtml(paf.habitacaoAbrigoNome) + ")" : ""} | ${escapeHtml(paf.habitacaoParedes) || "—"} | Energia: ${escapeHtml(paf.habitacaoEnergia) || "—"} | Esgoto: ${escapeHtml(paf.habitacaoEsgoto) || "—"} | Área de risco: ${escapeHtml(paf.habitacaoAreaRisco) || "—"}<br>
       <b>Educação:</b> Fora da escola (0-5/6-14/15-17): ${escapeHtml(paf.eduForaEscola06) || "0"}/${escapeHtml(paf.eduForaEscola614) || "0"}/${escapeHtml(paf.eduForaEscola1517) || "0"}<br>
       <b>Trabalho e Renda:</b> Renda total: ${escapeHtml(paf.rendaTotal) || "—"} | Per capita: ${escapeHtml(paf.rendaPerCapita) || "—"}<br>
       <b>Saúde:</b> Doença grave: ${escapeHtml(paf.saudeDoencaGrave) || "—"} | Medicação controlada: ${escapeHtml(paf.saudeMedicacaoControlada) || "—"} | Uso de álcool: ${escapeHtml(paf.saudeAlcool) || "—"} | Uso de drogas: ${escapeHtml(paf.saudeDrogas) || "—"} | Gestante: ${escapeHtml(paf.saudeGestante) || "—"}</p>
 
       <h2>03e. Aspectos Psicossociais e Instrumentais Técnicos</h2>
-      <p><b>Instrumentais utilizados:</b> ${(paf.instrumentaisTecnicos || []).join(", ") || "—"}<br>
+      <p><b>Instrumentais utilizados:</b> ${(paf.instrumentaisTecnicos || []).map(escapeHtml).join(", ") || "—"}<br>
       <b>Aspectos relacionais observados:</b> ${escapeHtml(paf.aspectosPsicossociaisObs) || "—"}</p>
 
       <h2>04. Registro de Atendimentos</h2>
@@ -2904,11 +2972,11 @@ function exportWord(paf) {
       </table>` : ""}
 
       <h2>04b. Programas, Projetos e Benefícios Socioassistenciais</h2>
-      <p><b>Participa de programas/projetos sociais:</b> ${escapeHtml(paf.participaProgramas) || "—"} — ${(paf.programasQuais || []).join(", ") || "nenhum selecionado"}${paf.programasOutros ? " | Outros: " + escapeHtml(paf.programasOutros) : ""}<br>
-      <b>Recebe outro benefício assistencial:</b> ${escapeHtml(paf.recebeBeneficio) || "—"} — ${(paf.beneficioQuais || []).join(", ") || "nenhum selecionado"}${paf.beneficioOutro ? " | Outro: " + escapeHtml(paf.beneficioOutro) : ""}</p>
+      <p><b>Participa de programas/projetos sociais:</b> ${escapeHtml(paf.participaProgramas) || "—"} — ${(paf.programasQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado"}${paf.programasOutros ? " | Outros: " + escapeHtml(paf.programasOutros) : ""}<br>
+      <b>Recebe outro benefício assistencial:</b> ${escapeHtml(paf.recebeBeneficio) || "—"} — ${(paf.beneficioQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado"}${paf.beneficioOutro ? " | Outro: " + escapeHtml(paf.beneficioOutro) : ""}</p>
 
       <h2>04c. Recursos do Território (Rede de Apoio)</h2>
-      <p>${(paf.redeApoio || []).join(", ") || "Nenhum selecionado"}${paf.redeApoioOutros ? " | Outros: " + escapeHtml(paf.redeApoioOutros) : ""}</p>
+      <p>${(paf.redeApoio || []).map(escapeHtml).join(", ") || "Nenhum selecionado"}${paf.redeApoioOutros ? " | Outros: " + escapeHtml(paf.redeApoioOutros) : ""}</p>
 
       <h2>05. Metas e Resultados</h2>
       <table>
@@ -2917,12 +2985,12 @@ function exportWord(paf) {
       </table>
 
       <h2>05a. Estratégias e Eixos de Intervenção</h2>
-      <p><b>Estratégias:</b> ${(paf.estrategias || []).join(", ") || "—"}${paf.estrategiasOutras ? " | Outras: " + escapeHtml(paf.estrategiasOutras) : ""}<br>
-      <b>Eixos de intervenção:</b> ${(paf.eixos || []).join(", ") || "—"}${paf.eixosOutros ? " | Outros: " + escapeHtml(paf.eixosOutros) : ""}</p>
+      <p><b>Estratégias:</b> ${(paf.estrategias || []).map(escapeHtml).join(", ") || "—"}${paf.estrategiasOutras ? " | Outras: " + escapeHtml(paf.estrategiasOutras) : ""}<br>
+      <b>Eixos de intervenção:</b> ${(paf.eixos || []).map(escapeHtml).join(", ") || "—"}${paf.eixosOutros ? " | Outros: " + escapeHtml(paf.eixosOutros) : ""}</p>
 
       <h2>06. Elaboração e Encerramento</h2>
-      <p><b>Objetivos do PAIF trabalhados neste Plano:</b> ${(paf.objetivosPaif || []).join("; ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? " | Outros: " + escapeHtml(paf.objetivosPaifOutros) : ""}<br>
-      <b>Seguranças socioassistenciais afiançadas:</b> ${(paf.segurancasSocioassistenciais || []).join("; ") || "Nenhuma selecionada"}${paf.segurancasSocioassistenciaisOutras ? " | Outras: " + escapeHtml(paf.segurancasSocioassistenciaisOutras) : ""}<br>
+      <p><b>Objetivos do PAIF trabalhados neste Plano:</b> ${(paf.objetivosPaif || []).map(escapeHtml).join("; ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? " | Outros: " + escapeHtml(paf.objetivosPaifOutros) : ""}<br>
+      <b>Seguranças socioassistenciais afiançadas:</b> ${(paf.segurancasSocioassistenciais || []).map(escapeHtml).join("; ") || "Nenhuma selecionada"}${paf.segurancasSocioassistenciaisOutras ? " | Outras: " + escapeHtml(paf.segurancasSocioassistenciaisOutras) : ""}<br>
       <b>Família participou da elaboração:</b> ${escapeHtml(paf.familiaParticipou) || "—"}<br>
       <b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia) || "—"}<br>
       <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao) || "—"}<br>
