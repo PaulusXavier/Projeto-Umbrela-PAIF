@@ -2410,7 +2410,7 @@ function exportPDF(paf) {
       <meta charset="UTF-8">
       <title>Prontuário PAF - ${escapeHtml(paf.responsavel)}</title>
       <style>
-        @page { margin: 30mm 14mm 24mm; }
+        @page { margin: 14mm 14mm; }
         * { box-sizing: border-box; }
         body {
           font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F;
@@ -2418,28 +2418,29 @@ function exportPDF(paf) {
         }
         .brasao { font-family: Georgia, 'Times New Roman', serif; }
 
-        /* ---- Cabeçalho e rodapé fixos (repetem em toda página impressa) ----
-           IMPORTANTE: no Chrome, elementos "position: fixed" numa página impressa são
-           posicionados relativos à ÁREA DE CONTEÚDO (dentro das margens do @page), não
-           ao topo físico do papel. Por isso "top:0" cai exatamente onde o texto do corpo
-           começa a fluir, sobrepondo tudo. A correção é deslocar o cabeçalho para cima
-           com "top" negativo igual à margem superior do @page (30mm), com altura igual
-           a essa margem — assim ele ocupa a faixa reservada em vez de colidir com o texto.
-           ATENÇÃO: para esse truque funcionar, "body" (e nenhum ancestral direto destes
-           elementos) pode ter "position", "transform" ou "filter" diferentes do padrão —
-           qualquer um desses cria um novo "containing block" e faz o "fixed" passar a se
-           repetir em relação a esse ancestral (que tem a altura do documento inteiro),
-           em vez de se fixar a cada página impressa — foi exatamente isso que causava a
-           impressão desconfigurada, com o rodapé/cabeçalho aparecendo sobrepostos ao
-           texto no meio das páginas seguintes. */
+        /* ---- Cabeçalho e rodapé que repetem em toda página impressa ----
+           ANTES isso era feito com "position: fixed" e um deslocamento negativo igual
+           à margem do @page — um truque frágil: qualquer ancestral com "position",
+           "transform" ou "filter" diferente do padrão cria um novo "containing block"
+           e faz o cabeçalho/rodapé "vazar" para a página seguinte, sobrepondo o texto
+           (foi exatamente essa falha que aparecia na folha exportada). A forma robusta
+           e nativa do navegador de repetir conteúdo em toda página impressa é usar
+           <thead>/<tfoot> de uma <table> que envolve o documento inteiro: o navegador
+           repete essas linhas automaticamente no topo/rodapé de cada página, sem
+           depender de cálculos de margem nem de position:fixed. */
+        .print-shell { width: 100%; border-collapse: collapse; }
+        .print-shell > tbody > tr > td { padding: 0; border: 0; }
+
         .page-header-fixed {
-          position: fixed; top: -30mm; left: 0; right: 0; height: 30mm;
+          display: table-header-group;
+        }
+        .page-header-fixed .ph-row {
           display: flex; align-items: flex-end; gap: 8px;
-          border-bottom: 1px solid #C9D2D9; padding-bottom: 5px; font-size: 8px; color: #6C7D8F;
+          border-bottom: 1px solid #C9D2D9; padding-bottom: 5px; margin-bottom: 6mm; font-size: 8px; color: #6C7D8F;
           white-space: nowrap;
         }
         .page-header-fixed .brasao-mini { flex-shrink: 0; color: #B98A34; }
-        .page-header-fixed > div:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+        .page-header-fixed .ph-row > div:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; }
         .page-header-fixed .ph-org { font-weight: 700; color: #1F3A5F; font-size: 9px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .page-header-fixed .ph-sub { display: block; font-weight: 400; color: #8496A8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .page-header-fixed .ph-right { flex: 0 0 auto; max-width: 42%; margin-left: auto; text-align: right; overflow: hidden; }
@@ -2447,9 +2448,11 @@ function exportPDF(paf) {
         .page-header-fixed .ph-right span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         .page-footer-fixed {
-          position: fixed; bottom: -24mm; left: 0; right: 0; height: 24mm;
+          display: table-footer-group;
+        }
+        .page-footer-fixed .pf-row {
           display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
-          border-top: 1px solid #C9D2D9; padding-top: 5px; font-size: 7.3px; color: #8496A8; line-height: 1.45;
+          border-top: 1px solid #C9D2D9; padding-top: 5px; margin-top: 6mm; font-size: 7.3px; color: #8496A8; line-height: 1.45;
         }
         .page-footer-fixed .pf-selo {
           flex-shrink: 0; font-size: 6.6px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
