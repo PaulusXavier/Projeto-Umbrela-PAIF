@@ -2418,10 +2418,16 @@ function exportPDF(paf) {
         }
         .brasao { font-family: Georgia, 'Times New Roman', serif; }
 
-        /* ---- Cabeçalho e rodapé fixos (repetem em toda página impressa) ---- */
+        /* ---- Cabeçalho e rodapé fixos (repetem em toda página impressa) ----
+           IMPORTANTE: no Chrome, elementos "position: fixed" numa página impressa são
+           posicionados relativos à ÁREA DE CONTEÚDO (dentro das margens do @page), não
+           ao topo físico do papel. Por isso "top:0" cai exatamente onde o texto do corpo
+           começa a fluir, sobrepondo tudo. A correção é deslocar o cabeçalho para cima
+           com "top" negativo igual à margem superior do @page (30mm), com altura igual
+           a essa margem — assim ele ocupa a faixa reservada em vez de colidir com o texto. */
         .page-header-fixed {
-          position: fixed; top: 0; left: 0; right: 0;
-          display: flex; align-items: center; gap: 8px;
+          position: fixed; top: -30mm; left: 0; right: 0; height: 30mm;
+          display: flex; align-items: flex-end; gap: 8px;
           border-bottom: 1px solid #C9D2D9; padding-bottom: 5px; font-size: 8px; color: #6C7D8F;
           white-space: nowrap;
         }
@@ -2434,8 +2440,8 @@ function exportPDF(paf) {
         .page-header-fixed .ph-right span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         .page-footer-fixed {
-          position: fixed; bottom: 0; left: 0; right: 0;
-          display: flex; align-items: center; justify-content: space-between; gap: 10px;
+          position: fixed; bottom: -24mm; left: 0; right: 0; height: 24mm;
+          display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
           border-top: 1px solid #C9D2D9; padding-top: 5px; font-size: 7.3px; color: #8496A8; line-height: 1.45;
         }
         .page-footer-fixed .pf-selo {
