@@ -2414,7 +2414,7 @@ function exportPDF(paf) {
         * { box-sizing: border-box; }
         body {
           font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F;
-          line-height: 1.5; margin: 0; padding: 5mm 0 3mm; position: relative;
+          line-height: 1.5; margin: 0; padding: 5mm 0 3mm;
         }
         .brasao { font-family: Georgia, 'Times New Roman', serif; }
 
@@ -2424,7 +2424,14 @@ function exportPDF(paf) {
            ao topo físico do papel. Por isso "top:0" cai exatamente onde o texto do corpo
            começa a fluir, sobrepondo tudo. A correção é deslocar o cabeçalho para cima
            com "top" negativo igual à margem superior do @page (30mm), com altura igual
-           a essa margem — assim ele ocupa a faixa reservada em vez de colidir com o texto. */
+           a essa margem — assim ele ocupa a faixa reservada em vez de colidir com o texto.
+           ATENÇÃO: para esse truque funcionar, "body" (e nenhum ancestral direto destes
+           elementos) pode ter "position", "transform" ou "filter" diferentes do padrão —
+           qualquer um desses cria um novo "containing block" e faz o "fixed" passar a se
+           repetir em relação a esse ancestral (que tem a altura do documento inteiro),
+           em vez de se fixar a cada página impressa — foi exatamente isso que causava a
+           impressão desconfigurada, com o rodapé/cabeçalho aparecendo sobrepostos ao
+           texto no meio das páginas seguintes. */
         .page-header-fixed {
           position: fixed; top: -30mm; left: 0; right: 0; height: 30mm;
           display: flex; align-items: flex-end; gap: 8px;
