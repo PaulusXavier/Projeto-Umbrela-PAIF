@@ -117,7 +117,13 @@ os registros só para si (não compartilha com os outros).
 - O preenchimento é salvo automaticamente (nuvem ou local, conforme o passo 1).
 - **Baixar PDF** / **Baixar Word (.doc)**: geram o arquivo preenchido pronto para
   impressão/assinatura, tanto na tela do formulário quanto no menu "Exportar" de cada
-  card na lista.
+  card na lista. O Word agora segue o mesmo padrão visual do PDF — faixa institucional,
+  título com número da ficha, seções numeradas em destaque e bloco de assinaturas —
+  em vez do documento simples de antes.
+- **Resumo mensal** e **Formulário de Encaminhamento**: ambos ganharam a mesma
+  identidade visual do prontuário individual (faixa institucional, título com
+  "ficha"/contagem em destaque, cabeçalho e rodapé repetidos em cada página impressa),
+  deixando as três folhas exportadas com aparência consistente.
 - **Anexos**: na aba "Anexos" do formulário é possível anexar fotos e documentos PDF
   a cada PAF. Imagens são comprimidas automaticamente ao anexar. Ao **Baixar PDF**,
   as fotos aparecem no corpo do relatório e cada PDF anexado é incluído logo em
@@ -133,13 +139,20 @@ os registros só para si (não compartilha com os outros).
   > Firebase configurado) ou anexe poucos arquivos pequenos por PAF.
 - O ícone ao lado de "Config" no topo mostra se a sincronização com a nuvem está ativa.
 - Em **Config**, é possível baixar um backup em JSON de todos os registros.
-- Na tela inicial, o botão **Resumo mensal** mostra um painel estatístico completo:
-  indicadores gerais (total de PAFs, por situação, pessoas acompanhadas, pessoas com
-  deficiência, idade média e tempo médio de acompanhamento), perfil dos responsáveis
-  (sexo, nacionalidade, faixa etária), distribuição por CRAS, vulnerabilidades e
-  situações sociais mais frequentes, programas e benefícios mais frequentes,
-  encaminhamentos por área e uma tabela de evolução mensal (novos PAFs e acumulado,
-  por mês de início). Pode ser impresso/baixado em PDF.
+- Na tela inicial, o botão **Ver gráficos** (aba "Gráficos" no topo) abre o painel
+  estatístico completo: indicadores gerais (total de PAFs, por situação, pessoas
+  acompanhadas, pessoas com deficiência, idade média e tempo médio de acompanhamento),
+  perfil dos responsáveis (sexo, nacionalidade, faixa etária), distribuição por CRAS,
+  vulnerabilidades e situações sociais mais frequentes, programas e benefícios mais
+  frequentes, encaminhamentos por área, **PAFs por técnico de referência e serviços da
+  rede socioassistencial/trabalho coletivo do PAIF acionados**, **taxa de situações
+  sociais superadas** e uma tabela de evolução mensal (novos PAFs e acumulado, por mês
+  de início). Pode ser impresso/baixado em PDF.
+- O painel de Gráficos tem **filtros por período (todo o período, este ano, últimos 12,
+  6 ou 3 meses), por CRAS e por técnico de referência**, além de uma barra de navegação
+  rápida para pular entre as seções (Visão geral, Perfil das famílias, Território,
+  Vulnerabilidades, Equipe e rede, Metas do Plano, Evolução mensal). O botão "Imprimir /
+  Baixar PDF" respeita os filtros ativos no momento.
 
 ## 4. Fundamentação técnica
 
