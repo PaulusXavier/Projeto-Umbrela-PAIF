@@ -477,6 +477,9 @@ const state = {
   activeSection: "cabecalho",
   search: "",
   statusFilter: "ativos",
+  dashPeriodo: "tudo",        // 'tudo' | 'ano' | '12m' | '6m' | '3m' — filtro de período do painel de Gráficos
+  dashCras: "",               // filtro por CRAS no painel de Gráficos
+  dashTecnico: "",            // filtro por técnico de referência no painel de Gráficos
   mode: "local",             // 'cloud' | 'local'
   db: null,
   unsub: null,
@@ -751,15 +754,17 @@ function openSettingsModal() {
 
 /* ---------------------------- Resumo mensal (famílias em acompanhamento) ---------------------------- */
 
-function computeResumoGeral() {
-  const pafs = state.pafs;
+function computeResumoGeral(pafsParam) {
+  const pafs = pafsParam || state.pafs;
   const total = pafs.length;
   const porStatus = { andamento: 0, encaminhado: 0, concluido: 0, cancelado: 0 };
   const porSexo = {}, porNacionalidade = {}, porFaixa = {}, porCras = {};
   const porVulnerabilidade = {}, porPrograma = {}, porBeneficio = {}, porEncArea = {}, porSituacaoSocial = {};
   const porHabitacao = {}, porEtnia = {}, porInteriorizacao = {};
+  const porTecnico = {}, porServicoRede = {}, porAtividadeColetiva = {};
   let totalMembros = 0, totalPCD = 0, totalEncaminhamentos = 0;
   let totalAbrigados = 0, totalIndigena = 0, totalMigracaoInformada = 0;
+  let totalSituacoesAtivas = 0, totalSituacoesSuperadas = 0;
   const idades = [], meses = [];
 
   pafs.forEach(p => {
@@ -799,6 +804,21 @@ function computeResumoGeral() {
       porEncArea[area] = (porEncArea[area] || 0) + 1;
     });
 
+    const tecnico = (p.tecnicoReferencia || "").trim() || "Não informado";
+    porTecnico[tecnico] = (porTecnico[tecnico] || 0) + 1;
+
+    [...(p.servBasica || []), ...(p.servMedia || []), ...(p.servAlta || [])].forEach(s => {
+      porServicoRede[s] = (porServicoRede[s] || 0) + 1;
+    });
+    (p.atividadesColetivas || []).forEach(a => { porAtividadeColetiva[a] = (porAtividadeColetiva[a] || 0) + 1; });
+
+    (p.situacoesSociais || []).forEach(s => {
+      if (s.membros) {
+        totalSituacoesAtivas++;
+        if (s.superada) totalSituacoesSuperadas++;
+      }
+    });
+
     const habitacao = (p.habitacaoTipo || "").trim() || "Não informado";
     porHabitacao[habitacao] = (porHabitacao[habitacao] || 0) + 1;
     const emAbrigo = habitacao.includes("Abrigo") || !!(p.habitacaoAbrigoNome || "").trim();
@@ -831,17 +851,21 @@ function computeResumoGeral() {
     total, porStatus, porSexo, porNacionalidade, porFaixa, porCras,
     porVulnerabilidade, porSituacaoSocial, porPrograma, porBeneficio, porEncArea,
     porHabitacao, porEtnia, porInteriorizacao,
+    porTecnico, porServicoRede, porAtividadeColetiva,
     totalMembros, totalPCD, totalEncaminhamentos,
     totalAbrigados, totalIndigena, totalMigracaoInformada,
+    totalSituacoesAtivas, totalSituacoesSuperadas,
     pctAbrigados: pct(totalAbrigados), pctIndigena: pct(totalIndigena), pctMigracao: pct(totalMigracaoInformada),
+    pctSituacoesSuperadas: totalSituacoesAtivas ? Math.round((totalSituacoesSuperadas / totalSituacoesAtivas) * 100) : 0,
     mediaMembros: total ? Math.round((totalMembros / total) * 10) / 10 : null,
     idadeMedia: media(idades), mesesMedia: media(meses)
   };
 }
 
-function computeResumoMensal() {
+function computeResumoMensal(pafsParam) {
+  const pafs = pafsParam || state.pafs;
   const grupos = {};
-  state.pafs.forEach(p => {
+  pafs.forEach(p => {
     const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
     if (!base || base.length < 7) return;
     const ym = base.slice(0, 7);
@@ -851,7 +875,7 @@ function computeResumoMensal() {
   });
 
   const saidas = {};
-  state.pafs.forEach(p => {
+  pafs.forEach(p => {
     const dataSaida = p.encerramentoData;
     if (!dataSaida || dataSaida.length < 7) return;
     const ym = dataSaida.slice(0, 7);
@@ -874,8 +898,8 @@ function labelYmCurto(ym) {
   return `${nome.slice(0, 3)}/${y.slice(2)}`;
 }
 
-function kpiCardHTML(valor, label) {
-  return `<div class="kpi-card"><span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span></div>`;
+function kpiCardHTML(valor, label, iconId) {
+  return `<div class="kpi-card">${iconId ? `<span class="kpi-icon">${sectionIconSvg(iconId, 15)}</span>` : ""}<span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span></div>`;
 }
 
 function barrasHTML(obj, opts) {
@@ -998,54 +1022,65 @@ function assinaturaHTML() {
     </div>`;
 }
 
-function resumoGeralHTML(r) {
+function resumoGeralGeralHTML(r) {
   return `
     <div class="kpi-grid">
-      ${kpiCardHTML(r.total, "Total de PAFs")}
-      ${kpiCardHTML(r.porStatus.andamento || 0, "Em andamento")}
-      ${kpiCardHTML(r.porStatus.encaminhado || 0, "Encaminhados")}
-      ${kpiCardHTML(r.porStatus.concluido || 0, "Concluídos")}
-      ${kpiCardHTML(r.porStatus.cancelado || 0, "Cancelados")}
-      ${kpiCardHTML(r.totalMembros, "Pessoas acompanhadas")}
-      ${kpiCardHTML(r.mediaMembros ?? "—", "Média por família")}
-      ${kpiCardHTML(r.totalPCD, "Pessoas com deficiência")}
-      ${kpiCardHTML(r.idadeMedia != null ? r.idadeMedia + " anos" : "—", "Idade média (responsável)")}
-      ${kpiCardHTML(r.mesesMedia != null ? r.mesesMedia : "—", "Meses médios de acompanhamento")}
-      ${kpiCardHTML(r.totalEncaminhamentos, "Encaminhamentos registrados")}
-      ${kpiCardHTML(r.totalAbrigados + " (" + r.pctAbrigados + "%)", "Famílias em abrigo/Op. Acolhida")}
+      ${kpiCardHTML(r.total, "Total de PAFs", "cabecalho")}
+      ${kpiCardHTML(r.porStatus.andamento || 0, "Em andamento", "diagnostico")}
+      ${kpiCardHTML(r.porStatus.encaminhado || 0, "Encaminhados", "encaminhamentos")}
+      ${kpiCardHTML(r.porStatus.concluido || 0, "Concluídos", "encerramento")}
+      ${kpiCardHTML(r.porStatus.cancelado || 0, "Cancelados", "encerramento")}
+      ${kpiCardHTML(r.totalMembros, "Pessoas acompanhadas", "familia")}
+      ${kpiCardHTML(r.mediaMembros ?? "—", "Média por família", "familia")}
+      ${kpiCardHTML(r.totalPCD, "Pessoas com deficiência", "familia")}
+      ${kpiCardHTML(r.idadeMedia != null ? r.idadeMedia + " anos" : "—", "Idade média (responsável)", "cabecalho")}
+      ${kpiCardHTML(r.mesesMedia != null ? r.mesesMedia : "—", "Meses médios de acompanhamento", "metas")}
+      ${kpiCardHTML(r.totalEncaminhamentos, "Encaminhamentos registrados", "encaminhamentos")}
+      ${kpiCardHTML(r.pctSituacoesSuperadas + "%", "Situações sociais superadas", "metas")}
     </div>
 
     <div class="resumo-secao">
-      <h4>Situação dos PAFs e perfil do responsável familiar</h4>
+      <h4>${sectionIconSvg("diagnostico", 16)} Situação dos PAFs e perfil do responsável familiar</h4>
       <div class="resumo-cols resumo-cols-donut">
         <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": r.porStatus.andamento || 0, "Encaminhado": r.porStatus.encaminhado || 0, "Concluído": r.porStatus.concluido || 0, "Cancelado": r.porStatus.cancelado || 0 }, { centro: "PAFs" })}</div>
         <div><strong>Sexo do responsável</strong>${donutChartSVG(r.porSexo, { centro: "famílias" })}</div>
         <div><strong>Faixa etária</strong>${donutChartSVG(r.porFaixa, { centro: "famílias" })}</div>
       </div>
-    </div>
+    </div>`;
+}
 
+function resumoGeralPerfilHTML(r) {
+  return `
     <div class="resumo-secao">
+      <h4>${sectionIconSvg("familia", 16)} Perfil das famílias e distribuição por unidade</h4>
       <div class="resumo-cols">
         <div><strong>Nacionalidade do responsável</strong>${barrasHTML(r.porNacionalidade)}</div>
         <div><strong>Distribuição por CRAS</strong>${barrasHTML(r.porCras)}</div>
       </div>
-    </div>
+    </div>`;
+}
 
+function resumoGeralTerritorioHTML(r) {
+  return `
     <div class="resumo-secao">
-      <h4>Território, migração e povos indígenas</h4>
+      <h4>${sectionIconSvg("rede", 16)} Território, migração e povos indígenas</h4>
       <div class="kpi-grid kpi-grid-sec">
-        ${kpiCardHTML(r.totalAbrigados + " (" + r.pctAbrigados + "%)", "Em abrigo / Operação Acolhida")}
-        ${kpiCardHTML(r.totalMigracaoInformada + " (" + r.pctMigracao + "%)", "Com situação migratória registrada")}
-        ${kpiCardHTML(r.totalIndigena + " (" + r.pctIndigena + "%)", "Com etnia indígena identificada")}
+        ${kpiCardHTML(r.totalAbrigados + " (" + r.pctAbrigados + "%)", "Em abrigo / Operação Acolhida", "rede")}
+        ${kpiCardHTML(r.totalMigracaoInformada + " (" + r.pctMigracao + "%)", "Com situação migratória registrada", "rede")}
+        ${kpiCardHTML(r.totalIndigena + " (" + r.pctIndigena + "%)", "Com etnia indígena identificada", "rede")}
       </div>
       <div class="resumo-cols">
         <div><strong>Tipo de habitação</strong>${barrasHTML(r.porHabitacao)}</div>
         <div><strong>Interiorização (Op. Acolhida)</strong>${barrasHTML(r.porInteriorizacao)}</div>
         <div><strong>Etnias indígenas identificadas</strong>${barrasHTML(r.porEtnia, { top: 8 })}</div>
       </div>
-    </div>
+    </div>`;
+}
 
+function resumoGeralVulnerabilidadesHTML(r) {
+  return `
     <div class="resumo-secao">
+      <h4>${sectionIconSvg("diagnostico", 16)} Vulnerabilidades e situações sociais</h4>
       <div class="resumo-cols">
         <div><strong>Vulnerabilidades mais frequentes</strong>${barrasHTML(r.porVulnerabilidade, { top: 8 })}</div>
         <div><strong>Situações sociais mais frequentes</strong>${barrasHTML(r.porSituacaoSocial, { top: 8 })}</div>
@@ -1053,12 +1088,51 @@ function resumoGeralHTML(r) {
     </div>
 
     <div class="resumo-secao">
+      <h4>${sectionIconSvg("programas", 16)} Programas, benefícios e encaminhamentos</h4>
       <div class="resumo-cols">
         <div><strong>Programas/projetos mais frequentes</strong>${barrasHTML(r.porPrograma, { top: 8 })}</div>
         <div><strong>Benefícios mais frequentes</strong>${barrasHTML(r.porBeneficio, { top: 8 })}</div>
         <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea, { top: 8 })}</div>
       </div>
     </div>`;
+}
+
+// Nova seção: quem está acompanhando as famílias (técnico de referência) e como o
+// trabalho social do PAIF se conecta com a rede socioassistencial e o trabalho coletivo.
+function resumoGeralEquipeRedeHTML(r) {
+  return `
+    <div class="resumo-secao">
+      <h4>${sectionIconSvg("grupo", 16)} Equipe de referência e rede socioassistencial acionada</h4>
+      <div class="resumo-cols">
+        <div><strong>PAFs por técnico de referência</strong>${barrasHTML(r.porTecnico, { top: 8 })}</div>
+        <div><strong>Serviços da rede socioassistencial acionados</strong>${barrasHTML(r.porServicoRede, { top: 8 })}</div>
+        <div><strong>Trabalho social coletivo do PAIF</strong>${barrasHTML(r.porAtividadeColetiva, { top: 8 })}</div>
+      </div>
+    </div>`;
+}
+
+// Nova seção: leitura do avanço do Plano a partir das situações sociais marcadas
+// como superadas (campo "superada" do diagnóstico), sem reduzir a família a números.
+function resumoGeralMetasHTML(r) {
+  return `
+    <div class="resumo-secao">
+      <h4>${sectionIconSvg("metas", 16)} Metas e evolução do Plano</h4>
+      <div class="kpi-grid kpi-grid-sec">
+        ${kpiCardHTML(r.totalSituacoesAtivas, "Situações sociais em acompanhamento", "metas")}
+        ${kpiCardHTML(r.totalSituacoesSuperadas, "Situações sociais superadas", "metas")}
+        ${kpiCardHTML(r.pctSituacoesSuperadas + "%", "Taxa de superação registrada", "metas")}
+      </div>
+      <div class="resumo-cols resumo-cols-donut">
+        <div><strong>Situações sociais: superadas x em acompanhamento</strong>${donutChartSVG({ "Superadas": r.totalSituacoesSuperadas, "Em acompanhamento": Math.max(r.totalSituacoesAtivas - r.totalSituacoesSuperadas, 0) }, { centro: "situações" })}</div>
+      </div>
+      <p class="hint" style="margin-top:6px;">Considera as situações sociais marcadas como presentes na família (seção Diagnóstico) e, dentre essas, as já indicadas como superadas pela equipe.</p>
+    </div>`;
+}
+
+// Mantida para o print/PDF (imprimirResumoMensal) e para o modal legado — reúne todas as seções em sequência.
+function resumoGeralHTML(r) {
+  return resumoGeralGeralHTML(r) + resumoGeralPerfilHTML(r) + resumoGeralTerritorioHTML(r)
+    + resumoGeralVulnerabilidadesHTML(r) + resumoGeralEquipeRedeHTML(r) + resumoGeralMetasHTML(r);
 }
 
 function resumoMensalTabelaHTML(dados) {
@@ -1104,6 +1178,157 @@ function resumoMensalTabelaHTML(dados) {
     <p class="hint" style="margin-top:6px;">Incluídas: famílias com data de início nesse mês. Excluídas: famílias com data de encerramento nesse mês (passe o mouse sobre o número para ver os motivos). Acumulado: saldo líquido de famílias em acompanhamento.</p>`;
 }
 
+/* ---------------------------- Aba "Gráficos" (painel de indicadores em tela cheia) ---------------------------- */
+
+const DASH_PERIODOS = [
+  { v: "tudo", label: "Todo o período" },
+  { v: "ano", label: "Este ano" },
+  { v: "12m", label: "Últimos 12 meses" },
+  { v: "6m", label: "Últimos 6 meses" },
+  { v: "3m", label: "Últimos 3 meses" }
+];
+
+// Filtra os PAFs de acordo com o período/CRAS/técnico selecionados no painel de Gráficos.
+// A data de referência para o período é o início do acompanhamento (ou, na ausência dela, o cadastro).
+function dashboardPafsFiltrados() {
+  const { dashPeriodo, dashCras, dashTecnico } = state;
+  let limiteISO = null;
+  if (dashPeriodo && dashPeriodo !== "tudo") {
+    const hoje = new Date();
+    if (dashPeriodo === "ano") {
+      limiteISO = `${hoje.getFullYear()}-01-01`;
+    } else {
+      const meses = { "3m": 3, "6m": 6, "12m": 12 }[dashPeriodo] || 0;
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - meses, hoje.getDate());
+      limiteISO = d.toISOString().slice(0, 10);
+    }
+  }
+  return state.pafs.filter(p => {
+    if (dashCras && (p.crasNome || "").trim() !== dashCras) return false;
+    if (dashTecnico && (p.tecnicoReferencia || "").trim() !== dashTecnico) return false;
+    if (limiteISO) {
+      const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+      if (!base || base < limiteISO) return false;
+    }
+    return true;
+  });
+}
+
+function dashboardOpcoes(campo) {
+  return Array.from(new Set(state.pafs.map(p => (p[campo] || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function dashboardFiltrosAtivos() {
+  return state.dashPeriodo !== "tudo" || !!state.dashCras || !!state.dashTecnico;
+}
+
+function dashboardFiltrosHTML() {
+  const crasOpts = dashboardOpcoes("crasNome");
+  const tecnicoOpts = dashboardOpcoes("tecnicoReferencia");
+  const chips = DASH_PERIODOS.map(p => `<button class="filter-chip ${state.dashPeriodo === p.v ? "active" : ""}" data-dash-periodo="${p.v}">${p.label}</button>`).join("");
+  return `
+    <div class="dash-filtros">
+      <div class="filter-tabs dash-filtros-chips">${chips}</div>
+      <div class="dash-filtros-selects">
+        <select id="dashFiltroCras" title="Filtrar por CRAS">
+          <option value="">Todos os CRAS</option>
+          ${crasOpts.map(c => `<option value="${escapeHtml(c)}" ${state.dashCras === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+        </select>
+        <select id="dashFiltroTecnico" title="Filtrar por técnico de referência">
+          <option value="">Todos os técnicos</option>
+          ${tecnicoOpts.map(t => `<option value="${escapeHtml(t)}" ${state.dashTecnico === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}
+        </select>
+        ${dashboardFiltrosAtivos() ? `<button class="btn btn-ghost btn-sm" id="dashFiltroLimparBtn">✕ Limpar filtros</button>` : ""}
+      </div>
+    </div>`;
+}
+
+const DASH_SECOES_NAV = [
+  { id: "dash-sec-geral", label: "Visão geral" },
+  { id: "dash-sec-perfil", label: "Perfil das famílias" },
+  { id: "dash-sec-territorio", label: "Território e migração" },
+  { id: "dash-sec-vulnerabilidades", label: "Vulnerabilidades" },
+  { id: "dash-sec-equipe", label: "Equipe e rede" },
+  { id: "dash-sec-metas", label: "Metas do Plano" },
+  { id: "dash-sec-evolucao", label: "Evolução mensal" }
+];
+
+function dashboardNavHTML() {
+  return `<div class="dash-nav">${DASH_SECOES_NAV.map(s => `<button class="dash-nav-btn" data-scrollto="${s.id}">${s.label}</button>`).join("")}</div>`;
+}
+
+function renderDashboardHTML() {
+  const semRegistroAlgum = state.pafs.length === 0;
+  const pafsFiltrados = semRegistroAlgum ? [] : dashboardPafsFiltrados();
+  const geral = computeResumoGeral(pafsFiltrados);
+  const grupos = computeResumoMensal(pafsFiltrados);
+  const filtrosAtivos = dashboardFiltrosAtivos();
+
+  const empty = `
+    <div class="dashboard-empty">
+      <p>Nenhum Plano de Acompanhamento Familiar cadastrado ainda.</p>
+      <p>Assim que houver PAFs salvos, os indicadores e gráficos das famílias em acompanhamento aparecerão aqui.</p>
+    </div>`;
+
+  const vazioComFiltro = `
+    <div class="dashboard-empty">
+      <p>Nenhum PAF corresponde aos filtros selecionados.</p>
+      <p>Tente ampliar o período ou remover o filtro de CRAS/técnico.</p>
+    </div>`;
+
+  return `
+  <div class="dashboard-wrap">
+    <div class="home-head">
+      <div class="home-head-text">
+        <p class="home-eyebrow">Painel Gerencial · CRAS</p>
+        <h1>Gráficos e Indicadores</h1>
+        <p>Perfil das famílias em acompanhamento, vulnerabilidades, programas e evolução mensal (PAF/PAIF)</p>
+      </div>
+      <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" id="dashboardImprimirBtn" ${geral.total ? "" : "disabled"}>Imprimir / Baixar PDF</button>
+      </div>
+    </div>
+    ${semRegistroAlgum ? empty : `
+      ${dashboardFiltrosHTML()}
+      ${geral.total === 0 ? vazioComFiltro : `
+        ${dashboardNavHTML()}
+        <div class="resumo-scroll">
+          ${filtrosAtivos ? `<p class="dash-filtro-resumo">Mostrando <strong>${geral.total}</strong> de ${state.pafs.length} PAFs cadastrados, conforme os filtros acima.</p>` : ""}
+          <div id="dash-sec-geral">${resumoGeralGeralHTML(geral)}</div>
+          <div id="dash-sec-perfil">${resumoGeralPerfilHTML(geral)}</div>
+          <div id="dash-sec-territorio">${resumoGeralTerritorioHTML(geral)}</div>
+          <div id="dash-sec-vulnerabilidades">${resumoGeralVulnerabilidadesHTML(geral)}</div>
+          <div id="dash-sec-equipe">${resumoGeralEquipeRedeHTML(geral)}</div>
+          <div id="dash-sec-metas">${resumoGeralMetasHTML(geral)}</div>
+          <div class="resumo-secao" id="dash-sec-evolucao">
+            <h4>${sectionIconSvg("metas", 16)} Evolução mensal (famílias incluídas e excluídas)</h4>
+            ${resumoMensalTabelaHTML(grupos)}
+          </div>
+        </div>`}`}
+  </div>`;
+}
+
+function attachDashboardHandlers() {
+  document.getElementById("dashboardImprimirBtn")?.addEventListener("click", () => {
+    const pafsFiltrados = dashboardPafsFiltrados();
+    imprimirResumoMensal(computeResumoGeral(pafsFiltrados), computeResumoMensal(pafsFiltrados));
+  });
+  document.querySelectorAll("[data-dash-periodo]").forEach(btn => {
+    btn.addEventListener("click", () => { state.dashPeriodo = btn.dataset.dashPeriodo; renderApp(); });
+  });
+  document.getElementById("dashFiltroCras")?.addEventListener("change", e => { state.dashCras = e.target.value; renderApp(); });
+  document.getElementById("dashFiltroTecnico")?.addEventListener("change", e => { state.dashTecnico = e.target.value; renderApp(); });
+  document.getElementById("dashFiltroLimparBtn")?.addEventListener("click", () => {
+    state.dashPeriodo = "tudo"; state.dashCras = ""; state.dashTecnico = ""; renderApp();
+  });
+  document.querySelectorAll("[data-scrollto]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.getElementById(btn.dataset.scrollto)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
 function openResumoModal() {
   const root = document.getElementById("modalRoot");
   if (!root) return;
@@ -1143,77 +1368,206 @@ function imprimirResumoMensal(geral, grupos) {
     <head>
       <meta charset="UTF-8">
       <title>Resumo estatístico - PAF/PAIF</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
         @page { margin: 16mm 14mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; margin: 0; }
-        h1 { font-size: 16px; margin: 0 0 2px; }
-        h4 { font-size: 12.5px; margin: 0 0 8px; color: #1F3A5F; border-bottom: 1px solid #d7dee4; padding-bottom: 4px; }
-        .sub { color: #5b7186; font-size: 11px; margin: 0 0 16px; }
+        body {
+          font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F;
+          margin: 0; padding: 4mm 0 3mm; background: #fff;
+        }
+        h1, h4 { font-family: 'Lora', Georgia, serif; }
+        h4 {
+          font-size: 13.5px; margin: 26px 0 12px; color: #1F3A5F; font-weight: 600;
+          padding-bottom: 8px; border-bottom: 2px solid #EFE0BE;
+          display: flex; align-items: center; gap: 8px;
+        }
+        h4::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #B98A34; flex-shrink: 0; }
+        .resumo-secao:first-of-type h4 { margin-top: 4px; }
 
-        .print-masthead { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #1F3A5F; padding-bottom: 10px; margin-bottom: 14px; }
-        .print-masthead .brasao { width: 34px; height: 34px; border: 1.4px solid #1F3A5F; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .print-masthead .brasao span { font-family: Georgia, serif; font-weight: 700; font-size: 15px; color: #1F3A5F; }
-        .print-masthead .txt strong { display: block; font-size: 12.5px; }
-        .print-masthead .txt span { display: block; font-size: 10px; color: #5b7186; }
+        /* ---- Cabeçalho/rodapé repetidos em cada página impressa (mesma técnica do prontuário individual) ---- */
+        .print-shell { width: 100%; border-collapse: collapse; }
+        .print-shell > tbody > tr > td { padding: 0; border: 0; }
+        .page-header-fixed { display: table-header-group; }
+        .page-header-fixed .ph-row {
+          display: flex; align-items: flex-end; gap: 8px; border-bottom: 1px solid #C9D2D9; padding-bottom: 5px;
+          margin-bottom: 6mm; font-size: 8px; color: #6C7D8F; white-space: nowrap;
+        }
+        .page-header-fixed .brasao-mini { flex-shrink: 0; color: #B98A34; }
+        .page-header-fixed .ph-row > div:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+        .page-header-fixed .ph-org { font-weight: 700; color: #1F3A5F; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-header-fixed .ph-sub { display: block; font-weight: 400; color: #8496A8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-header-fixed .ph-right { flex: 0 0 auto; text-align: right; font-size: 8px; color: #8496A8; }
+        .page-footer-fixed { display: table-footer-group; }
+        .page-footer-fixed .pf-row {
+          display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+          border-top: 1px solid #C9D2D9; padding-top: 5px; margin-top: 6mm; font-size: 7.3px; color: #8496A8; line-height: 1.45;
+        }
+        .page-footer-fixed .pf-selo {
+          flex-shrink: 0; font-size: 6.6px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+          color: #52667C; border: 1px solid #C9D2D9; border-radius: 3px; padding: 2px 6px; white-space: nowrap;
+        }
+        @media screen { .page-header-fixed, .page-footer-fixed { display: none; } }
 
-        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
-        .kpi-grid-sec { grid-template-columns: repeat(3, 1fr); margin-bottom: 12px; }
-        .kpi-card { border: 1px solid #d7dee4; border-radius: 6px; padding: 8px 10px; text-align: center; page-break-inside: avoid; }
-        .kpi-valor { display: block; font-size: 17px; font-weight: 700; }
-        .kpi-label { display: block; font-size: 9.5px; color: #5b7186; text-transform: uppercase; letter-spacing: .02em; margin-top: 2px; }
-        .resumo-secao { margin-bottom: 16px; page-break-inside: avoid; }
-        .resumo-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-        .resumo-cols strong { display: block; font-size: 11px; margin-bottom: 6px; }
-        .stat-bar-row { display: grid; grid-template-columns: 1fr 60px 60px; align-items: center; gap: 6px; font-size: 10.5px; padding: 2px 0; }
-        .stat-bar-track { height: 6px; background: #eef2f5; border-radius: 3px; overflow: hidden; }
-        .stat-bar-fill { height: 100%; background: #2E7D6B; }
+        /* ---- Faixa institucional escura + capa/título — mais encorpada e com selo d'água sutil ---- */
+        .orgao-header {
+          position: relative; overflow: hidden;
+          display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
+          padding: 11px 14px; border-radius: 7px 7px 0 0; font-size: 9px; line-height: 1.4;
+          border-bottom: 2px solid #B98A34;
+        }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Lora', Georgia, serif; letter-spacing: .01em; }
+        .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
+        .orgao-header .brasao-selo {
+          position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.07); pointer-events: none;
+        }
+        .capa-header {
+          position: relative; display: flex; align-items: flex-start; gap: 16px; border: 1px solid #1F3A5F; border-top: none;
+          border-bottom: 3px solid #B98A34; padding: 16px 18px; margin-bottom: 22px; border-radius: 0 0 8px 8px;
+          background: linear-gradient(180deg,#F7F9FA 0%,#fff 65%);
+        }
+        .capa-titulos { flex: 1; }
+        .capa-titulos .capa-eyebrow { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 4px; }
+        .capa-titulos h1 { font-size: 19px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
+        .capa-titulos p { margin: 5px 0 0; font-size: 10.5px; color: #2E7D6B; font-weight: 600; }
+        .capa-titulos .capa-linha { width: 40px; height: 2.5px; background: #B98A34; margin: 9px 0; border-radius: 2px; }
+        .capa-ficha {
+          margin-left: auto; text-align: right; font-size: 9px; color: #52667C; line-height: 1.75;
+          border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 7px; padding: 9px 14px; min-width: 138px;
+          box-shadow: 0 1px 0 rgba(122,90,30,.08);
+        }
+        .capa-ficha .num { font-family: 'Lora', Georgia, serif; font-size: 17px; font-weight: 700; color: #7A5A1E; letter-spacing: .01em; }
+        .capa-ficha .lbl { display: block; font-size: 7px; text-transform: uppercase; letter-spacing: .07em; color: #8496A8; }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 20px; }
+        .kpi-grid-sec { grid-template-columns: repeat(3, 1fr); margin-bottom: 14px; }
+        .kpi-card {
+          border: 1px solid #dde3e8; border-top: 3px solid #2E7D6B; border-radius: 8px;
+          padding: 10px 10px 9px; text-align: center; page-break-inside: avoid;
+          background: linear-gradient(180deg, #FAFBFC 0%, #fff 100%);
+        }
+        .kpi-grid .kpi-card:nth-child(4n+2), .kpi-grid-sec .kpi-card:nth-child(3n+2) { border-top-color: #B98A34; }
+        .kpi-grid .kpi-card:nth-child(4n+3), .kpi-grid-sec .kpi-card:nth-child(3n+3) { border-top-color: #1F3A5F; }
+        .kpi-grid .kpi-card:nth-child(4n+4) { border-top-color: #8B6BAE; }
+        .kpi-valor { display: block; font-family: 'Lora', Georgia, serif; font-size: 18px; font-weight: 700; color: #1F3A5F; }
+        .kpi-label { display: block; font-size: 8.7px; color: #5b7186; text-transform: uppercase; letter-spacing: .025em; margin-top: 3px; line-height: 1.35; }
+
+        .resumo-secao { margin-bottom: 20px; page-break-inside: avoid; }
+        .resumo-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
+        .resumo-cols > div {
+          background: #FAFBFC; border: 1px solid #E3E8EC; border-radius: 8px; padding: 12px 13px;
+        }
+        .resumo-cols strong {
+          display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+          color: #7A8CA0; margin-bottom: 9px; font-weight: 700;
+        }
+
+        .stat-bar-row { display: grid; grid-template-columns: 1fr 60px 60px; align-items: center; gap: 6px; font-size: 10.5px; padding: 3px 0; }
+        .stat-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .stat-bar-track { height: 6px; background: #EAF1EE; border-radius: 3px; overflow: hidden; }
+        .stat-bar-fill { height: 100%; background: #2E7D6B; border-radius: 3px; }
+        .stat-bar-value { text-align: right; white-space: nowrap; }
         .stat-bar-value em { color: #5b7186; font-style: normal; }
-        .resumo-tabela { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-        .resumo-tabela th, .resumo-tabela td { border: 1px solid #d7dee4; padding: 4px 6px; text-align: center; }
-        .resumo-tabela thead th { background: #f2f5f7; }
-        .resumo-tabela tfoot th { background: #f2f5f7; }
 
-        .donut-wrap { display: flex; align-items: center; gap: 10px; }
+        .resumo-tabela { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+        .resumo-tabela th, .resumo-tabela td { border: 1px solid #dde3e8; padding: 5px 7px; text-align: center; }
+        .resumo-tabela thead th { background: #1F3A5F; color: #fff; font-weight: 600; letter-spacing: .01em; }
+        .resumo-tabela tbody tr:nth-child(even) td { background: #F6F8F9; }
+        .resumo-tabela tfoot th { background: #FBF6EA; color: #7A5A1E; }
+
+        .donut-wrap { display: flex; align-items: center; gap: 12px; }
         .donut-svg { flex-shrink: 0; }
-        .donut-total-num { font-size: 17px; font-weight: 700; fill: #1F3A5F; font-family: Georgia, serif; }
+        .donut-total-num { font-size: 17px; font-weight: 700; fill: #1F3A5F; font-family: 'Lora', Georgia, serif; }
         .donut-total-label { font-size: 7px; fill: #5b7186; text-transform: uppercase; letter-spacing: .03em; }
-        .donut-legend { display: flex; flex-direction: column; gap: 3px; font-size: 9.5px; }
+        .donut-legend { display: flex; flex-direction: column; gap: 4px; font-size: 9.5px; min-width: 0; flex: 1; }
         .donut-legend-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
         .donut-legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .donut-legend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .donut-legend-value { margin-left: auto; }
         .donut-legend-value em { color: #5b7186; font-style: normal; }
 
-        .chart-box { page-break-inside: avoid; margin-bottom: 8px; }
-        .chart-legend-inline { display: flex; gap: 14px; font-size: 10px; margin-bottom: 4px; }
+        .chart-box {
+          page-break-inside: avoid; margin-bottom: 10px; background: #FAFBFC;
+          border: 1px solid #E3E8EC; border-radius: 8px; padding: 14px 16px 8px;
+        }
+        .chart-legend-inline { display: flex; gap: 16px; font-size: 10px; margin-bottom: 6px; color: #52667C; }
         .chart-legend-inline span { display: flex; align-items: center; gap: 4px; }
         .chart-legend-inline i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
         .evolucao-chart { display: block; }
         .chart-bar-num { font-size: 8px; fill: #1F3A5F; }
         .chart-bar-mes { font-size: 8px; fill: #5b7186; }
 
-        .assinatura-bloco { margin-top: 34px; page-break-inside: avoid; text-align: center; }
+        .assinatura-bloco { margin-top: 38px; page-break-inside: avoid; text-align: center; }
         .assinatura-linha { width: 260px; border-top: 1px solid #1F3A5F; margin: 0 auto 6px; }
         .assinatura-nome { font-size: 12px; font-weight: 700; margin: 0; }
         .assinatura-cargo { font-size: 10.5px; color: #5b7186; margin: 1px 0 0; }
         .assinatura-local { font-size: 10px; color: #5b7186; margin: 10px 0 0; }
+
+        .rodape-doc {
+          margin-top: 24px; padding-top: 9px; border-top: 1px dashed #D7E0E6;
+          font-size: 7.8px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic;
+        }
       </style>
+
     </head>
     <body>
-      <div class="print-masthead">
-        <div class="brasao"><span>P</span></div>
-        <div class="txt">
-          <strong>Prefeitura Municipal de Boa Vista — SEMADS</strong>
-          <span>CRAS Cristiana Vicente Nunes — Centenário, Boa Vista/RR</span>
+      <div class="page-header-fixed">
+        <div class="ph-row">
+          <div class="brasao-mini">
+            <svg viewBox="0 0 48 48" width="16" height="16"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+          </div>
+          <div>
+            <span class="ph-org">Prefeitura Municipal de Boa Vista · SEMADS</span>
+            <span class="ph-sub">CRAS Cristiana Vicente Nunes — Resumo Estatístico do Acompanhamento (PAF/PAIF)</span>
+          </div>
+          <div class="ph-right">Emitido em ${fmtDateBR(todayISO())}</div>
         </div>
       </div>
-      <h1>Resumo estatístico do acompanhamento — PAF/PAIF</h1>
-      <p class="sub">Todas as famílias cadastradas · Emitido em ${fmtDateBR(todayISO())}</p>
+      <div class="page-footer-fixed">
+        <div class="pf-row">
+          <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR · (95) 98402-6627 · crascentenariosemges@gmail.com</span>
+          <span class="pf-selo">Documento de uso interno · CRAS/SEMADS</span>
+        </div>
+      </div>
+
+      <div class="orgao-header">
+        <div class="brasao-selo" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="72" height="72"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="24" cy="24" r="16.5" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+        </div>
+        <div>
+          <strong>Prefeitura Municipal de Boa Vista</strong>
+          Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS) · CRAS Cristiana Vicente Nunes
+        </div>
+        <div class="orgao-contato">Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>(95) 98402-6627 · crascentenariosemges@gmail.com</div>
+      </div>
+      <div class="capa-header">
+        <div class="capa-titulos">
+          <span class="capa-eyebrow">Prontuário SUAS · Painel Gerencial</span>
+          <h1>Resumo Estatístico do Acompanhamento</h1>
+          <div class="capa-linha"></div>
+          <p>Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
+        </div>
+        <div class="capa-ficha">
+          <span class="lbl">Total de famílias</span>
+          <span class="num">${geral.total}</span>
+          <span class="lbl" style="margin-top:5px;">Emitido em</span>
+          ${fmtDateBR(todayISO())}
+        </div>
+      </div>
+
       ${resumoGeralHTML(geral)}
       <div class="resumo-secao">
         <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
         ${resumoMensalTabelaHTML(grupos)}
       </div>
       ${assinaturaHTML()}
+
+      <div class="rodape-doc">
+        Documento gerado eletronicamente pelo sistema de gestão do PAF/PAIF do CRAS Cristiana Vicente Nunes em ${fmtDateBR(todayISO())}, para uso exclusivo da equipe técnica do SUAS — sujeito a sigilo profissional.<br>
+        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
+      </div>
+
       <script>window.onload = () => setTimeout(() => window.print(), 200);<\/script>
     </body>
     </html>`;
@@ -1505,9 +1859,26 @@ function newPAF() {
 function renderApp() {
   const main = document.getElementById("mainArea");
   if (!main) return;
-  main.innerHTML = state.view === "home" ? renderHomeHTML() : renderEditorHTML();
+  main.innerHTML = state.view === "home" ? renderHomeHTML()
+    : state.view === "dashboard" ? renderDashboardHTML()
+    : renderEditorHTML();
   attachGlobalHandlers();
-  if (state.view === "home") attachHomeHandlers(); else attachEditorHandlers();
+  if (state.view === "home") attachHomeHandlers();
+  else if (state.view === "dashboard") attachDashboardHandlers();
+  else attachEditorHandlers();
+  updateTopbarTabs();
+}
+
+function goDashboard() {
+  state.view = "dashboard";
+  renderApp();
+}
+
+function updateTopbarTabs() {
+  document.querySelectorAll(".topbar-tab").forEach(btn => {
+    const isActive = state.view === btn.dataset.view || (state.view === "editor" && btn.dataset.view === "home");
+    btn.classList.toggle("active", isActive);
+  });
 }
 
 /* ---------------------------- Render: HOME ---------------------------- */
@@ -1586,7 +1957,7 @@ function renderHomeHTML() {
       </div>
       <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost" id="resumoMensalBtn">Resumo mensal</button>
+        <button class="btn btn-ghost" id="resumoMensalBtn">📊 Ver gráficos</button>
         <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
       </div>
     </div>
@@ -1602,7 +1973,7 @@ function renderHomeHTML() {
 function attachHomeHandlers() {
   document.getElementById("newPafBtn")?.addEventListener("click", newPAF);
   document.getElementById("emptyNewBtn")?.addEventListener("click", newPAF);
-  document.getElementById("resumoMensalBtn")?.addEventListener("click", openResumoModal);
+  document.getElementById("resumoMensalBtn")?.addEventListener("click", goDashboard);
   const search = document.getElementById("searchInput");
   search?.addEventListener("input", e => { state.search = e.target.value; renderApp(); focusSearchEnd(); });
 
@@ -2486,6 +2857,13 @@ function attachGlobalHandlers() {
     };
   }
 
+  document.querySelectorAll(".topbar-tab").forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.view === "dashboard") goDashboard();
+      else goHome();
+    };
+  });
+
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) logoutBtn.onclick = handleLogout;
 
@@ -2606,14 +2984,16 @@ function exportPDF(paf) {
     <head>
       <meta charset="UTF-8">
       <title>Prontuário PAF - ${escapeHtml(paf.responsavel)}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
       <style>
         @page { margin: 14mm 14mm; }
         * { box-sizing: border-box; }
         body {
-          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F;
-          line-height: 1.5; margin: 0; padding: 5mm 0 3mm;
+          font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F;
+          line-height: 1.55; margin: 0; padding: 5mm 0 3mm;
         }
-        .brasao { font-family: Georgia, 'Times New Roman', serif; }
+        .brasao { font-family: 'Lora', Georgia, 'Times New Roman', serif; }
 
         /* ---- Cabeçalho e rodapé que repetem em toda página impressa ----
            ANTES isso era feito com "position: fixed" e um deslocamento negativo igual
@@ -2659,47 +3039,55 @@ function exportPDF(paf) {
         /* ---- Marca d'água de confidencialidade, repetida em cada página ---- */
         .watermark {
           position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-32deg);
-          font-family: Georgia, serif; font-size: 62px; font-weight: 700; letter-spacing: .08em;
+          font-family: 'Lora', Georgia, serif; font-size: 62px; font-weight: 700; letter-spacing: .08em;
           color: #1F3A5F; opacity: 0.045; white-space: nowrap; pointer-events: none;
         }
 
         .orgao-header {
+          position: relative; overflow: hidden;
           display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
-          padding: 9px 12px; border-radius: 5px 5px 0 0; margin-bottom: 0; font-size: 9px; line-height: 1.4;
+          padding: 10px 12px; border-radius: 7px 7px 0 0; margin-bottom: 0; font-size: 9px; line-height: 1.4;
+          border-bottom: 2px solid #B98A34;
         }
         .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; letter-spacing: .01em; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Lora', Georgia, serif; letter-spacing: .01em; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
+        .orgao-header .brasao-selo {
+          position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.07); pointer-events: none;
+        }
 
         .capa-header {
-          display: flex; align-items: flex-start; gap: 14px; border: 1px solid #1F3A5F;
-          border-bottom: 2.5px solid #1F3A5F; padding: 12px 14px; margin-bottom: 14px; border-radius: 6px;
-          position: relative; background: linear-gradient(180deg,#F8FAFB 0%,#fff 60%);
+          display: flex; align-items: flex-start; gap: 15px; border: 1px solid #1F3A5F;
+          border-bottom: 3px solid #B98A34; padding: 14px 16px; margin-bottom: 16px; border-radius: 0 0 8px 8px;
+          position: relative; background: linear-gradient(180deg,#F7F9FA 0%,#fff 65%);
         }
         .capa-selo {
-          width: 42px; height: 42px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 19px; color: #B98A34;
+          width: 44px; height: 44px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; font-family: 'Lora', Georgia, serif; font-size: 20px; color: #B98A34;
+          background: #FBF6EA;
         }
         .capa-titulos { flex: 1; }
-        .capa-titulos .capa-eyebrow { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: .1em; color: #B98A34; font-weight: 700; margin-bottom: 2px; }
-        .capa-titulos h1 { font-family: Georgia, serif; font-size: 17px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
-        .capa-titulos p { margin: 3px 0 0; font-size: 10.5px; color: #2E7D6B; font-weight: 600; }
+        .capa-titulos .capa-eyebrow { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 3px; }
+        .capa-titulos h1 { font-family: 'Lora', Georgia, serif; font-size: 18px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
+        .capa-titulos .capa-linha { width: 38px; height: 2.5px; background: #B98A34; margin: 8px 0; border-radius: 2px; }
+        .capa-titulos p { margin: 0; font-size: 10.5px; color: #2E7D6B; font-weight: 600; }
         .capa-ficha {
-          margin-left: auto; text-align: right; font-size: 9px; color: #52667C; line-height: 1.7;
-          border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 5px; padding: 7px 12px; min-width: 132px;
+          margin-left: auto; text-align: right; font-size: 9px; color: #52667C; line-height: 1.75;
+          border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 7px; padding: 8px 13px; min-width: 132px;
+          box-shadow: 0 1px 0 rgba(122,90,30,.08);
         }
-        .capa-ficha .num { font-family: 'IBM Plex Mono', 'Courier New', monospace; font-size: 13px; font-weight: 700; color: #7A5A1E; letter-spacing: .01em; }
-        .capa-ficha .lbl { display: block; font-size: 7px; text-transform: uppercase; letter-spacing: .06em; color: #8496A8; }
+        .capa-ficha .num { font-family: 'IBM Plex Mono', 'Courier New', monospace; font-size: 14px; font-weight: 700; color: #7A5A1E; letter-spacing: .01em; }
+        .capa-ficha .lbl { display: block; font-size: 7px; text-transform: uppercase; letter-spacing: .07em; color: #8496A8; }
 
         .id-band {
-          background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 6px; padding: 13px 16px; margin-bottom: 16px;
-          display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+          background: linear-gradient(180deg,#F8FAFB 0%,#F3F6F7 100%); border: 1px solid #D7E0E6; border-radius: 8px;
+          padding: 14px 17px; margin-bottom: 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
         }
         .id-nome-wrap { flex: 1 1 200px; }
-        .id-nome { font-family: Georgia, serif; font-size: 16px; font-weight: bold; margin: 0 0 5px; letter-spacing: -.01em; }
+        .id-nome { font-family: 'Lora', Georgia, serif; font-size: 16.5px; font-weight: bold; margin: 0 0 6px; letter-spacing: -.01em; }
         .id-status {
           display: inline-flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold;
-          padding: 3px 9px; border-radius: 999px; border: 1.2px solid #2E7D6B; color: #2E7D6B; background: #fff;
+          padding: 3px 10px; border-radius: 999px; border: 1.2px solid #2E7D6B; color: #2E7D6B; background: #fff;
         }
         .id-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
         .id-status.andamento { border-color: #1F5C4E; color: #1F5C4E; background: #DEEAE6; }
@@ -2707,58 +3095,66 @@ function exportPDF(paf) {
         .id-status.concluido { border-color: #52667C; color: #52667C; background: #E7E9EC; }
         .id-status.cancelado { border-color: #B5473F; color: #B5473F; background: #F5E0DD; }
         .id-grid {
-          display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px 20px; flex: 2 1 380px; font-size: 10.5px;
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 20px; flex: 2 1 380px; font-size: 10.5px;
           border-left: 1px solid #D7E0E6; padding-left: 16px;
         }
-        .id-grid .k { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; margin-bottom: 1px; }
+        .id-grid .k { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; margin-bottom: 2px; }
         .id-grid .v { display: block; font-weight: 600; }
         .id-stats { display: flex; gap: 8px; flex: 0 0 auto; border-left: 1px solid #D7E0E6; padding-left: 16px; }
-        .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-radius: 6px; padding: 6px 11px; min-width: 58px; }
-        .id-stat .n { display: block; font-family: Georgia, serif; font-size: 16px; font-weight: bold; color: #B98A34; line-height: 1; }
-        .id-stat .l { display: block; font-size: 7.5px; text-transform: uppercase; color: #8496A8; margin-top: 3px; letter-spacing: .02em; }
+        .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-top: 2.5px solid #B98A34; border-radius: 7px; padding: 7px 11px; min-width: 58px; }
+        .id-stat:nth-child(2) { border-top-color: #2E7D6B; }
+        .id-stat:nth-child(3) { border-top-color: #1F3A5F; }
+        .id-stat .n { display: block; font-family: 'Lora', Georgia, serif; font-size: 17px; font-weight: bold; color: #1F3A5F; line-height: 1; }
+        .id-stat .l { display: block; font-size: 7.5px; text-transform: uppercase; color: #8496A8; margin-top: 4px; letter-spacing: .02em; }
 
         body { counter-reset: secao; }
         h2 {
           counter-increment: secao;
-          display: flex; align-items: center; gap: 8px;
-          font-size: 12.5px; color: #1F5C4E; margin: 22px 0 8px; padding-bottom: 4px;
-          border-bottom: 1.6px solid #DEEAE6; page-break-after: avoid; letter-spacing: .01em;
+          display: flex; align-items: center; gap: 9px;
+          font-family: 'Lora', Georgia, serif; font-weight: 600;
+          font-size: 13px; color: #1F3A5F; margin: 24px 0 9px; padding-bottom: 5px;
+          border-bottom: 1.6px solid #E9EEF1; page-break-after: avoid; letter-spacing: .005em;
         }
         h2::before {
           content: counter(secao, decimal-leading-zero); flex-shrink: 0;
-          display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px;
-          border-radius: 4px; background: #1F5C4E; color: #fff; font-size: 8px; font-weight: 700;
+          display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+          border-radius: 5px; background: #1F5C4E; color: #fff; font-size: 8px; font-weight: 700;
           font-family: 'IBM Plex Mono', 'Courier New', monospace;
         }
+        h2:nth-of-type(3n+2)::before { background: #B98A34; }
+        h2:nth-of-type(3n+3)::before { background: #1F3A5F; }
         .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 18px; margin-bottom: 6px; }
         .field { margin-bottom: 4px; }
         .label { font-weight: bold; font-size: 9px; text-transform: uppercase; letter-spacing: .02em; color: #52667C; display: block; margin-bottom: 1px; }
         table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; }
-        th, td { border: 1px solid #D7E0E6; padding: 6px 7px; text-align: left; vertical-align: top; }
-        th { background: #EEF3F1; font-weight: bold; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; border-bottom: 1.6px solid #1F5C4E; color: #1F5C4E; }
-        tbody tr:nth-child(even) td { background: #FAFBFC; }
+        th, td { border: 1px solid #D7E0E6; padding: 6px 8px; text-align: left; vertical-align: top; }
+        th { background: #1F3A5F; font-weight: 600; font-size: 9.5px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
+        tbody tr:nth-child(even) td { background: #F6F8F9; }
         tr { page-break-inside: avoid; }
-        .tag { display: inline-block; background: #DEEAE6; color: #1F5C4E; padding: 3px 8px; border-radius: 4px; font-size: 9.5px; margin: 2px 5px 2px 0; font-weight: 600; }
+        .tag {
+          display: inline-block; background: #DEEAE6; color: #1F5C4E; border: 1px solid #C3DCD5;
+          padding: 3px 9px; border-radius: 5px; font-size: 9.5px; margin: 2px 5px 2px 0; font-weight: 600;
+        }
         .muted { color: #8496A8; font-style: italic; }
 
         .reg-item {
-          display: flex; gap: 11px; border: 1px solid #D7E0E6; border-left-width: 3px; border-radius: 6px;
-          padding: 9px 11px; margin-bottom: 8px; page-break-inside: avoid;
+          display: flex; gap: 11px; border: 1px solid #D7E0E6; border-left-width: 3px; border-radius: 7px;
+          padding: 10px 12px; margin-bottom: 8px; page-break-inside: avoid; background: #FBFCFC;
         }
         .reg-badge {
-          flex-shrink: 0; width: 42px; height: 42px; border-radius: 6px; border: 1.4px solid;
-          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          flex-shrink: 0; width: 42px; height: 42px; border-radius: 7px; border: 1.4px solid;
+          display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff;
         }
-        .reg-badge .dia { font-family: Georgia, serif; font-size: 14px; font-weight: bold; line-height: 1; }
+        .reg-badge .dia { font-family: 'Lora', Georgia, serif; font-size: 14px; font-weight: bold; line-height: 1; }
         .reg-badge .mes { font-size: 7px; text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
         .reg-body { flex: 1; min-width: 0; }
         .reg-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .reg-tipo { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; padding: 2px 7px; border-radius: 999px; }
+        .reg-tipo { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; }
         .reg-tecnico { font-size: 9.5px; color: #52667C; }
         .reg-evolucao { margin: 0 0 4px; font-size: 10.5px; }
         .reg-encam { margin: 0; font-size: 10px; color: #52667C; }
 
-        .fechamento { margin-top: 34px; page-break-inside: avoid; }
+        .fechamento { margin-top: 36px; padding-top: 20px; border-top: 2px solid #F3E7D0; page-break-inside: avoid; }
         .fechamento .local-data { font-size: 10px; color: #52667C; margin-bottom: 26px; }
         .assinaturas { display: flex; gap: 44px; }
         .assinatura { flex: 1; text-align: center; }
@@ -2767,17 +3163,17 @@ function exportPDF(paf) {
         .assinatura .titulo { font-size: 9px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
 
         .rodape-doc {
-          margin-top: 22px; padding-top: 8px; border-top: 1px dashed #D7E0E6;
-          font-size: 7.8px; color: #A6B4C0; text-align: center; line-height: 1.5; font-style: italic;
+          margin-top: 24px; padding-top: 9px; border-top: 1px dashed #D7E0E6;
+          font-size: 7.8px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic;
         }
 
         .anexos-print-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
         .anexo-print-item { width: 140px; text-align: center; page-break-inside: avoid; }
-        .anexo-print-item img { width: 100%; height: 140px; object-fit: cover; border: 1px solid #D7E0E6; border-radius: 4px; }
+        .anexo-print-item img { width: 100%; height: 140px; object-fit: cover; border: 1px solid #D7E0E6; border-radius: 6px; }
         .anexo-print-item span { display: block; font-size: 8.5px; color: #52667C; margin-top: 4px; word-break: break-word; }
 
         .anexo-pdf-pagina { page-break-before: always; padding-top: 8px; }
-        .anexo-pdf-titulo { font-family: Georgia, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
+        .anexo-pdf-titulo { font-family: 'Lora', Georgia, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
         .anexo-pdf-embed { width: 100%; height: 95vh; border: 1px solid #D7E0E6; }
         .anexo-pdf-fallback { text-align: center; padding: 40px 20px; border: 1px dashed #D7E0E6; border-radius: 6px; }
         .anexo-pdf-fallback a { display: inline-block; margin-top: 8px; color: #2E7D6B; font-weight: bold; }
@@ -2818,12 +3214,13 @@ function exportPDF(paf) {
         <div class="capa-titulos">
           <span class="capa-eyebrow">Prontuário SUAS · Proteção Social Básica</span>
           <h1>Plano de Acompanhamento Familiar</h1>
+          <div class="capa-linha"></div>
           <p>Serviço de Proteção e Atendimento Integral à Família (PAIF) ${paf.crasNome ? "· " + escapeHtml(paf.crasNome) : ""}</p>
         </div>
         <div class="capa-ficha">
           <span class="lbl">Ficha nº</span>
           <span class="num">${protocoloNumero(paf)}</span>
-          <span class="lbl" style="margin-top:4px;">Emitido em</span>
+          <span class="lbl" style="margin-top:5px;">Emitido em</span>
           ${fmtDateBR(todayISO())}
         </div>
       </div>
@@ -3005,27 +3402,47 @@ function imprimirEncaminhamento(paf, enc) {
     <head>
       <meta charset="UTF-8">
       <title>Formulário de Encaminhamento - ${escapeHtml(paf.responsavel)}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
         @page { margin: 16mm 14mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; line-height: 1.5; margin: 0; }
-        .orgao-header { display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE; padding: 9px 12px; border-radius: 5px; font-size: 9px; margin-bottom: 16px; }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: Georgia, serif; }
+        body { font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; line-height: 1.55; margin: 0; }
+        .orgao-header {
+          display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
+          padding: 10px 12px; border-radius: 7px 7px 0 0; font-size: 9px; margin-bottom: 0; border-bottom: 2px solid #B98A34;
+        }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Lora', Georgia, serif; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
-        h1 { font-family: Georgia, serif; font-size: 15px; color: #1F3A5F; border-bottom: 2px solid #1F3A5F; padding-bottom: 7px; letter-spacing: -.01em; }
-        .canhoto { border: 1px dashed #8496A8; border-radius: 6px; padding: 11px 13px; margin-bottom: 20px; font-size: 10.5px; }
+        .titulo-band {
+          display: flex; align-items: flex-start; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
+          border-bottom: 3px solid #B98A34; padding: 13px 15px; margin-bottom: 20px; border-radius: 0 0 8px 8px;
+          background: linear-gradient(180deg,#F7F9FA 0%,#fff 65%);
+        }
+        .titulo-band .tb-textos { flex: 1; }
+        .titulo-band .capa-eyebrow { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 3px; }
+        .titulo-band h1 { font-family: 'Lora', Georgia, serif; font-size: 17px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
+        .titulo-band .tb-linha { width: 36px; height: 2.5px; background: #B98A34; margin: 8px 0; border-radius: 2px; }
+        .titulo-band p { margin: 0; font-size: 10px; color: #52667C; }
+        .titulo-band .capa-ficha {
+          text-align: right; font-size: 9px; color: #52667C; line-height: 1.7;
+          border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 6px; padding: 7px 12px; min-width: 118px;
+        }
+        .titulo-band .capa-ficha .num { font-family: 'Lora', Georgia, serif; font-size: 14px; font-weight: 700; color: #7A5A1E; }
+        .titulo-band .capa-ficha .lbl { display: block; font-size: 6.8px; text-transform: uppercase; letter-spacing: .06em; color: #8496A8; }
+        .canhoto { border: 1px dashed #8496A8; border-radius: 7px; padding: 12px 14px; margin-bottom: 22px; font-size: 10.5px; background: #FBFCFC; }
         .canhoto b { color: #52667C; text-transform: uppercase; font-size: 9px; letter-spacing: .03em; }
-        .corpo { border: 1px solid #D7E0E6; border-radius: 6px; padding: 15px 17px; }
+        .corpo { border: 1px solid #D7E0E6; border-radius: 8px; padding: 16px 18px; background: #FDFEFE; }
         .linha { margin: 0 0 11px; }
         .campo-preenchido { border-bottom: 1px solid #1F3A5F; padding: 0 2px; font-weight: 600; }
-        .contra { margin-top: 32px; border-top: 2px dashed #8496A8; padding-top: 15px; }
-        .contra h2 { font-size: 12px; color: #1F5C4E; margin: 0 0 9px; letter-spacing: .01em; }
-        .contra .campo { border: 1px solid #D7E0E6; border-radius: 6px; min-height: 70px; padding: 9px; font-size: 10.5px; background: #FAFBFC; }
-        .assinaturas { display: flex; gap: 44px; margin-top: 38px; }
+        .contra { margin-top: 32px; border-top: 2px dashed #D7C39A; padding-top: 16px; }
+        .contra h2 { font-family: 'Lora', Georgia, serif; font-size: 12.5px; color: #1F5C4E; margin: 0 0 10px; letter-spacing: .01em; }
+        .contra .campo { border: 1px solid #D7E0E6; border-radius: 7px; min-height: 70px; padding: 10px; font-size: 10.5px; background: #FAFBFC; }
+        .assinaturas { display: flex; gap: 44px; margin-top: 40px; }
         .assinatura { flex: 1; text-align: center; }
         .assinatura .linha-ass { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; }
         .assinatura .titulo { font-size: 9px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
-        .rodape-print { margin-top: 26px; padding-top: 9px; border-top: 1px solid #D7E0E6; font-size: 8.5px; color: #8496A8; text-align: center; line-height: 1.5; }
+        .rodape-print { margin-top: 28px; padding-top: 10px; border-top: 1px dashed #D7E0E6; font-size: 8.3px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic; }
       </style>
     </head>
     <body>
@@ -3038,7 +3455,20 @@ function imprimirEncaminhamento(paf, enc) {
         <div class="orgao-contato">Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR<br>(95) 98402-6627 · crascentenariosemges@gmail.com</div>
       </div>
 
-      <h1>Formulário de Encaminhamento — SUAS</h1>
+      <div class="titulo-band">
+        <div class="tb-textos">
+          <span class="capa-eyebrow">Prontuário SUAS · Rede de Proteção Social</span>
+          <h1>Formulário de Encaminhamento</h1>
+          <div class="tb-linha"></div>
+          <p>Referente ao Plano de Acompanhamento Familiar (PAF/PAIF) ${paf.crasNome ? "· " + escapeHtml(paf.crasNome) : ""}</p>
+        </div>
+        <div class="capa-ficha">
+          <span class="lbl">Ficha PAF nº</span>
+          <span class="num">${protocoloNumero(paf)}</span>
+          <span class="lbl" style="margin-top:4px;">Emitido em</span>
+          ${fmtDateBR(todayISO())}
+        </div>
+      </div>
 
       <div class="canhoto">
         <b>Canhoto de protocolo</b> — Área: ${escapeHtml(enc.area) || "—"} · Data: ${fmtDateBR(enc.data) || "—"}<br>
@@ -3087,155 +3517,286 @@ function imprimirEncaminhamento(paf, enc) {
 function exportWord(paf) {
   if (!paf) return;
 
-  const situacoesWordHTML = (paf.situacoesSociais || [])
-    .filter(s => s.membros || s.superada)
-    .map(s => `<tr><td>${escapeHtml(s.situacao)}</td><td>${escapeHtml(s.membros)}</td><td>${s.superada ? "Sim" : "Não"}</td></tr>`)
-    .join("") || "<tr><td colspan='3'>Nenhuma situação registrada</td></tr>";
+  // ---- Cores e helpers compartilhados com o padrão visual do PDF ----
+  const C = {
+    azul: "#1F3A5F", azulEscuro: "#172C48", verde: "#1F5C4E", verdeClaro: "#DEEAE6",
+    dourado: "#B98A34", doradoBg: "#FBF6EA", doradoBorda: "#D7C39A",
+    cinza: "#52667C", cinzaClaro: "#8496A8", borda: "#D7E0E6", fundo: "#F6F8F9", faixa: "#FAFBFC"
+  };
+
+  const rowsWithZebra = (arr, rowFn) => arr.map((item, i) =>
+    rowFn(item, i).replace("<tr>", `<tr style="${i % 2 ? `background:${C.faixa};` : ""}">`)
+  ).join("");
+
+  // Cabeçalho de seção numerado (célula colorida + título), no padrão Word-safe (tabela, sem CSS3)
+  const secao = (num, titulo) => `
+    <table style="width:100%;border-collapse:collapse;margin:22pt 0 8pt;" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="width:24pt;background:${C.verde};color:#ffffff;font-family:'Courier New',monospace;font-size:9pt;font-weight:bold;text-align:center;padding:5pt 0;">${num}</td>
+        <td style="border-bottom:1.5pt solid ${C.verdeClaro};padding:6pt 0 6pt 8pt;font-family:Georgia,'Times New Roman',serif;font-size:13pt;color:${C.verde};font-weight:bold;">${titulo}</td>
+      </tr>
+    </table>`;
+
+  const pill = (texto, corTexto, corFundo) =>
+    `<span style="background:${corFundo};color:${corTexto};padding:2pt 8pt;font-size:9pt;font-weight:bold;text-transform:uppercase;letter-spacing:.02em;">${texto}</span>`;
+
+  const tag = (texto) =>
+    `<span style="background:${C.verdeClaro};color:${C.verde};padding:2pt 7pt;font-size:9.5pt;font-weight:bold;margin-right:4pt;">${escapeHtml(texto)}</span>`;
+
+  const campo = (label, valor) => `
+    <td style="border:none;padding:3pt 10pt 3pt 0;vertical-align:top;width:50%;">
+      <span style="display:block;font-size:8pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};font-weight:bold;">${label}</span>
+      <span style="font-size:10.5pt;">${valor || "—"}</span>
+    </td>`;
+
+  const camposGrid = (pares) => {
+    const linhas = [];
+    for (let i = 0; i < pares.length; i += 2) {
+      linhas.push(`<tr>${campo(pares[i][0], pares[i][1])}${pares[i + 1] ? campo(pares[i + 1][0], pares[i + 1][1]) : "<td style='border:none;'></td>"}</tr>`);
+    }
+    return `<table style="width:100%;border-collapse:collapse;margin-bottom:6pt;" cellpadding="0" cellspacing="0">${linhas.join("")}</table>`;
+  };
+
+  const situacoesWordHTML = rowsWithZebra(
+    (paf.situacoesSociais || []).filter(s => s.membros || s.superada),
+    s => `<tr><td>${escapeHtml(s.situacao)}</td><td>${escapeHtml(s.membros)}</td><td style="text-align:center;">${s.superada ? "Sim" : "Não"}</td></tr>`
+  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhuma situação registrada</td></tr>`;
+
+  const membrosWordHTML = rowsWithZebra(
+    paf.membros || [],
+    m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade) || "—"}</td><td>${escapeHtml(m.etnia) || "—"}</td><td style="text-align:center;">${m.pcd ? "Sim" : "—"}</td></tr>`
+  ) || `<tr><td colspan='7' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhum membro informado</td></tr>`;
+
+  const atendimentosWordHTML = rowsWithZebra(
+    paf.atendimentos || [],
+    a => `<tr><td>${fmtDateBR(a.data)}</td><td>${escapeHtml(a.tipo)}</td><td>${escapeHtml(a.tecnico)}</td><td>${escapeHtml(a.evolucao)}</td><td>${escapeHtml(a.encaminhamentos)}</td></tr>`
+  ) || `<tr><td colspan='5' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhum atendimento registrado</td></tr>`;
+
+  const metasWordHTML = rowsWithZebra(
+    paf.metas || [],
+    m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`
+  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhuma meta informada</td></tr>`;
 
   const temMigracaoWord = paf.migracaoDataChegadaBrasil || (paf.migracaoDocumentacao || []).length || paf.migracaoDocumentacaoOutro || paf.migracaoInteriorizacao || paf.habitacaoAbrigoNome;
   const migracaoWordHTML = !temMigracaoWord ? "" : `
-    <h2>02a. Situação Migratória e de Abrigamento</h2>
-    <p><b>Abrigo:</b> ${escapeHtml(paf.habitacaoAbrigoNome) || "—"} | <b>Data de chegada ao Brasil:</b> ${fmtDateBR(paf.migracaoDataChegadaBrasil) || "—"} | <b>Interiorização:</b> ${escapeHtml(paf.migracaoInteriorizacao) || "—"}<br>
-    <b>Documentação:</b> ${(paf.migracaoDocumentacao || []).map(escapeHtml).join(", ") || "—"}${paf.migracaoDocumentacaoOutro ? " | Outro: " + escapeHtml(paf.migracaoDocumentacaoOutro) : ""}</p>`;
+    ${secao("02a", "Situação Migratória e de Abrigamento")}
+    ${camposGrid([
+      ["Abrigo", escapeHtml(paf.habitacaoAbrigoNome)],
+      ["Data de chegada ao Brasil", fmtDateBR(paf.migracaoDataChegadaBrasil)],
+      ["Interiorização", escapeHtml(paf.migracaoInteriorizacao)],
+      ["Documentação", (paf.migracaoDocumentacao || []).map(escapeHtml).join(", ") + (paf.migracaoDocumentacaoOutro ? " · Outro: " + escapeHtml(paf.migracaoDocumentacaoOutro) : "")]
+    ])}`;
+
+  const statusCores = {
+    andamento: [C.verde, C.verdeClaro], encaminhado: ["#7A5A1E", "#F3E7D0"],
+    concluido: [C.cinza, "#E7E9EC"], cancelado: ["#B5473F", "#F5E0DD"]
+  };
+  const [statusCor, statusFundo] = statusCores[paf.situacaoPAF] || statusCores.andamento;
+
+  const encaminhamentosWordHTML = (paf.encaminhamentosForm || []).length ? `
+    ${secao("04a", "Encaminhamentos Formais (Formulário SUAS)")}
+    <table class="dados">
+      <tr><th>Data</th><th>Área</th><th>Órgão/Unidade</th><th>Objetivo</th><th>Contra-referência</th></tr>
+      ${rowsWithZebra(paf.encaminhamentosForm, e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td>${escapeHtml(e.objetivo)}</td><td>${escapeHtml(e.contraReferencia) || "—"}</td></tr>`)}
+    </table>` : "";
+
+  const anexosWordHTML = (() => {
+    if (!(paf.anexos || []).length) return "";
+    const imgs = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
+    const pdfs = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
+    let out = secao("07", "Anexos");
+    if (imgs.length) {
+      out += `<table style="border:none;" cellpadding="0" cellspacing="0"><tr>` + imgs.map(a => `
+        <td style="border:none;text-align:center;padding:6pt;vertical-align:top;">
+          <img src="${a.dataURL}" style="max-width:200px;max-height:200px;border:1pt solid ${C.borda};"><br>
+          <span style="font-size:8pt;color:${C.cinza};">${escapeHtml(a.nome)}</span>
+        </td>`).join("") + `</tr></table>`;
+    }
+    if (pdfs.length) {
+      out += `<p style="font-size:9.5pt;color:${C.cinza};"><b>Documentos PDF anexados</b> (não incorporados a este arquivo — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map(a => escapeHtml(a.nome)).join(", ")}</p>`;
+    }
+    return out;
+  })();
 
   const content = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
     <style>
-      body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.3; }
-      h1 { font-size: 16pt; color: #1F3A5F; }
-      h2 { font-size: 13pt; color: #2E7D6B; margin-top: 15pt; }
-      table { width: 100%; border-collapse: collapse; margin-top: 10pt; }
-      td, th { border: 1px solid #CCCCCC; padding: 5pt; font-size: 10pt; }
-      th { background-color: #F0F4F8; }
+      body { font-family: Calibri, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: ${C.azul}; }
+      h1 { font-family: Georgia, 'Times New Roman', serif; }
+      table { border-collapse: collapse; }
+      table.dados { width: 100%; margin-top: 6pt; }
+      table.dados th, table.dados td { border: 1pt solid ${C.borda}; padding: 5pt 7pt; font-size: 10pt; text-align: left; vertical-align: top; }
+      table.dados th { background: ${C.fundo}; font-size: 9pt; text-transform: uppercase; letter-spacing: .02em; color: ${C.verde}; border-bottom: 1.5pt solid ${C.verde}; }
+      p { margin: 4pt 0; }
     </style>
     </head>
     <body>
-      <table style="width:100%;border:none;margin-bottom:10pt;">
+
+      <!-- Faixa institucional -->
+      <table style="width:100%;background:${C.azulEscuro};margin-bottom:0;" cellpadding="0" cellspacing="0">
         <tr>
-          <td style="border:none;padding:0;">
-            <p style="margin:0;font-size:11pt;font-weight:bold;color:#1F3A5F;">Prefeitura Municipal de Boa Vista</p>
-            <p style="margin:0;font-size:9pt;color:#52667C;">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)<br>
-            Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes</p>
+          <td style="padding:10pt 14pt;color:#ffffff;">
+            <span style="font-family:Georgia,serif;font-size:12pt;font-weight:bold;">Prefeitura Municipal de Boa Vista</span><br>
+            <span style="font-size:8.5pt;color:#C9D6DE;">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS) · CRAS Cristiana Vicente Nunes</span>
           </td>
-          <td style="border:none;padding:0;text-align:right;font-size:9pt;color:#52667C;">
-            Rua Santo Agostinho, 193b – Centenário<br>Boa Vista/RR<br>(95) 98402-6627<br>crascentenariosemges@gmail.com
+          <td style="padding:10pt 14pt;color:#A9BBCB;font-size:8.5pt;text-align:right;">
+            Rua Santo Agostinho, 193b – Centenário<br>Boa Vista/RR · (95) 98402-6627<br>crascentenariosemges@gmail.com
           </td>
         </tr>
       </table>
-      <hr/>
-      <h1>Plano de Acompanhamento Familiar - PAF</h1>
-      <p><b>CRAS:</b> ${escapeHtml(paf.crasNome)} | <b>Status:</b> ${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</p>
-      <hr/>
-      <h2>01. Identificação</h2>
-      <p><b>Responsável:</b> ${escapeHtml(paf.responsavel)} ${paf.apelido ? "(" + escapeHtml(paf.apelido) + ")" : ""}<br>
-      <b>Nome da mãe:</b> ${escapeHtml(paf.nomeMae) || "—"}<br>
-      <b>Sexo:</b> ${escapeHtml(paf.responsavelSexo) || "—"} | <b>Nacionalidade:</b> ${escapeHtml(paf.responsavelNacionalidade) || "—"}${paf.responsavelEtnia ? " (" + escapeHtml(paf.responsavelEtnia) + ")" : ""}<br>
-      <b>CPF:</b> ${escapeHtml(paf.cpf)} | <b>NIS:</b> ${escapeHtml(paf.nis)} | <b>RG:</b> ${escapeHtml(paf.rg)} ${escapeHtml(paf.rgOrgao)}/${escapeHtml(paf.rgUf)}<br>
-      <b>Endereço:</b> ${escapeHtml(enderecoCompleto(paf))}${paf.localizacaoDomicilio ? " (" + escapeHtml(paf.localizacaoDomicilio) + ")" : ""}<br>
-      <b>Ponto de referência:</b> ${escapeHtml(paf.pontoReferencia) || "—"} | <b>Telefones:</b> ${escapeHtml(paf.telefones) || "—"}<br>
-      <b>Data de Início:</b> ${fmtDateBR(paf.dataInicial)}</p>
 
-      <h2>02. Composição Familiar</h2>
-      <table>
+      <!-- Capa / título -->
+      <table style="width:100%;border:1pt solid ${C.azul};border-bottom:2.5pt solid ${C.azul};margin-bottom:14pt;" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:12pt 14pt;">
+            <span style="display:block;font-size:8pt;text-transform:uppercase;letter-spacing:.1em;color:${C.dourado};font-weight:bold;">Prontuário SUAS · Proteção Social Básica</span>
+            <span style="display:block;font-family:Georgia,serif;font-size:17pt;color:${C.azul};font-weight:bold;margin-top:2pt;">Plano de Acompanhamento Familiar</span>
+            <span style="display:block;font-size:10.5pt;color:${C.verde};font-weight:bold;margin-top:2pt;">Serviço de Proteção e Atendimento Integral à Família (PAIF)${paf.crasNome ? " · " + escapeHtml(paf.crasNome) : ""}</span>
+          </td>
+          <td style="padding:12pt 14pt;text-align:right;background:${C.doradoBg};border-left:1pt solid ${C.doradoBorda};width:150pt;">
+            <span style="display:block;font-size:7pt;text-transform:uppercase;letter-spacing:.06em;color:${C.cinzaClaro};">Ficha nº</span>
+            <span style="display:block;font-family:'Courier New',monospace;font-size:14pt;font-weight:bold;color:#7A5A1E;">${protocoloNumero(paf)}</span>
+            <span style="display:block;font-size:7pt;text-transform:uppercase;letter-spacing:.06em;color:${C.cinzaClaro};margin-top:4pt;">Emitido em</span>
+            <span style="font-size:9pt;">${fmtDateBR(todayISO())}</span>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Faixa de identificação -->
+      <table style="width:100%;background:${C.fundo};border:1pt solid ${C.borda};margin-bottom:14pt;" cellpadding="10" cellspacing="0">
+        <tr>
+          <td style="border:none;vertical-align:top;">
+            <span style="display:block;font-family:Georgia,serif;font-size:15pt;font-weight:bold;color:${C.azul};">${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
+            <span style="margin-top:5pt;display:inline-block;">${pill(STATUS_LABELS[paf.situacaoPAF] || "Em andamento", statusCor, statusFundo)}</span>
+          </td>
+          <td style="border:none;border-left:1pt solid ${C.borda};vertical-align:top;">
+            ${camposGrid([
+              ["CPF", escapeHtml(paf.cpf)], ["NIS", escapeHtml(paf.nis)],
+              ["Sexo", escapeHtml(paf.responsavelSexo)], ["Nacionalidade", escapeHtml(paf.responsavelNacionalidade) + (paf.responsavelEtnia ? " · " + escapeHtml(paf.responsavelEtnia) : "")],
+              ["Técnico de Referência", escapeHtml(paf.tecnicoReferencia)], ["Início do Acompanhamento", fmtDateBR(paf.dataInicial)]
+            ])}
+          </td>
+        </tr>
+      </table>
+
+      ${secao("01", "Identificação")}
+      ${camposGrid([
+        ["Nome / Apelido", escapeHtml(paf.responsavel) + (paf.apelido ? " (" + escapeHtml(paf.apelido) + ")" : "")],
+        ["Nome da mãe", escapeHtml(paf.nomeMae)],
+        ["RG", [escapeHtml(paf.rg), escapeHtml(paf.rgOrgao), escapeHtml(paf.rgUf)].filter(Boolean).join("/")],
+        ["Endereço", escapeHtml(enderecoCompleto(paf)) + (paf.localizacaoDomicilio ? " (" + escapeHtml(paf.localizacaoDomicilio) + ")" : "")],
+        ["Ponto de referência", escapeHtml(paf.pontoReferencia)],
+        ["Telefones", escapeHtml(paf.telefones)]
+      ])}
+
+      ${secao("02", "Composição Familiar")}
+      <table class="dados">
         <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Etnia indígena</th><th>PCD</th></tr>
-        ${(paf.membros || []).map(m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade) || "—"}</td><td>${escapeHtml(m.etnia) || "—"}</td><td>${m.pcd ? "Sim" : "—"}</td></tr>`).join("")}
+        ${membrosWordHTML}
       </table>
       ${migracaoWordHTML}
 
-      <h2>03. Diagnóstico e Vulnerabilidades</h2>
-      <p>${(paf.vulnerabilidades || []).map(escapeHtml).join(", ") || "Nenhuma registrada"}</p>
+      ${secao("03", "Diagnóstico e Vulnerabilidades")}
+      <p>${(paf.vulnerabilidades || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:italic;">Nenhuma registrada</span>`}</p>
 
-      <h2>03a. Situações Sociais Registradas</h2>
-      <table>
+      ${secao("03a", "Situações Sociais Registradas")}
+      <table class="dados">
         <tr><th>Situação Social</th><th>Membros</th><th>Superada</th></tr>
         ${situacoesWordHTML}
       </table>
 
-      <h2>03b. Trabalho Social Coletivo do PAIF</h2>
-      <p>${(paf.atividadesColetivas || []).map(escapeHtml).join(", ") || "Nenhuma registrada"}${paf.atividadesColetivasOutras ? " | Outras: " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
+      ${secao("03b", "Trabalho Social Coletivo do PAIF")}
+      <p>${(paf.atividadesColetivas || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:italic;">Nenhuma registrada</span>`}${paf.atividadesColetivasOutras ? "<br><b>Outras:</b> " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
 
-      <h2>03c. Serviços da Rede Socioassistencial</h2>
-      <p><b>Proteção Social Básica:</b> ${(paf.servBasica || []).map(escapeHtml).join(", ") || "—"}<br>
-      <b>Média Complexidade:</b> ${(paf.servMedia || []).map(escapeHtml).join(", ") || "—"}<br>
-      <b>Alta Complexidade:</b> ${(paf.servAlta || []).map(escapeHtml).join(", ") || "—"}</p>
+      ${secao("03c", "Serviços da Rede Socioassistencial")}
+      ${camposGrid([
+        ["Proteção Social Básica", (paf.servBasica || []).map(escapeHtml).join(", ")],
+        ["Média Complexidade", (paf.servMedia || []).map(escapeHtml).join(", ")],
+        ["Alta Complexidade", (paf.servAlta || []).map(escapeHtml).join(", ")]
+      ])}
 
-      <h2>03d. Diagnóstico Socioeconômico</h2>
-      <p>
-      <b>Habitação:</b> ${escapeHtml(paf.habitacaoTipo) || "—"}${paf.habitacaoAbrigoNome ? " (" + escapeHtml(paf.habitacaoAbrigoNome) + ")" : ""} | ${escapeHtml(paf.habitacaoParedes) || "—"} | Energia: ${escapeHtml(paf.habitacaoEnergia) || "—"} | Esgoto: ${escapeHtml(paf.habitacaoEsgoto) || "—"} | Área de risco: ${escapeHtml(paf.habitacaoAreaRisco) || "—"}<br>
-      <b>Educação:</b> Fora da escola (0-5/6-14/15-17): ${escapeHtml(paf.eduForaEscola06) || "0"}/${escapeHtml(paf.eduForaEscola614) || "0"}/${escapeHtml(paf.eduForaEscola1517) || "0"}<br>
-      <b>Trabalho e Renda:</b> Renda total: ${escapeHtml(paf.rendaTotal) || "—"} | Per capita: ${escapeHtml(paf.rendaPerCapita) || "—"}<br>
-      <b>Saúde:</b> Doença grave: ${escapeHtml(paf.saudeDoencaGrave) || "—"} | Medicação controlada: ${escapeHtml(paf.saudeMedicacaoControlada) || "—"} | Uso de álcool: ${escapeHtml(paf.saudeAlcool) || "—"} | Uso de drogas: ${escapeHtml(paf.saudeDrogas) || "—"} | Gestante: ${escapeHtml(paf.saudeGestante) || "—"}</p>
+      ${secao("03d", "Diagnóstico Socioeconômico")}
+      ${camposGrid([
+        ["Habitação", escapeHtml(paf.habitacaoTipo) + (paf.habitacaoAbrigoNome ? " (" + escapeHtml(paf.habitacaoAbrigoNome) + ")" : "") + " · " + (escapeHtml(paf.habitacaoParedes) || "—")],
+        ["Energia / Saneamento", (escapeHtml(paf.habitacaoEnergia) || "—") + " / " + (escapeHtml(paf.habitacaoEsgoto) || "—") + (paf.habitacaoAreaRisco === "Sim" ? " · Em área de risco" : "")],
+        ["Fora da escola (0-5 / 6-14 / 15-17)", [paf.eduForaEscola06, paf.eduForaEscola614, paf.eduForaEscola1517].map(v => v || "0").join(" / ")],
+        ["Renda total / per capita", [paf.rendaTotal, paf.rendaPerCapita].filter(Boolean).join(" / ")],
+        ["Saúde — doença grave / gestante", (escapeHtml(paf.saudeDoencaGrave) || "—") + " / " + (escapeHtml(paf.saudeGestante) || "—")],
+        ["Uso de álcool / drogas", (escapeHtml(paf.saudeAlcool) || "—") + " / " + (escapeHtml(paf.saudeDrogas) || "—")]
+      ])}
 
-      <h2>03e. Aspectos Psicossociais e Instrumentais Técnicos</h2>
-      <p><b>Instrumentais utilizados:</b> ${(paf.instrumentaisTecnicos || []).map(escapeHtml).join(", ") || "—"}<br>
-      <b>Aspectos relacionais observados:</b> ${escapeHtml(paf.aspectosPsicossociaisObs) || "—"}</p>
+      ${secao("03e", "Aspectos Psicossociais e Instrumentais Técnicos")}
+      ${camposGrid([
+        ["Instrumentais utilizados", (paf.instrumentaisTecnicos || []).map(escapeHtml).join(", ")],
+        ["Aspectos relacionais observados", escapeHtml(paf.aspectosPsicossociaisObs)]
+      ])}
 
-      <h2>04. Registro de Atendimentos</h2>
-      <table>
+      ${secao("04", "Registro de Atendimentos")}
+      <table class="dados">
         <tr><th>Data</th><th>Tipo</th><th>Técnico</th><th>Evolução</th><th>Encaminhamentos</th></tr>
-        ${(paf.atendimentos || []).map(a => `<tr><td>${fmtDateBR(a.data)}</td><td>${escapeHtml(a.tipo)}</td><td>${escapeHtml(a.tecnico)}</td><td>${escapeHtml(a.evolucao)}</td><td>${escapeHtml(a.encaminhamentos)}</td></tr>`).join("") || "<tr><td colspan='5'>Nenhum atendimento registrado</td></tr>"}
+        ${atendimentosWordHTML}
       </table>
 
-      ${(paf.encaminhamentosForm || []).length ? `
-      <h2>04a. Encaminhamentos Formais (Formulário SUAS)</h2>
-      <table>
-        <tr><th>Data</th><th>Área</th><th>Órgão/Unidade</th><th>Objetivo</th><th>Contra-referência</th></tr>
-        ${paf.encaminhamentosForm.map(e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td>${escapeHtml(e.objetivo)}</td><td>${escapeHtml(e.contraReferencia) || "—"}</td></tr>`).join("")}
-      </table>` : ""}
+      ${encaminhamentosWordHTML}
 
-      <h2>04b. Programas, Projetos e Benefícios Socioassistenciais</h2>
-      <p><b>Participa de programas/projetos sociais:</b> ${escapeHtml(paf.participaProgramas) || "—"} — ${(paf.programasQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado"}${paf.programasOutros ? " | Outros: " + escapeHtml(paf.programasOutros) : ""}<br>
-      <b>Recebe outro benefício assistencial:</b> ${escapeHtml(paf.recebeBeneficio) || "—"} — ${(paf.beneficioQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado"}${paf.beneficioOutro ? " | Outro: " + escapeHtml(paf.beneficioOutro) : ""}</p>
+      ${secao("04b", "Programas, Projetos e Benefícios Socioassistenciais")}
+      ${camposGrid([
+        ["Participa de programas/projetos sociais", escapeHtml(paf.participaProgramas) + " — " + ((paf.programasQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado") + (paf.programasOutros ? " · Outros: " + escapeHtml(paf.programasOutros) : "")],
+        ["Recebe outro benefício assistencial", escapeHtml(paf.recebeBeneficio) + " — " + ((paf.beneficioQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado") + (paf.beneficioOutro ? " · Outro: " + escapeHtml(paf.beneficioOutro) : "")]
+      ])}
 
-      <h2>04c. Recursos do Território (Rede de Apoio)</h2>
-      <p>${(paf.redeApoio || []).map(escapeHtml).join(", ") || "Nenhum selecionado"}${paf.redeApoioOutros ? " | Outros: " + escapeHtml(paf.redeApoioOutros) : ""}</p>
+      ${secao("04c", "Recursos do Território (Rede de Apoio)")}
+      <p>${(paf.redeApoio || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:italic;">Nenhum selecionado</span>`}${paf.redeApoioOutros ? "<br><b>Outros:</b> " + escapeHtml(paf.redeApoioOutros) : ""}</p>
 
-      <h2>05. Metas e Resultados</h2>
-      <table>
+      ${secao("05", "Metas e Resultados")}
+      <table class="dados">
         <tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr>
-        ${(paf.metas || []).map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`).join("")}
+        ${metasWordHTML}
       </table>
 
-      <h2>05a. Estratégias e Eixos de Intervenção</h2>
-      <p><b>Estratégias:</b> ${(paf.estrategias || []).map(escapeHtml).join(", ") || "—"}${paf.estrategiasOutras ? " | Outras: " + escapeHtml(paf.estrategiasOutras) : ""}<br>
-      <b>Eixos de intervenção:</b> ${(paf.eixos || []).map(escapeHtml).join(", ") || "—"}${paf.eixosOutros ? " | Outros: " + escapeHtml(paf.eixosOutros) : ""}</p>
+      ${secao("05a", "Estratégias e Eixos de Intervenção")}
+      ${camposGrid([
+        ["Estratégias", (paf.estrategias || []).map(escapeHtml).join(", ") + (paf.estrategiasOutras ? " · Outras: " + escapeHtml(paf.estrategiasOutras) : "")],
+        ["Eixos de intervenção", (paf.eixos || []).map(escapeHtml).join(", ") + (paf.eixosOutros ? " · Outros: " + escapeHtml(paf.eixosOutros) : "")]
+      ])}
 
-      <h2>06. Elaboração e Encerramento</h2>
-      <p><b>Objetivos do PAIF trabalhados neste Plano:</b> ${(paf.objetivosPaif || []).map(escapeHtml).join("; ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? " | Outros: " + escapeHtml(paf.objetivosPaifOutros) : ""}<br>
-      <b>Seguranças socioassistenciais afiançadas:</b> ${(paf.segurancasSocioassistenciais || []).map(escapeHtml).join("; ") || "Nenhuma selecionada"}${paf.segurancasSocioassistenciaisOutras ? " | Outras: " + escapeHtml(paf.segurancasSocioassistenciaisOutras) : ""}<br>
-      <b>Família participou da elaboração:</b> ${escapeHtml(paf.familiaParticipou) || "—"}<br>
-      <b>Técnico de Referência:</b> ${escapeHtml(paf.tecnicoReferencia) || "—"}<br>
-      <b>Data de Elaboração:</b> ${fmtDateBR(paf.dataElaboracao) || "—"}<br>
-      <b>Prazo de execução do Plano:</b> ${escapeHtml(paf.prazoExecucaoPlano) || "—"} | <b>Prazo de avaliação do Plano:</b> ${escapeHtml(paf.prazoAvaliacaoPlano) || "—"}<br>
-      <b>Motivo de Encerramento:</b> ${escapeHtml(ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo)?.label) || "—"} ${paf.encerramentoOutros ? "(" + escapeHtml(paf.encerramentoOutros) + ")" : ""}<br>
-      <b>Técnico do Encerramento:</b> ${escapeHtml(paf.encerramentoTecnico) || "—"} | <b>Data de Encerramento:</b> ${fmtDateBR(paf.encerramentoData) || "—"}<br>
-      <b>Observações:</b> ${escapeHtml(paf.observacoes) || "—"}</p>
+      ${secao("06", "Elaboração e Encerramento")}
+      <p><b>Objetivos do PAIF trabalhados neste Plano:</b><br>${(paf.objetivosPaif || []).map(tag).join(" ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? "<br><b>Outros:</b> " + escapeHtml(paf.objetivosPaifOutros) : ""}</p>
+      <p><b>Seguranças socioassistenciais afiançadas:</b><br>${(paf.segurancasSocioassistenciais || []).map(tag).join(" ") || "Nenhuma selecionada"}${paf.segurancasSocioassistenciaisOutras ? "<br><b>Outras:</b> " + escapeHtml(paf.segurancasSocioassistenciaisOutras) : ""}</p>
+      ${camposGrid([
+        ["Família participou da elaboração", escapeHtml(paf.familiaParticipou)],
+        ["Técnico de Referência", escapeHtml(paf.tecnicoReferencia)],
+        ["Data de Elaboração", fmtDateBR(paf.dataElaboracao)],
+        ["Prazo de execução / avaliação do Plano", (escapeHtml(paf.prazoExecucaoPlano) || "—") + " / " + (escapeHtml(paf.prazoAvaliacaoPlano) || "—")],
+        ["Motivo de Encerramento", escapeHtml(ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo)?.label) + (paf.encerramentoOutros ? " (" + escapeHtml(paf.encerramentoOutros) + ")" : "")],
+        ["Técnico / Data do Encerramento", (escapeHtml(paf.encerramentoTecnico) || "—") + " · " + (fmtDateBR(paf.encerramentoData) || "—")]
+      ])}
+      ${paf.observacoes ? `<p><b>Observações:</b> ${escapeHtml(paf.observacoes)}</p>` : ""}
 
-      ${(paf.anexos || []).length ? `
-      <h2>07. Anexos</h2>
-      ${(() => {
-        const imgs = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
-        const pdfs = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
-        let out = "";
-        if (imgs.length) {
-          out += `<table style="border:none;"><tr>` + imgs.map(a => `
-            <td style="border:none;text-align:center;padding:6pt;vertical-align:top;">
-              <img src="${a.dataURL}" style="max-width:220px;max-height:220px;border:1px solid #CCCCCC;"><br>
-              <span style="font-size:8pt;color:#52667C;">${escapeHtml(a.nome)}</span>
-            </td>`).join("") + `</tr></table>`;
-        }
-        if (pdfs.length) {
-          out += `<p><b>Documentos PDF anexados</b> (não incorporados a este arquivo Word — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map(a => escapeHtml(a.nome)).join(", ")}</p>`;
-        }
-        return out;
-      })()}` : ""}
+      ${anexosWordHTML}
 
-      <hr/>
-      <p style="font-size:8pt;color:#8496A8;text-align:center;">
-        Prefeitura Municipal de Boa Vista · SEMADS · CRAS Cristiana Vicente Nunes —
-        Rua Santo Agostinho, 193b, Centenário, Boa Vista/RR — (95) 98402-6627 — crascentenariosemges@gmail.com<br>
-        Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
+      <!-- Fechamento e assinaturas -->
+      <table style="width:100%;margin-top:34pt;" cellpadding="0" cellspacing="0">
+        <tr>
+          <td colspan="2" style="border:none;font-size:9.5pt;color:${C.cinza};padding-bottom:26pt;">Boa Vista/RR, ${fmtDateBR(todayISO())}.</td>
+        </tr>
+        <tr>
+          <td style="border:none;border-top:1pt solid ${C.azul};text-align:center;padding-top:5pt;width:50%;">
+            <span style="font-weight:bold;">${escapeHtml(paf.tecnicoReferencia) || "Técnico de Referência"}</span><br>
+            <span style="font-size:8.5pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};">Técnico de Referência</span>
+          </td>
+          <td style="border:none;border-top:1pt solid ${C.azul};text-align:center;padding-top:5pt;width:50%;">
+            <span style="font-weight:bold;">${escapeHtml(paf.responsavel) || "Responsável Familiar"}</span><br>
+            <span style="font-size:8.5pt;color:${C.cinzaClaro};">${paf.cpf ? "CPF " + escapeHtml(paf.cpf) : "&nbsp;"}</span><br>
+            <span style="font-size:8.5pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};">Responsável Familiar</span>
+          </td>
+        </tr>
+      </table>
+
+      <p style="margin-top:22pt;padding-top:8pt;border-top:1pt dashed ${C.borda};font-size:7.8pt;color:${C.cinzaClaro};text-align:center;font-style:italic;">
+        Documento gerado eletronicamente pelo sistema de gestão do PAF/PAIF do CRAS Cristiana Vicente Nunes em ${fmtDateBR(todayISO())}, para uso exclusivo da equipe técnica do SUAS — sujeito a sigilo profissional.<br>
+        Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </p>
     </body>
     </html>
