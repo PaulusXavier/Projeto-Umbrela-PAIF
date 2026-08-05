@@ -757,7 +757,9 @@ function computeResumoGeral() {
   const porStatus = { andamento: 0, encaminhado: 0, concluido: 0, cancelado: 0 };
   const porSexo = {}, porNacionalidade = {}, porFaixa = {}, porCras = {};
   const porVulnerabilidade = {}, porPrograma = {}, porBeneficio = {}, porEncArea = {}, porSituacaoSocial = {};
+  const porHabitacao = {}, porEtnia = {}, porInteriorizacao = {};
   let totalMembros = 0, totalPCD = 0, totalEncaminhamentos = 0;
+  let totalAbrigados = 0, totalIndigena = 0, totalMigracaoInformada = 0;
   const idades = [], meses = [];
 
   pafs.forEach(p => {
@@ -797,16 +799,41 @@ function computeResumoGeral() {
       porEncArea[area] = (porEncArea[area] || 0) + 1;
     });
 
+    const habitacao = (p.habitacaoTipo || "").trim() || "Não informado";
+    porHabitacao[habitacao] = (porHabitacao[habitacao] || 0) + 1;
+    const emAbrigo = habitacao.includes("Abrigo") || !!(p.habitacaoAbrigoNome || "").trim();
+    if (emAbrigo) totalAbrigados++;
+
+    const etniasDaFamilia = new Set();
+    const etniaResp = (p.responsavelEtnia || "").trim();
+    if (etniaResp) etniasDaFamilia.add(etniaResp);
+    (p.membros || []).forEach(m => { const e = (m.etnia || "").trim(); if (e) etniasDaFamilia.add(e); });
+    if (etniasDaFamilia.size) {
+      totalIndigena++;
+      etniasDaFamilia.forEach(e => { porEtnia[e] = (porEtnia[e] || 0) + 1; });
+    }
+
+    const temMigracao = p.migracaoDataChegadaBrasil || (p.migracaoDocumentacao || []).length || p.migracaoDocumentacaoOutro || (p.migracaoInteriorizacao && p.migracaoInteriorizacao !== "Não se aplica");
+    if (temMigracao) {
+      totalMigracaoInformada++;
+      const interior = p.migracaoInteriorizacao || "Não informada";
+      porInteriorizacao[interior] = (porInteriorizacao[interior] || 0) + 1;
+    }
+
     const m = mesesEmAcompanhamento(p.dataInicial);
     if (m != null) meses.push(m);
   });
 
   const media = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+  const pct = n => total ? Math.round((n / total) * 100) : 0;
 
   return {
     total, porStatus, porSexo, porNacionalidade, porFaixa, porCras,
     porVulnerabilidade, porSituacaoSocial, porPrograma, porBeneficio, porEncArea,
+    porHabitacao, porEtnia, porInteriorizacao,
     totalMembros, totalPCD, totalEncaminhamentos,
+    totalAbrigados, totalIndigena, totalMigracaoInformada,
+    pctAbrigados: pct(totalAbrigados), pctIndigena: pct(totalIndigena), pctMigracao: pct(totalMigracaoInformada),
     mediaMembros: total ? Math.round((totalMembros / total) * 10) / 10 : null,
     idadeMedia: media(idades), mesesMedia: media(meses)
   };
@@ -841,6 +868,11 @@ function labelYm(ym) {
   const [y, m] = ym.split("-");
   return `${MESES_NOMES[parseInt(m, 10) - 1] || m}/${y}`;
 }
+function labelYmCurto(ym) {
+  const [y, m] = ym.split("-");
+  const nome = MESES_NOMES[parseInt(m, 10) - 1] || m;
+  return `${nome.slice(0, 3)}/${y.slice(2)}`;
+}
 
 function kpiCardHTML(valor, label) {
   return `<div class="kpi-card"><span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span></div>`;
@@ -861,6 +893,111 @@ function barrasHTML(obj, opts) {
     </div>`).join("") + `</div>`;
 }
 
+const RESUMO_PALETA = ["#2E7D6B", "#1F5C4E", "#B98A34", "#A63D33", "#52667C", "#8B6BAE", "#3D8FA0", "#C97B4A"];
+
+function donutChartSVG(obj, opts) {
+  opts = opts || {};
+  const entradasBrutas = Object.entries(obj).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (!entradasBrutas.length) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
+
+  const top = opts.top || 6;
+  let entradas = entradasBrutas;
+  if (entradasBrutas.length > top) {
+    const principais = entradasBrutas.slice(0, top - 1);
+    const outrosTotal = entradasBrutas.slice(top - 1).reduce((a, [, v]) => a + v, 0);
+    entradas = [...principais, ["Outras", outrosTotal]];
+  }
+
+  const total = entradas.reduce((a, [, v]) => a + v, 0) || 1;
+  const size = opts.size || 128;
+  const stroke = opts.stroke || 20;
+  const r = (size - stroke) / 2;
+  const cx = size / 2, cy = size / 2;
+  const circunferencia = 2 * Math.PI * r;
+
+  let acumulado = 0;
+  const arcos = entradas.map(([k, v], i) => {
+    const fracao = v / total;
+    const traco = Math.max(fracao * circunferencia - 1.2, 0);
+    const svg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${RESUMO_PALETA[i % RESUMO_PALETA.length]}" stroke-width="${stroke}" stroke-dasharray="${traco} ${circunferencia - traco}" stroke-dashoffset="${-acumulado}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    acumulado += fracao * circunferencia;
+    return svg;
+  }).join("");
+
+  const legenda = entradas.map(([k, v], i) => `
+    <div class="donut-legend-item">
+      <span class="donut-legend-dot" style="background:${RESUMO_PALETA[i % RESUMO_PALETA.length]}"></span>
+      <span class="donut-legend-label">${escapeHtml(k)}</span>
+      <span class="donut-legend-value">${v} <em>(${Math.round(v / total * 100)}%)</em></span>
+    </div>`).join("");
+
+  return `<div class="donut-wrap">
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="donut-svg">
+      ${arcos}
+      <text x="${cx}" y="${cy - 3}" text-anchor="middle" class="donut-total-num">${total}</text>
+      <text x="${cx}" y="${cy + 13}" text-anchor="middle" class="donut-total-label">${escapeHtml(opts.centro || "total")}</text>
+    </svg>
+    <div class="donut-legend">${legenda}</div>
+  </div>`;
+}
+
+function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
+  opts = opts || {};
+  const limite = opts.limite || 12;
+  const meses = linhasCrescentes.slice(-limite);
+  if (!meses.length) return `<p class="muted" style="font-size:12px;">Sem dados suficientes para o gráfico.</p>`;
+
+  const valores = meses.map(ym => ({
+    ym,
+    inc: grupos[ym]?.quantidade || 0,
+    exc: saidas[ym]?.quantidade || 0
+  }));
+  const maxValor = Math.max(...valores.map(v => Math.max(v.inc, v.exc)), 1);
+
+  const colW = 46;
+  const chartH = 120;
+  const padTop = 10, padBottom = 34, padSide = 6;
+  const width = meses.length * colW + padSide * 2;
+  const height = chartH + padTop + padBottom;
+  const barW = 14;
+
+  const barras = valores.map((v, i) => {
+    const x0 = padSide + i * colW;
+    const hInc = Math.round((v.inc / maxValor) * chartH);
+    const hExc = Math.round((v.exc / maxValor) * chartH);
+    const yInc = padTop + (chartH - hInc);
+    const yExc = padTop + (chartH - hExc);
+    return `
+      <g>
+        <rect x="${x0 + colW / 2 - barW - 2}" y="${yInc}" width="${barW}" height="${hInc}" fill="var(--accent, #2E7D6B)" rx="2"></rect>
+        <rect x="${x0 + colW / 2 + 2}" y="${yExc}" width="${barW}" height="${hExc}" fill="var(--danger, #B5473F)" rx="2"></rect>
+        ${v.inc ? `<text x="${x0 + colW / 2 - barW / 2 - 2}" y="${yInc - 3}" text-anchor="middle" class="chart-bar-num">${v.inc}</text>` : ""}
+        ${v.exc ? `<text x="${x0 + colW / 2 + barW / 2 + 2}" y="${yExc - 3}" text-anchor="middle" class="chart-bar-num">${v.exc}</text>` : ""}
+        <text x="${x0 + colW / 2}" y="${padTop + chartH + 16}" text-anchor="middle" class="chart-bar-mes">${labelYmCurto(v.ym)}</text>
+      </g>`;
+  }).join("");
+
+  return `
+    <div class="chart-legend-inline">
+      <span><i style="background:var(--accent, #2E7D6B)"></i> Incluídas</span>
+      <span><i style="background:var(--danger, #B5473F)"></i> Excluídas</span>
+    </div>
+    <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="evolucao-chart">
+      <line x1="${padSide}" y1="${padTop + chartH}" x2="${width - padSide}" y2="${padTop + chartH}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
+      ${barras}
+    </svg>`;
+}
+
+function assinaturaHTML() {
+  return `
+    <div class="assinatura-bloco">
+      <div class="assinatura-linha"></div>
+      <p class="assinatura-nome">Paulo Luã Oliveira Xavier</p>
+      <p class="assinatura-cargo">Psicólogo — CRP-20/09816</p>
+      <p class="assinatura-local">Boa Vista/RR, ${fmtDateBR(todayISO())}</p>
+    </div>`;
+}
+
 function resumoGeralHTML(r) {
   return `
     <div class="kpi-grid">
@@ -875,20 +1012,37 @@ function resumoGeralHTML(r) {
       ${kpiCardHTML(r.idadeMedia != null ? r.idadeMedia + " anos" : "—", "Idade média (responsável)")}
       ${kpiCardHTML(r.mesesMedia != null ? r.mesesMedia : "—", "Meses médios de acompanhamento")}
       ${kpiCardHTML(r.totalEncaminhamentos, "Encaminhamentos registrados")}
+      ${kpiCardHTML(r.totalAbrigados + " (" + r.pctAbrigados + "%)", "Famílias em abrigo/Op. Acolhida")}
     </div>
 
     <div class="resumo-secao">
-      <h4>Perfil do responsável familiar</h4>
-      <div class="resumo-cols">
-        <div><strong>Sexo</strong>${barrasHTML(r.porSexo)}</div>
-        <div><strong>Nacionalidade</strong>${barrasHTML(r.porNacionalidade)}</div>
-        <div><strong>Faixa etária</strong>${barrasHTML(r.porFaixa)}</div>
+      <h4>Situação dos PAFs e perfil do responsável familiar</h4>
+      <div class="resumo-cols resumo-cols-donut">
+        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": r.porStatus.andamento || 0, "Encaminhado": r.porStatus.encaminhado || 0, "Concluído": r.porStatus.concluido || 0, "Cancelado": r.porStatus.cancelado || 0 }, { centro: "PAFs" })}</div>
+        <div><strong>Sexo do responsável</strong>${donutChartSVG(r.porSexo, { centro: "famílias" })}</div>
+        <div><strong>Faixa etária</strong>${donutChartSVG(r.porFaixa, { centro: "famílias" })}</div>
       </div>
     </div>
 
     <div class="resumo-secao">
-      <h4>Distribuição por CRAS</h4>
-      ${barrasHTML(r.porCras)}
+      <div class="resumo-cols">
+        <div><strong>Nacionalidade do responsável</strong>${barrasHTML(r.porNacionalidade)}</div>
+        <div><strong>Distribuição por CRAS</strong>${barrasHTML(r.porCras)}</div>
+      </div>
+    </div>
+
+    <div class="resumo-secao">
+      <h4>Território, migração e povos indígenas</h4>
+      <div class="kpi-grid kpi-grid-sec">
+        ${kpiCardHTML(r.totalAbrigados + " (" + r.pctAbrigados + "%)", "Em abrigo / Operação Acolhida")}
+        ${kpiCardHTML(r.totalMigracaoInformada + " (" + r.pctMigracao + "%)", "Com situação migratória registrada")}
+        ${kpiCardHTML(r.totalIndigena + " (" + r.pctIndigena + "%)", "Com etnia indígena identificada")}
+      </div>
+      <div class="resumo-cols">
+        <div><strong>Tipo de habitação</strong>${barrasHTML(r.porHabitacao)}</div>
+        <div><strong>Interiorização (Op. Acolhida)</strong>${barrasHTML(r.porInteriorizacao)}</div>
+        <div><strong>Etnias indígenas identificadas</strong>${barrasHTML(r.porEtnia, { top: 8 })}</div>
+      </div>
     </div>
 
     <div class="resumo-secao">
@@ -924,6 +1078,10 @@ function resumoMensalTabelaHTML(dados) {
   });
 
   return `
+    <div class="chart-box">
+      ${evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, { limite: 12 })}
+      ${linhasCrescentes.length > 12 ? `<p class="hint" style="margin-top:4px;">Gráfico com os últimos 12 meses. A tabela abaixo traz o histórico completo.</p>` : ""}
+    </div>
     <table class="resumo-tabela">
       <thead><tr><th>Mês</th><th>Incluídas</th><th>Excluídas</th><th>Saldo</th><th>Acumulado</th></tr></thead>
       <tbody>
@@ -989,10 +1147,18 @@ function imprimirResumoMensal(geral, grupos) {
         @page { margin: 16mm 14mm; }
         * { box-sizing: border-box; }
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; margin: 0; }
-        h1 { font-size: 16px; margin: 0 0 4px; }
+        h1 { font-size: 16px; margin: 0 0 2px; }
         h4 { font-size: 12.5px; margin: 0 0 8px; color: #1F3A5F; border-bottom: 1px solid #d7dee4; padding-bottom: 4px; }
         .sub { color: #5b7186; font-size: 11px; margin: 0 0 16px; }
+
+        .print-masthead { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #1F3A5F; padding-bottom: 10px; margin-bottom: 14px; }
+        .print-masthead .brasao { width: 34px; height: 34px; border: 1.4px solid #1F3A5F; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .print-masthead .brasao span { font-family: Georgia, serif; font-weight: 700; font-size: 15px; color: #1F3A5F; }
+        .print-masthead .txt strong { display: block; font-size: 12.5px; }
+        .print-masthead .txt span { display: block; font-size: 10px; color: #5b7186; }
+
         .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+        .kpi-grid-sec { grid-template-columns: repeat(3, 1fr); margin-bottom: 12px; }
         .kpi-card { border: 1px solid #d7dee4; border-radius: 6px; padding: 8px 10px; text-align: center; page-break-inside: avoid; }
         .kpi-valor { display: block; font-size: 17px; font-weight: 700; }
         .kpi-label { display: block; font-size: 9.5px; color: #5b7186; text-transform: uppercase; letter-spacing: .02em; margin-top: 2px; }
@@ -1007,16 +1173,47 @@ function imprimirResumoMensal(geral, grupos) {
         .resumo-tabela th, .resumo-tabela td { border: 1px solid #d7dee4; padding: 4px 6px; text-align: center; }
         .resumo-tabela thead th { background: #f2f5f7; }
         .resumo-tabela tfoot th { background: #f2f5f7; }
+
+        .donut-wrap { display: flex; align-items: center; gap: 10px; }
+        .donut-svg { flex-shrink: 0; }
+        .donut-total-num { font-size: 17px; font-weight: 700; fill: #1F3A5F; font-family: Georgia, serif; }
+        .donut-total-label { font-size: 7px; fill: #5b7186; text-transform: uppercase; letter-spacing: .03em; }
+        .donut-legend { display: flex; flex-direction: column; gap: 3px; font-size: 9.5px; }
+        .donut-legend-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .donut-legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .donut-legend-value em { color: #5b7186; font-style: normal; }
+
+        .chart-box { page-break-inside: avoid; margin-bottom: 8px; }
+        .chart-legend-inline { display: flex; gap: 14px; font-size: 10px; margin-bottom: 4px; }
+        .chart-legend-inline span { display: flex; align-items: center; gap: 4px; }
+        .chart-legend-inline i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+        .evolucao-chart { display: block; }
+        .chart-bar-num { font-size: 8px; fill: #1F3A5F; }
+        .chart-bar-mes { font-size: 8px; fill: #5b7186; }
+
+        .assinatura-bloco { margin-top: 34px; page-break-inside: avoid; text-align: center; }
+        .assinatura-linha { width: 260px; border-top: 1px solid #1F3A5F; margin: 0 auto 6px; }
+        .assinatura-nome { font-size: 12px; font-weight: 700; margin: 0; }
+        .assinatura-cargo { font-size: 10.5px; color: #5b7186; margin: 1px 0 0; }
+        .assinatura-local { font-size: 10px; color: #5b7186; margin: 10px 0 0; }
       </style>
     </head>
     <body>
-      <h1>Resumo estatístico do acompanhamento</h1>
+      <div class="print-masthead">
+        <div class="brasao"><span>P</span></div>
+        <div class="txt">
+          <strong>Prefeitura Municipal de Boa Vista — SEMADS</strong>
+          <span>CRAS Cristiana Vicente Nunes — Centenário, Boa Vista/RR</span>
+        </div>
+      </div>
+      <h1>Resumo estatístico do acompanhamento — PAF/PAIF</h1>
       <p class="sub">Todas as famílias cadastradas · Emitido em ${fmtDateBR(todayISO())}</p>
       ${resumoGeralHTML(geral)}
       <div class="resumo-secao">
         <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
         ${resumoMensalTabelaHTML(grupos)}
       </div>
+      ${assinaturaHTML()}
       <script>window.onload = () => setTimeout(() => window.print(), 200);<\/script>
     </body>
     </html>`;
