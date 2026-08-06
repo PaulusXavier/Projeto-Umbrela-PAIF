@@ -102,6 +102,8 @@ const REDE_APOIO = [
 
 const TIPOS_ATENDIMENTO = ["Atendimento no CRAS", "Visita Domiciliar", "Contato Telefônico", "Encaminhamento", "Reunião de Rede", "Grupo/SCFV", "Outro"];
 
+const ESTADO_CIVIL_OPCOES = ["Solteiro(a)", "Casado(a)", "União estável", "Divorciado(a)", "Separado(a)", "Viúvo(a)"];
+
 // Objetivos do PAIF conforme a Tipificação Nacional de Serviços Socioassistenciais —
 // usados para que a equipe registre, no Plano, quais objetivos do Serviço estão
 // sendo trabalhados com esta família específica (evita que o PAF vire só "resolução de caso").
@@ -528,6 +530,7 @@ function emptyPAF() {
     crasNome: "",
     responsavel: "",
     responsavelSexo: "",
+    responsavelEstadoCivil: "",
     responsavelNacionalidade: "",
     responsavelEtnia: "",
     responsavelNascimento: "",
@@ -2331,6 +2334,13 @@ function renderSection(id, paf) {
             </select>
           </div>
           <div class="f c3">
+            <label>Estado civil (Responsável)</label>
+            <select data-field="responsavelEstadoCivil">
+              <option value="" ${!paf.responsavelEstadoCivil ? "selected" : ""}>—</option>
+              ${ESTADO_CIVIL_OPCOES.map(o => `<option value="${escapeHtml(o)}" ${paf.responsavelEstadoCivil === o ? "selected" : ""}>${escapeHtml(o)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="f c3">
             <label>Data de nascimento (Responsável)</label>
             <div class="date-idade-row">
               <input type="date" data-field="responsavelNascimento" data-idade-of="idadeResponsavel" value="${escapeHtml(paf.responsavelNascimento)}">
@@ -3409,6 +3419,7 @@ function exportPDF(paf) {
           <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
           <div><span class="k">NIS</span><span class="v">${escapeHtml(paf.nis) || "—"}</span></div>
           <div><span class="k">Sexo</span><span class="v">${escapeHtml(paf.responsavelSexo) || "—"}</span></div>
+          <div><span class="k">Estado civil</span><span class="v">${escapeHtml(paf.responsavelEstadoCivil) || "—"}</span></div>
           <div><span class="k">Nacionalidade</span><span class="v">${escapeHtml(paf.responsavelNacionalidade) || "—"}${paf.responsavelEtnia ? " · " + escapeHtml(paf.responsavelEtnia) : ""}</span></div>
           <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
           <div><span class="k">Endereço</span><span class="v">${escapeHtml(enderecoCompleto(paf)) || "—"}</span></div>
@@ -3852,7 +3863,8 @@ function exportWord(paf) {
           <td style="border:none;border-left:1pt solid ${C.borda};vertical-align:top;">
             ${camposGrid([
               ["CPF", escapeHtml(paf.cpf)], ["NIS", escapeHtml(paf.nis)],
-              ["Sexo", escapeHtml(paf.responsavelSexo)], ["Nacionalidade", escapeHtml(paf.responsavelNacionalidade) + (paf.responsavelEtnia ? " · " + escapeHtml(paf.responsavelEtnia) : "")],
+              ["Sexo", escapeHtml(paf.responsavelSexo)], ["Estado civil", escapeHtml(paf.responsavelEstadoCivil)],
+              ["Nacionalidade", escapeHtml(paf.responsavelNacionalidade) + (paf.responsavelEtnia ? " · " + escapeHtml(paf.responsavelEtnia) : "")],
               ["Técnico de Referência", escapeHtml(paf.tecnicoReferencia)], ["Início do Acompanhamento", fmtDateBR(paf.dataInicial)]
             ])}
           </td>
