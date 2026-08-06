@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paf-paif-v27';
+const CACHE_NAME = 'paf-paif-v28';
 const ASSETS = [
   './',
   './index.html',
