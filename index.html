@@ -14,24 +14,34 @@
 <body>
 <div id="app">
 
-  <div class="masthead">
+  <div class="masthead-strip">
+    <div class="masthead-strip-inner">
+      <span>Prefeitura Municipal de Boa Vista</span>
+      <span class="masthead-strip-sep" aria-hidden="true">·</span>
+      <span>Sistema Único de Assistência Social (SUAS)</span>
+    </div>
+  </div>
+
+  <div class="masthead" id="top">
     <div class="masthead-inner">
       <div class="masthead-brasao" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="30" height="30">
-          <circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="1.4"/>
-          <circle cx="24" cy="24" r="16.5" fill="none" stroke="currentColor" stroke-width="1"/>
-          <rect x="18.5" y="18.5" width="11" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.3" transform="rotate(45 24 24)"/>
-          <circle cx="24" cy="24" r="2.4" fill="currentColor"/>
+        <svg viewBox="0 0 48 48" width="34" height="34">
+          <circle cx="24" cy="24" r="21.5" fill="none" stroke="currentColor" stroke-width="1"/>
+          <circle cx="24" cy="24" r="19" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="24" cy="24" r="14.5" fill="none" stroke="currentColor" stroke-width=".8" stroke-dasharray="1.2 2.6"/>
+          <rect x="17.5" y="17.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.4" transform="rotate(45 24 24)"/>
+          <path d="M24 15.5 L24 32.5 M15.5 24 L32.5 24" stroke="currentColor" stroke-width="1" opacity=".55"/>
+          <circle cx="24" cy="24" r="2.6" fill="currentColor"/>
         </svg>
       </div>
       <div class="masthead-text">
-        <strong>Prefeitura Municipal de Boa Vista</strong>
-        <span>Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</span>
-        <span>Centro de Referência de Assistência Social — CRAS Cristiana Vicente Nunes</span>
+        <span class="masthead-eyebrow">Secretaria Municipal de Assistência e Desenvolvimento Social — SEMADS</span>
+        <strong>CRAS Cristiana Vicente Nunes</strong>
+        <span class="masthead-service">Serviço de Proteção e Atendimento Integral à Família (PAIF)</span>
       </div>
       <div class="masthead-contact">
-        <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
-        <span>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
+        <span><svg class="mico" viewBox="0 0 16 16" width="11" height="11"><path d="M8 1.5c-3 0-5.4 2.4-5.4 5.4 0 4 5.4 7.6 5.4 7.6s5.4-3.6 5.4-7.6C13.4 3.9 11 1.5 8 1.5Z" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="8" cy="6.9" r="1.7" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
+        <span><svg class="mico" viewBox="0 0 16 16" width="11" height="11"><path d="M2.3 3.2h11.4c.4 0 .8.4.8.8v8c0 .4-.4.8-.8.8H2.3c-.4 0-.8-.4-.8-.8V4c0-.4.4-.8.8-.8Z" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2 4l6 4.6L14 4" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
       </div>
     </div>
   </div>
@@ -60,19 +70,27 @@
   <footer class="app-footer">
     <div class="app-footer-inner">
       <div class="app-footer-col">
+        <span class="app-footer-eyebrow">Instituição</span>
         <strong>Prefeitura Municipal de Boa Vista</strong>
         <span>Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</span>
         <span>CRAS Cristiana Vicente Nunes — Centenário</span>
       </div>
       <div class="app-footer-col">
-        <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
-        <span>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
+        <span class="app-footer-eyebrow">Contato</span>
+        <span><svg class="fico" viewBox="0 0 16 16" width="11" height="11"><path d="M8 1.5c-3 0-5.4 2.4-5.4 5.4 0 4 5.4 7.6 5.4 7.6s5.4-3.6 5.4-7.6C13.4 3.9 11 1.5 8 1.5Z" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="8" cy="6.9" r="1.7" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
+        <span><svg class="fico" viewBox="0 0 16 16" width="11" height="11"><path d="M2.3 3.2h11.4c.4 0 .8.4.8.8v8c0 .4-.4.8-.8.8H2.3c-.4 0-.8-.4-.8-.8V4c0-.4.4-.8.8-.8Z" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2 4l6 4.6L14 4" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>(95) 98402-6627</span>
+        <span><svg class="fico" viewBox="0 0 16 16" width="11" height="11"><rect x="1.5" y="1.5" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M4 5.5h8M4 8h8M4 10.5h5" stroke="currentColor" stroke-width="1.1"/></svg>crascentenariosemges@gmail.com</span>
       </div>
       <div class="app-footer-col app-footer-tech">
+        <span class="app-footer-eyebrow">Base técnica</span>
         <span>Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF)</span>
         <span>Com base nas Orientações Técnicas do PAIF (MDS, vols. 1 e 2), na Tipificação Nacional de Serviços Socioassistenciais e nas Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS</span>
         <span>Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR</span>
       </div>
+    </div>
+    <div class="app-footer-bottom">
+      <span>© <span id="footerYear"></span> CRAS Cristiana Vicente Nunes · Boa Vista/RR</span>
+      <a href="#top" class="app-footer-top">Voltar ao topo ↑</a>
     </div>
   </footer>
 </div>
@@ -123,6 +141,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>document.getElementById('footerYear').textContent = new Date().getFullYear();</script>
 <script src="firebase-config.js"></script>
 <script src="app.js"></script>
 </body>
