@@ -1374,12 +1374,12 @@ function imprimirResumoMensal(geral, grupos) {
         @page { margin: 16mm 14mm; }
         * { box-sizing: border-box; }
         body {
-          font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F;
-          margin: 0; padding: 4mm 0 3mm; background: #fff;
+          font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F;
+          font-weight: bold; line-height: 1.5; text-align: justify; margin: 0; padding: 4mm 0 3mm; background: #fff;
         }
-        h1, h4 { font-family: 'Lora', Georgia, serif; }
+        h1, h4 { font-family: 'Times New Roman', Times, serif; }
         h4 {
-          font-size: 13.5px; margin: 26px 0 12px; color: #1F3A5F; font-weight: 600;
+          font-size: 14px; margin: 26px 0 12px; color: #1F3A5F; font-weight: bold;
           padding-bottom: 8px; border-bottom: 2px solid #EFE0BE;
           display: flex; align-items: center; gap: 8px;
         }
@@ -1417,7 +1417,7 @@ function imprimirResumoMensal(geral, grupos) {
           padding: 11px 14px; border-radius: 7px 7px 0 0; font-size: 9px; line-height: 1.4;
           border-bottom: 2px solid #B98A34;
         }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Lora', Georgia, serif; letter-spacing: .01em; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Times New Roman', Times, serif; letter-spacing: .01em; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
         .orgao-header .brasao-selo {
           position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.07); pointer-events: none;
@@ -1437,7 +1437,7 @@ function imprimirResumoMensal(geral, grupos) {
           border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 7px; padding: 9px 14px; min-width: 138px;
           box-shadow: 0 1px 0 rgba(122,90,30,.08);
         }
-        .capa-ficha .num { font-family: 'Lora', Georgia, serif; font-size: 17px; font-weight: 700; color: #7A5A1E; letter-spacing: .01em; }
+        .capa-ficha .num { font-family: 'Times New Roman', Times, serif; font-size: 17px; font-weight: 700; color: #7A5A1E; letter-spacing: .01em; }
         .capa-ficha .lbl { display: block; font-size: 7px; text-transform: uppercase; letter-spacing: .07em; color: #8496A8; }
 
         .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 20px; }
@@ -1450,7 +1450,7 @@ function imprimirResumoMensal(geral, grupos) {
         .kpi-grid .kpi-card:nth-child(4n+2), .kpi-grid-sec .kpi-card:nth-child(3n+2) { border-top-color: #B98A34; }
         .kpi-grid .kpi-card:nth-child(4n+3), .kpi-grid-sec .kpi-card:nth-child(3n+3) { border-top-color: #1F3A5F; }
         .kpi-grid .kpi-card:nth-child(4n+4) { border-top-color: #8B6BAE; }
-        .kpi-valor { display: block; font-family: 'Lora', Georgia, serif; font-size: 18px; font-weight: 700; color: #1F3A5F; }
+        .kpi-valor { display: block; font-family: 'Times New Roman', Times, serif; font-size: 18px; font-weight: 700; color: #1F3A5F; }
         .kpi-label { display: block; font-size: 8.7px; color: #5b7186; text-transform: uppercase; letter-spacing: .025em; margin-top: 3px; line-height: 1.35; }
 
         .resumo-secao { margin-bottom: 20px; page-break-inside: avoid; }
@@ -1478,7 +1478,7 @@ function imprimirResumoMensal(geral, grupos) {
 
         .donut-wrap { display: flex; align-items: center; gap: 12px; }
         .donut-svg { flex-shrink: 0; }
-        .donut-total-num { font-size: 17px; font-weight: 700; fill: #1F3A5F; font-family: 'Lora', Georgia, serif; }
+        .donut-total-num { font-size: 17px; font-weight: 700; fill: #1F3A5F; font-family: 'Times New Roman', Times, serif; }
         .donut-total-label { font-size: 7px; fill: #5b7186; text-transform: uppercase; letter-spacing: .03em; }
         .donut-legend { display: flex; flex-direction: column; gap: 4px; font-size: 9.5px; min-width: 0; flex: 1; }
         .donut-legend-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -2990,10 +2990,15 @@ function exportPDF(paf) {
         @page { margin: 14mm 14mm; }
         * { box-sizing: border-box; }
         body {
-          font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; color: #1F3A5F;
-          line-height: 1.55; margin: 0; padding: 5mm 0 3mm;
+          font-family: 'Times New Roman', Times, serif; font-size: 11.5px; color: #1F3A5F;
+          font-weight: bold; line-height: 1.5; text-align: justify; margin: 0; padding: 5mm 0 3mm;
         }
-        .brasao { font-family: 'Lora', Georgia, 'Times New Roman', serif; }
+        .brasao { font-family: 'Times New Roman', Times, serif; }
+        /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12px, justificado */
+        .reg-evolucao, .reg-encam, .muted, .anotacao {
+          font-family: 'Times New Roman', Times, serif; font-size: 12px; font-weight: normal;
+          text-align: justify; line-height: 1.5;
+        }
 
         /* ---- Cabeçalho e rodapé que repetem em toda página impressa ----
            ANTES isso era feito com "position: fixed" e um deslocamento negativo igual
@@ -3039,7 +3044,7 @@ function exportPDF(paf) {
         /* ---- Marca d'água de confidencialidade, repetida em cada página ---- */
         .watermark {
           position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-32deg);
-          font-family: 'Lora', Georgia, serif; font-size: 62px; font-weight: 700; letter-spacing: .08em;
+          font-family: 'Times New Roman', Times, serif; font-size: 62px; font-weight: 700; letter-spacing: .08em;
           color: #1F3A5F; opacity: 0.045; white-space: nowrap; pointer-events: none;
         }
 
@@ -3050,7 +3055,7 @@ function exportPDF(paf) {
           border-bottom: 2px solid #B98A34;
         }
         .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Lora', Georgia, serif; letter-spacing: .01em; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Times New Roman', Times, serif; letter-spacing: .01em; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
         .orgao-header .brasao-selo {
           position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.07); pointer-events: none;
@@ -3063,12 +3068,12 @@ function exportPDF(paf) {
         }
         .capa-selo {
           width: 44px; height: 44px; border-radius: 50%; border: 1.6px solid #B98A34; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; font-family: 'Lora', Georgia, serif; font-size: 20px; color: #B98A34;
+          display: flex; align-items: center; justify-content: center; font-family: 'Times New Roman', Times, serif; font-size: 20px; color: #B98A34;
           background: #FBF6EA;
         }
         .capa-titulos { flex: 1; }
         .capa-titulos .capa-eyebrow { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 3px; }
-        .capa-titulos h1 { font-family: 'Lora', Georgia, serif; font-size: 18px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
+        .capa-titulos h1 { font-family: 'Times New Roman', Times, serif; font-size: 18px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
         .capa-titulos .capa-linha { width: 38px; height: 2.5px; background: #B98A34; margin: 8px 0; border-radius: 2px; }
         .capa-titulos p { margin: 0; font-size: 10.5px; color: #2E7D6B; font-weight: 600; }
         .capa-ficha {
@@ -3084,7 +3089,7 @@ function exportPDF(paf) {
           padding: 14px 17px; margin-bottom: 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
         }
         .id-nome-wrap { flex: 1 1 200px; }
-        .id-nome { font-family: 'Lora', Georgia, serif; font-size: 16.5px; font-weight: bold; margin: 0 0 6px; letter-spacing: -.01em; }
+        .id-nome { font-family: 'Times New Roman', Times, serif; font-size: 16.5px; font-weight: bold; margin: 0 0 6px; letter-spacing: -.01em; }
         .id-status {
           display: inline-flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold;
           padding: 3px 10px; border-radius: 999px; border: 1.2px solid #2E7D6B; color: #2E7D6B; background: #fff;
@@ -3104,15 +3109,15 @@ function exportPDF(paf) {
         .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-top: 2.5px solid #B98A34; border-radius: 7px; padding: 7px 11px; min-width: 58px; }
         .id-stat:nth-child(2) { border-top-color: #2E7D6B; }
         .id-stat:nth-child(3) { border-top-color: #1F3A5F; }
-        .id-stat .n { display: block; font-family: 'Lora', Georgia, serif; font-size: 17px; font-weight: bold; color: #1F3A5F; line-height: 1; }
+        .id-stat .n { display: block; font-family: 'Times New Roman', Times, serif; font-size: 17px; font-weight: bold; color: #1F3A5F; line-height: 1; }
         .id-stat .l { display: block; font-size: 7.5px; text-transform: uppercase; color: #8496A8; margin-top: 4px; letter-spacing: .02em; }
 
         body { counter-reset: secao; }
         h2 {
           counter-increment: secao;
           display: flex; align-items: center; gap: 9px;
-          font-family: 'Lora', Georgia, serif; font-weight: 600;
-          font-size: 13px; color: #1F3A5F; margin: 24px 0 9px; padding-bottom: 5px;
+          font-family: 'Times New Roman', Times, serif; font-weight: bold;
+          font-size: 14px; color: #1F3A5F; margin: 24px 0 9px; padding-bottom: 5px;
           border-bottom: 1.6px solid #E9EEF1; page-break-after: avoid; letter-spacing: .005em;
         }
         h2::before {
@@ -3145,14 +3150,14 @@ function exportPDF(paf) {
           flex-shrink: 0; width: 42px; height: 42px; border-radius: 7px; border: 1.4px solid;
           display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff;
         }
-        .reg-badge .dia { font-family: 'Lora', Georgia, serif; font-size: 14px; font-weight: bold; line-height: 1; }
+        .reg-badge .dia { font-family: 'Times New Roman', Times, serif; font-size: 14px; font-weight: bold; line-height: 1; }
         .reg-badge .mes { font-size: 7px; text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
         .reg-body { flex: 1; min-width: 0; }
         .reg-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
         .reg-tipo { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; }
         .reg-tecnico { font-size: 9.5px; color: #52667C; }
-        .reg-evolucao { margin: 0 0 4px; font-size: 10.5px; }
-        .reg-encam { margin: 0; font-size: 10px; color: #52667C; }
+        .reg-evolucao { margin: 0 0 4px; }
+        .reg-encam { margin: 0; color: #52667C; }
 
         .fechamento { margin-top: 36px; padding-top: 20px; border-top: 2px solid #F3E7D0; page-break-inside: avoid; }
         .fechamento .local-data { font-size: 10px; color: #52667C; margin-bottom: 26px; }
@@ -3173,7 +3178,7 @@ function exportPDF(paf) {
         .anexo-print-item span { display: block; font-size: 8.5px; color: #52667C; margin-top: 4px; word-break: break-word; }
 
         .anexo-pdf-pagina { page-break-before: always; padding-top: 8px; }
-        .anexo-pdf-titulo { font-family: 'Lora', Georgia, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
+        .anexo-pdf-titulo { font-family: 'Times New Roman', Times, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
         .anexo-pdf-embed { width: 100%; height: 95vh; border: 1px solid #D7E0E6; }
         .anexo-pdf-fallback { text-align: center; padding: 40px 20px; border: 1px dashed #D7E0E6; border-radius: 6px; }
         .anexo-pdf-fallback a { display: inline-block; margin-top: 8px; color: #2E7D6B; font-weight: bold; }
@@ -3348,7 +3353,7 @@ function exportPDF(paf) {
       </div>
       ${paf.encerramentoOutros ? `<p style="margin:6px 0 0;"><strong>Outros motivos/observações do encerramento:</strong> ${escapeHtml(paf.encerramentoOutros)}</p>` : ""}
 
-      ${paf.observacoes ? `<h2>Observações Gerais</h2><p>${escapeHtml(paf.observacoes)}</p>` : ""}
+      ${paf.observacoes ? `<h2>Observações Gerais</h2><p class="anotacao">${escapeHtml(paf.observacoes)}</p>` : ""}
 
       ${anexosHTML}
 
@@ -3407,12 +3412,14 @@ function imprimirEncaminhamento(paf, enc) {
       <style>
         @page { margin: 16mm 14mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #1F3A5F; line-height: 1.55; margin: 0; }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F; font-weight: bold; line-height: 1.5; text-align: justify; margin: 0; }
+        /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12px, justificado */
+        .contra .campo, .anotacao { font-family: 'Times New Roman', Times, serif; font-size: 12px; font-weight: normal; text-align: justify; line-height: 1.5; }
         .orgao-header {
           display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
           padding: 10px 12px; border-radius: 7px 7px 0 0; font-size: 9px; margin-bottom: 0; border-bottom: 2px solid #B98A34;
         }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Lora', Georgia, serif; }
+        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Times New Roman', Times, serif; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
         .titulo-band {
           display: flex; align-items: flex-start; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
@@ -3421,14 +3428,14 @@ function imprimirEncaminhamento(paf, enc) {
         }
         .titulo-band .tb-textos { flex: 1; }
         .titulo-band .capa-eyebrow { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 3px; }
-        .titulo-band h1 { font-family: 'Lora', Georgia, serif; font-size: 17px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
+        .titulo-band h1 { font-family: 'Times New Roman', Times, serif; font-size: 17px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
         .titulo-band .tb-linha { width: 36px; height: 2.5px; background: #B98A34; margin: 8px 0; border-radius: 2px; }
         .titulo-band p { margin: 0; font-size: 10px; color: #52667C; }
         .titulo-band .capa-ficha {
           text-align: right; font-size: 9px; color: #52667C; line-height: 1.7;
           border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 6px; padding: 7px 12px; min-width: 118px;
         }
-        .titulo-band .capa-ficha .num { font-family: 'Lora', Georgia, serif; font-size: 14px; font-weight: 700; color: #7A5A1E; }
+        .titulo-band .capa-ficha .num { font-family: 'Times New Roman', Times, serif; font-size: 14px; font-weight: 700; color: #7A5A1E; }
         .titulo-band .capa-ficha .lbl { display: block; font-size: 6.8px; text-transform: uppercase; letter-spacing: .06em; color: #8496A8; }
         .canhoto { border: 1px dashed #8496A8; border-radius: 7px; padding: 12px 14px; margin-bottom: 22px; font-size: 10.5px; background: #FBFCFC; }
         .canhoto b { color: #52667C; text-transform: uppercase; font-size: 9px; letter-spacing: .03em; }
@@ -3436,8 +3443,8 @@ function imprimirEncaminhamento(paf, enc) {
         .linha { margin: 0 0 11px; }
         .campo-preenchido { border-bottom: 1px solid #1F3A5F; padding: 0 2px; font-weight: 600; }
         .contra { margin-top: 32px; border-top: 2px dashed #D7C39A; padding-top: 16px; }
-        .contra h2 { font-family: 'Lora', Georgia, serif; font-size: 12.5px; color: #1F5C4E; margin: 0 0 10px; letter-spacing: .01em; }
-        .contra .campo { border: 1px solid #D7E0E6; border-radius: 7px; min-height: 70px; padding: 10px; font-size: 10.5px; background: #FAFBFC; }
+        .contra h2 { font-family: 'Times New Roman', Times, serif; font-size: 14px; font-weight: bold; color: #1F5C4E; margin: 0 0 10px; letter-spacing: .01em; }
+        .contra .campo { border: 1px solid #D7E0E6; border-radius: 7px; min-height: 70px; padding: 10px; background: #FAFBFC; }
         .assinaturas { display: flex; gap: 44px; margin-top: 40px; }
         .assinatura { flex: 1; text-align: center; }
         .assinatura .linha-ass { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; }
@@ -3533,7 +3540,7 @@ function exportWord(paf) {
     <table style="width:100%;border-collapse:collapse;margin:22pt 0 8pt;" cellpadding="0" cellspacing="0">
       <tr>
         <td style="width:24pt;background:${C.verde};color:#ffffff;font-family:'Courier New',monospace;font-size:9pt;font-weight:bold;text-align:center;padding:5pt 0;">${num}</td>
-        <td style="border-bottom:1.5pt solid ${C.verdeClaro};padding:6pt 0 6pt 8pt;font-family:Georgia,'Times New Roman',serif;font-size:13pt;color:${C.verde};font-weight:bold;">${titulo}</td>
+        <td style="border-bottom:1.5pt solid ${C.verdeClaro};padding:6pt 0 6pt 8pt;font-family:'Times New Roman', Times, serif;font-size:14pt;color:${C.verde};font-weight:bold;">${titulo}</td>
       </tr>
     </table>`;
 
@@ -3569,7 +3576,7 @@ function exportWord(paf) {
 
   const atendimentosWordHTML = rowsWithZebra(
     paf.atendimentos || [],
-    a => `<tr><td>${fmtDateBR(a.data)}</td><td>${escapeHtml(a.tipo)}</td><td>${escapeHtml(a.tecnico)}</td><td>${escapeHtml(a.evolucao)}</td><td>${escapeHtml(a.encaminhamentos)}</td></tr>`
+    a => `<tr><td>${fmtDateBR(a.data)}</td><td>${escapeHtml(a.tipo)}</td><td>${escapeHtml(a.tecnico)}</td><td class="anotacao">${escapeHtml(a.evolucao)}</td><td class="anotacao">${escapeHtml(a.encaminhamentos)}</td></tr>`
   ) || `<tr><td colspan='5' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhum atendimento registrado</td></tr>`;
 
   const metasWordHTML = rowsWithZebra(
@@ -3597,7 +3604,7 @@ function exportWord(paf) {
     ${secao("04a", "Encaminhamentos Formais (Formulário SUAS)")}
     <table class="dados">
       <tr><th>Data</th><th>Área</th><th>Órgão/Unidade</th><th>Objetivo</th><th>Contra-referência</th></tr>
-      ${rowsWithZebra(paf.encaminhamentosForm, e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td>${escapeHtml(e.objetivo)}</td><td>${escapeHtml(e.contraReferencia) || "—"}</td></tr>`)}
+      ${rowsWithZebra(paf.encaminhamentosForm, e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td class="anotacao">${escapeHtml(e.objetivo)}</td><td class="anotacao">${escapeHtml(e.contraReferencia) || "—"}</td></tr>`)}
     </table>` : "";
 
   const anexosWordHTML = (() => {
@@ -3622,13 +3629,15 @@ function exportWord(paf) {
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
     <style>
-      body { font-family: Calibri, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: ${C.azul}; }
-      h1 { font-family: Georgia, 'Times New Roman', serif; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 10.5pt; font-weight: bold; line-height: 1.5; text-align: justify; color: ${C.azul}; }
+      h1 { font-family: 'Times New Roman', Times, serif; }
       table { border-collapse: collapse; }
       table.dados { width: 100%; margin-top: 6pt; }
       table.dados th, table.dados td { border: 1pt solid ${C.borda}; padding: 5pt 7pt; font-size: 10pt; text-align: left; vertical-align: top; }
       table.dados th { background: ${C.fundo}; font-size: 9pt; text-transform: uppercase; letter-spacing: .02em; color: ${C.verde}; border-bottom: 1.5pt solid ${C.verde}; }
       p { margin: 4pt 0; }
+      /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12pt, justificado */
+      .anotacao { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal; text-align: justify; line-height: 1.5; }
     </style>
     </head>
     <body>
@@ -3637,7 +3646,7 @@ function exportWord(paf) {
       <table style="width:100%;background:${C.azulEscuro};margin-bottom:0;" cellpadding="0" cellspacing="0">
         <tr>
           <td style="padding:10pt 14pt;color:#ffffff;">
-            <span style="font-family:Georgia,serif;font-size:12pt;font-weight:bold;">Prefeitura Municipal de Boa Vista</span><br>
+            <span style="font-family:'Times New Roman', Times, serif;font-size:12pt;font-weight:bold;">Prefeitura Municipal de Boa Vista</span><br>
             <span style="font-size:8.5pt;color:#C9D6DE;">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS) · CRAS Cristiana Vicente Nunes</span>
           </td>
           <td style="padding:10pt 14pt;color:#A9BBCB;font-size:8.5pt;text-align:right;">
@@ -3651,7 +3660,7 @@ function exportWord(paf) {
         <tr>
           <td style="padding:12pt 14pt;">
             <span style="display:block;font-size:8pt;text-transform:uppercase;letter-spacing:.1em;color:${C.dourado};font-weight:bold;">Prontuário SUAS · Proteção Social Básica</span>
-            <span style="display:block;font-family:Georgia,serif;font-size:17pt;color:${C.azul};font-weight:bold;margin-top:2pt;">Plano de Acompanhamento Familiar</span>
+            <span style="display:block;font-family:'Times New Roman', Times, serif;font-size:17pt;color:${C.azul};font-weight:bold;margin-top:2pt;">Plano de Acompanhamento Familiar</span>
             <span style="display:block;font-size:10.5pt;color:${C.verde};font-weight:bold;margin-top:2pt;">Serviço de Proteção e Atendimento Integral à Família (PAIF)${paf.crasNome ? " · " + escapeHtml(paf.crasNome) : ""}</span>
           </td>
           <td style="padding:12pt 14pt;text-align:right;background:${C.doradoBg};border-left:1pt solid ${C.doradoBorda};width:150pt;">
@@ -3667,7 +3676,7 @@ function exportWord(paf) {
       <table style="width:100%;background:${C.fundo};border:1pt solid ${C.borda};margin-bottom:14pt;" cellpadding="10" cellspacing="0">
         <tr>
           <td style="border:none;vertical-align:top;">
-            <span style="display:block;font-family:Georgia,serif;font-size:15pt;font-weight:bold;color:${C.azul};">${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
+            <span style="display:block;font-family:'Times New Roman', Times, serif;font-size:15pt;font-weight:bold;color:${C.azul};">${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
             <span style="margin-top:5pt;display:inline-block;">${pill(STATUS_LABELS[paf.situacaoPAF] || "Em andamento", statusCor, statusFundo)}</span>
           </td>
           <td style="border:none;border-left:1pt solid ${C.borda};vertical-align:top;">
@@ -3729,7 +3738,7 @@ function exportWord(paf) {
       ${secao("03e", "Aspectos Psicossociais e Instrumentais Técnicos")}
       ${camposGrid([
         ["Instrumentais utilizados", (paf.instrumentaisTecnicos || []).map(escapeHtml).join(", ")],
-        ["Aspectos relacionais observados", escapeHtml(paf.aspectosPsicossociaisObs)]
+        ["Aspectos relacionais observados", `<span class="anotacao">${escapeHtml(paf.aspectosPsicossociaisObs) || "—"}</span>`]
       ])}
 
       ${secao("04", "Registro de Atendimentos")}
@@ -3772,7 +3781,7 @@ function exportWord(paf) {
         ["Motivo de Encerramento", escapeHtml(ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo)?.label) + (paf.encerramentoOutros ? " (" + escapeHtml(paf.encerramentoOutros) + ")" : "")],
         ["Técnico / Data do Encerramento", (escapeHtml(paf.encerramentoTecnico) || "—") + " · " + (fmtDateBR(paf.encerramentoData) || "—")]
       ])}
-      ${paf.observacoes ? `<p><b>Observações:</b> ${escapeHtml(paf.observacoes)}</p>` : ""}
+      ${paf.observacoes ? `<p><b>Observações:</b></p><p class="anotacao">${escapeHtml(paf.observacoes)}</p>` : ""}
 
       ${anexosWordHTML}
 
