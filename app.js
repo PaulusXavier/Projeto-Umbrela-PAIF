@@ -258,6 +258,28 @@ function sectionIconSvg(id, size) {
   return `<svg class="section-icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SECTION_ICONS[id] || ""}</svg>`;
 }
 
+// Ícones de interface (botões, ações, navegação) — mesmo vocabulário de traço fino,
+// currentColor e cantos arredondados dos SECTION_ICONS, para que nenhum controle do
+// app pareça "emprestado" do sistema operacional (nada de emoji nem glifos de fonte).
+const UI_ICONS = {
+  menu: `<path d="M4 6.5h16M4 12h16M4 17.5h16"/>`,
+  settings: `<circle cx="12" cy="12" r="2.9"/><path d="M12 3.6v2.3M12 18.1v2.3M20.4 12h-2.3M5.9 12H3.6M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6M17.7 17.7l-1.6-1.6M7.9 7.9 6.3 6.3"/>`,
+  logout: `<path d="M9.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5"/><path d="M15.5 16.5 20 12l-4.5-4.5"/><path d="M9.5 12H20"/>`,
+  close: `<path d="M6 6l12 12M18 6 6 18"/>`,
+  chevronLeft: `<path d="M14.5 5.5 8 12l6.5 6.5"/>`,
+  chevronRight: `<path d="M9.5 5.5 16 12l-6.5 6.5"/>`,
+  printer: `<path d="M6.5 8.5V4.6h11v3.9"/><rect x="4" y="8.5" width="16" height="7.6" rx="1.6"/><path d="M6.5 13.6h11v6H6.5z"/><circle cx="16.4" cy="11" r=".9" fill="currentColor" stroke="none"/>`,
+  warning: `<path d="M12 4 21 19.5H3z" stroke-linejoin="round"/><path d="M12 10v4.2"/><circle cx="12" cy="17" r=".05" stroke-width="2.4"/>`,
+  chartBars: `<path d="M4 20V10.5M11 20V4M18 20v-7.5"/><path d="M4 20h16"/>`,
+  arrowUp: `<path d="M12 19V6M6 11.2 12 5l6 6.2"/>`,
+  plus: `<path d="M12 5v14M5 12h14"/>`,
+  nestedArrow: `<path d="M6 4.5v7a2 2 0 0 0 2 2h9M13.5 10.4 17 13.5l-3.5 3.1"/>`
+};
+function uiIconSvg(id, size) {
+  const s = size || 16;
+  return `<svg class="ui-icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${UI_ICONS[id] || ""}</svg>`;
+}
+
 // Ilustração-assinatura do app: um arco de proteção (SUAS) acolhendo três
 // figuras entrelaçadas por um traço contínuo (o vínculo/a escuta, no
 // vocabulário da psicologia) — usada na tela de login e no estado vazio.
@@ -762,6 +784,7 @@ function computeResumoGeral(pafsParam) {
   const porVulnerabilidade = {}, porPrograma = {}, porBeneficio = {}, porEncArea = {}, porSituacaoSocial = {};
   const porHabitacao = {}, porEtnia = {}, porInteriorizacao = {};
   const porTecnico = {}, porServicoRede = {}, porAtividadeColetiva = {};
+  const porParticipaProgramas = {}, porRecebeBeneficio = {};
   let totalMembros = 0, totalPCD = 0, totalEncaminhamentos = 0;
   let totalAbrigados = 0, totalIndigena = 0, totalMigracaoInformada = 0;
   let totalSituacoesAtivas = 0, totalSituacoesSuperadas = 0;
@@ -791,9 +814,13 @@ function computeResumoGeral(pafsParam) {
 
     (p.situacoesSociais || []).forEach(s => { if (s.membros) porSituacaoSocial[s.situacao] = (porSituacaoSocial[s.situacao] || 0) + 1; });
 
+    const participaLabel = p.participaProgramas === "Sim" ? "Sim" : p.participaProgramas === "Não" ? "Não" : "Não informado";
+    porParticipaProgramas[participaLabel] = (porParticipaProgramas[participaLabel] || 0) + 1;
     if (p.participaProgramas === "Sim") {
       (p.programasQuais || []).forEach(pr => { porPrograma[pr] = (porPrograma[pr] || 0) + 1; });
     }
+    const beneficioLabel = p.recebeBeneficio === "Sim" ? "Sim" : p.recebeBeneficio === "Não" ? "Não" : "Não informado";
+    porRecebeBeneficio[beneficioLabel] = (porRecebeBeneficio[beneficioLabel] || 0) + 1;
     if (p.recebeBeneficio === "Sim") {
       (p.beneficioQuais || []).forEach(b => { porBeneficio[b] = (porBeneficio[b] || 0) + 1; });
     }
@@ -850,6 +877,7 @@ function computeResumoGeral(pafsParam) {
   return {
     total, porStatus, porSexo, porNacionalidade, porFaixa, porCras,
     porVulnerabilidade, porSituacaoSocial, porPrograma, porBeneficio, porEncArea,
+    porParticipaProgramas, porRecebeBeneficio,
     porHabitacao, porEtnia, porInteriorizacao,
     porTecnico, porServicoRede, porAtividadeColetiva,
     totalMembros, totalPCD, totalEncaminhamentos,
@@ -898,8 +926,17 @@ function labelYmCurto(ym) {
   return `${nome.slice(0, 3)}/${y.slice(2)}`;
 }
 
-function kpiCardHTML(valor, label, iconId) {
-  return `<div class="kpi-card">${iconId ? `<span class="kpi-icon">${sectionIconSvg(iconId, 15)}</span>` : ""}<span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span></div>`;
+function kpiCardHTML(valor, label, iconId, delta) {
+  let deltaHTML = "";
+  if (delta && typeof delta.diff === "number" && delta.diff !== 0) {
+    const positivo = delta.diff > 0;
+    const cls = positivo ? "up" : "down";
+    const seta = positivo ? "▲" : "▼";
+    deltaHTML = `<span class="kpi-delta kpi-delta-${cls}" title="Comparado ao período anterior equivalente">${seta} ${positivo ? "+" : ""}${delta.diff}</span>`;
+  } else if (delta && typeof delta.diff === "number") {
+    deltaHTML = `<span class="kpi-delta kpi-delta-neutro" title="Comparado ao período anterior equivalente">= estável</span>`;
+  }
+  return `<div class="kpi-card">${iconId ? `<span class="kpi-icon">${sectionIconSvg(iconId, 15)}</span>` : ""}<span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span>${deltaHTML}</div>`;
 }
 
 function barrasHTML(obj, opts) {
@@ -1022,13 +1059,16 @@ function assinaturaHTML() {
     </div>`;
 }
 
-function resumoGeralGeralHTML(r) {
+function resumoGeralGeralHTML(r, anteriorTotal) {
+  const delta = anteriorTotal != null ? { diff: r.total - anteriorTotal } : null;
   return `
-    <div class="kpi-grid">
-      ${kpiCardHTML(r.total, "Total de PAFs", "cabecalho")}
+    <div class="kpi-grid kpi-grid-hero">
+      ${kpiCardHTML(r.total, "Total de PAFs", "cabecalho", delta)}
       ${kpiCardHTML(r.porStatus.andamento || 0, "Em andamento", "diagnostico")}
       ${kpiCardHTML(r.porStatus.encaminhado || 0, "Encaminhados", "encaminhamentos")}
       ${kpiCardHTML(r.porStatus.concluido || 0, "Concluídos", "encerramento")}
+    </div>
+    <div class="kpi-grid">
       ${kpiCardHTML(r.porStatus.cancelado || 0, "Cancelados", "encerramento")}
       ${kpiCardHTML(r.totalMembros, "Pessoas acompanhadas", "familia")}
       ${kpiCardHTML(r.mediaMembros ?? "—", "Média por família", "familia")}
@@ -1038,6 +1078,7 @@ function resumoGeralGeralHTML(r) {
       ${kpiCardHTML(r.totalEncaminhamentos, "Encaminhamentos registrados", "encaminhamentos")}
       ${kpiCardHTML(r.pctSituacoesSuperadas + "%", "Situações sociais superadas", "metas")}
     </div>
+    ${anteriorTotal != null ? `<p class="dash-comparativo-hint">Comparação de "Total de PAFs" com o período anterior equivalente (${anteriorTotal} PAF${anteriorTotal === 1 ? "" : "s"}).</p>` : ""}
 
     <div class="resumo-secao">
       <h4>${sectionIconSvg("diagnostico", 16)} Situação dos PAFs e perfil do responsável familiar</h4>
@@ -1089,7 +1130,11 @@ function resumoGeralVulnerabilidadesHTML(r) {
 
     <div class="resumo-secao">
       <h4>${sectionIconSvg("programas", 16)} Programas, benefícios e encaminhamentos</h4>
-      <div class="resumo-cols">
+      <div class="resumo-cols resumo-cols-donut resumo-cols-donut2">
+        <div><strong>Participa de programas/projetos</strong>${donutChartSVG(r.porParticipaProgramas, { centro: "famílias" })}</div>
+        <div><strong>Recebe benefício</strong>${donutChartSVG(r.porRecebeBeneficio, { centro: "famílias" })}</div>
+      </div>
+      <div class="resumo-cols" style="margin-top:16px;">
         <div><strong>Programas/projetos mais frequentes</strong>${barrasHTML(r.porPrograma, { top: 8 })}</div>
         <div><strong>Benefícios mais frequentes</strong>${barrasHTML(r.porBeneficio, { top: 8 })}</div>
         <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea, { top: 8 })}</div>
@@ -1130,8 +1175,8 @@ function resumoGeralMetasHTML(r) {
 }
 
 // Mantida para o print/PDF (imprimirResumoMensal) e para o modal legado — reúne todas as seções em sequência.
-function resumoGeralHTML(r) {
-  return resumoGeralGeralHTML(r) + resumoGeralPerfilHTML(r) + resumoGeralTerritorioHTML(r)
+function resumoGeralHTML(r, anteriorTotal) {
+  return resumoGeralGeralHTML(r, anteriorTotal) + resumoGeralPerfilHTML(r) + resumoGeralTerritorioHTML(r)
     + resumoGeralVulnerabilidadesHTML(r) + resumoGeralEquipeRedeHTML(r) + resumoGeralMetasHTML(r);
 }
 
@@ -1214,6 +1259,38 @@ function dashboardPafsFiltrados() {
   });
 }
 
+// Retorna a contagem de PAFs do período imediatamente anterior ao filtro atual (mesma
+// duração, mesmos filtros de CRAS/técnico), para comparação de tendência nos KPIs.
+// Retorna null quando o período selecionado é "tudo" (não há um "anterior" comparável).
+function dashboardPeriodoAnteriorTotal() {
+  const { dashPeriodo, dashCras, dashTecnico } = state;
+  if (!dashPeriodo || dashPeriodo === "tudo") return null;
+
+  const hoje = new Date();
+  let inicioAnterior, fimAnterior;
+  if (dashPeriodo === "ano") {
+    inicioAnterior = new Date(hoje.getFullYear() - 1, 0, 1);
+    fimAnterior = new Date(hoje.getFullYear() - 1, 11, 31);
+  } else {
+    const meses = { "3m": 3, "6m": 6, "12m": 12 }[dashPeriodo] || 0;
+    const inicioAtual = new Date(hoje.getFullYear(), hoje.getMonth() - meses, hoje.getDate());
+    inicioAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - meses * 2, hoje.getDate());
+    fimAnterior = new Date(inicioAtual.getTime() - 86400000);
+  }
+  const inicioISO = inicioAnterior.toISOString().slice(0, 10);
+  const fimISO = fimAnterior.toISOString().slice(0, 10);
+
+  const count = state.pafs.filter(p => {
+    if (dashCras && (p.crasNome || "").trim() !== dashCras) return false;
+    if (dashTecnico && (p.tecnicoReferencia || "").trim() !== dashTecnico) return false;
+    const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+    if (!base) return false;
+    return base >= inicioISO && base <= fimISO;
+  }).length;
+
+  return count;
+}
+
 function dashboardOpcoes(campo) {
   return Array.from(new Set(state.pafs.map(p => (p[campo] || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
@@ -1238,7 +1315,7 @@ function dashboardFiltrosHTML() {
           <option value="">Todos os técnicos</option>
           ${tecnicoOpts.map(t => `<option value="${escapeHtml(t)}" ${state.dashTecnico === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}
         </select>
-        ${dashboardFiltrosAtivos() ? `<button class="btn btn-ghost btn-sm" id="dashFiltroLimparBtn">✕ Limpar filtros</button>` : ""}
+        ${dashboardFiltrosAtivos() ? `<button class="btn btn-ghost btn-sm" id="dashFiltroLimparBtn">${uiIconSvg("close", 12)} Limpar filtros</button>` : ""}
       </div>
     </div>`;
 }
@@ -1263,6 +1340,7 @@ function renderDashboardHTML() {
   const geral = computeResumoGeral(pafsFiltrados);
   const grupos = computeResumoMensal(pafsFiltrados);
   const filtrosAtivos = dashboardFiltrosAtivos();
+  const anteriorTotal = semRegistroAlgum ? null : dashboardPeriodoAnteriorTotal();
 
   const empty = `
     <div class="dashboard-empty">
@@ -1286,7 +1364,7 @@ function renderDashboardHTML() {
       </div>
       <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-primary" id="dashboardImprimirBtn" ${geral.total ? "" : "disabled"}>Imprimir / Baixar PDF</button>
+        <button class="btn btn-primary" id="dashboardImprimirBtn" ${geral.total ? "" : "disabled"}>${uiIconSvg("printer", 15)} Imprimir / Baixar PDF</button>
       </div>
     </div>
     ${semRegistroAlgum ? empty : `
@@ -1295,7 +1373,7 @@ function renderDashboardHTML() {
         ${dashboardNavHTML()}
         <div class="resumo-scroll">
           ${filtrosAtivos ? `<p class="dash-filtro-resumo">Mostrando <strong>${geral.total}</strong> de ${state.pafs.length} PAFs cadastrados, conforme os filtros acima.</p>` : ""}
-          <div id="dash-sec-geral">${resumoGeralGeralHTML(geral)}</div>
+          <div id="dash-sec-geral">${resumoGeralGeralHTML(geral, anteriorTotal)}</div>
           <div id="dash-sec-perfil">${resumoGeralPerfilHTML(geral)}</div>
           <div id="dash-sec-territorio">${resumoGeralTerritorioHTML(geral)}</div>
           <div id="dash-sec-vulnerabilidades">${resumoGeralVulnerabilidadesHTML(geral)}</div>
@@ -1309,10 +1387,26 @@ function renderDashboardHTML() {
   </div>`;
 }
 
+// Descreve em texto os filtros ativos no painel de Gráficos (período/CRAS/técnico),
+// usado tanto no aviso em tela quanto no cabeçalho do relatório impresso/PDF.
+function dashboardFiltrosLabels() {
+  const labels = [];
+  if (state.dashPeriodo && state.dashPeriodo !== "tudo") {
+    labels.push(DASH_PERIODOS.find(p => p.v === state.dashPeriodo)?.label || state.dashPeriodo);
+  }
+  if (state.dashCras) labels.push(`CRAS: ${state.dashCras}`);
+  if (state.dashTecnico) labels.push(`Técnico: ${state.dashTecnico}`);
+  return labels;
+}
+
 function attachDashboardHandlers() {
   document.getElementById("dashboardImprimirBtn")?.addEventListener("click", () => {
     const pafsFiltrados = dashboardPafsFiltrados();
-    imprimirResumoMensal(computeResumoGeral(pafsFiltrados), computeResumoMensal(pafsFiltrados));
+    imprimirResumoMensal(computeResumoGeral(pafsFiltrados), computeResumoMensal(pafsFiltrados), {
+      filtros: dashboardFiltrosLabels(),
+      anteriorTotal: dashboardPeriodoAnteriorTotal(),
+      totalGeral: state.pafs.length
+    });
   });
   document.querySelectorAll("[data-dash-periodo]").forEach(btn => {
     btn.addEventListener("click", () => { state.dashPeriodo = btn.dataset.dashPeriodo; renderApp(); });
@@ -1325,8 +1419,24 @@ function attachDashboardHandlers() {
   document.querySelectorAll("[data-scrollto]").forEach(btn => {
     btn.addEventListener("click", () => {
       document.getElementById(btn.dataset.scrollto)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.querySelectorAll(".dash-nav-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
     });
   });
+
+  // Realça no menu de navegação a seção do painel que está visível na tela no momento.
+  const navBtns = document.querySelectorAll(".dash-nav-btn");
+  const secoes = DASH_SECOES_NAV.map(s => document.getElementById(s.id)).filter(Boolean);
+  if (navBtns.length && secoes.length && "IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          navBtns.forEach(b => b.classList.toggle("active", b.dataset.scrollto === entry.target.id));
+        }
+      });
+    }, { rootMargin: "-15% 0px -70% 0px", threshold: 0 });
+    secoes.forEach(sec => observer.observe(sec));
+  }
 }
 
 function openResumoModal() {
@@ -1348,7 +1458,7 @@ function openResumoModal() {
         </div>
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="btn btn-ghost" id="resumoCloseBtn">Fechar</button>
-          <button class="btn btn-primary" id="resumoImprimirBtn">Imprimir / Baixar PDF</button>
+          <button class="btn btn-primary" id="resumoImprimirBtn">${uiIconSvg("printer", 15)} Imprimir / Baixar PDF</button>
         </div>
       </div>
     </div>`;
@@ -1356,7 +1466,10 @@ function openResumoModal() {
   document.getElementById("resumoImprimirBtn").onclick = () => imprimirResumoMensal(geral, grupos);
 }
 
-function imprimirResumoMensal(geral, grupos) {
+function imprimirResumoMensal(geral, grupos, contexto) {
+  contexto = contexto || {};
+  const filtros = contexto.filtros || [];
+  const temFiltro = filtros.length > 0;
   const printWin = window.open("", "_blank");
   if (!printWin) {
     toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
@@ -1442,6 +1555,19 @@ function imprimirResumoMensal(geral, grupos) {
 
         .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 20px; }
         .kpi-grid-sec { grid-template-columns: repeat(3, 1fr); margin-bottom: 14px; }
+        .kpi-grid-hero { margin-bottom: 12px; }
+        .kpi-grid-hero .kpi-card { padding: 14px 10px 12px; border-top-width: 4px; background: linear-gradient(180deg, #FAFBFC 0%, #EEF5F2 100%); }
+        .kpi-grid-hero .kpi-valor { font-size: 23px; }
+        .kpi-grid-hero .kpi-label { font-size: 9px; }
+        .kpi-grid-hero .kpi-card:nth-child(1) { border-top-color: #1F3A5F; }
+        .kpi-grid-hero .kpi-card:nth-child(2) { border-top-color: #2E7D6B; }
+        .kpi-grid-hero .kpi-card:nth-child(3) { border-top-color: #B98A34; }
+        .kpi-grid-hero .kpi-card:nth-child(4) { border-top-color: #8B6BAE; }
+        .kpi-delta { display: inline-flex; align-items: center; gap: 3px; margin-top: 6px; padding: 1px 7px; border-radius: 20px; font-size: 8.5px; font-weight: 700; }
+        .kpi-delta-up { background: #DEEAE6; color: #1F5C4E; }
+        .kpi-delta-down { background: #F5E0DD; color: #B5473F; }
+        .kpi-delta-neutro { background: #E7ECF1; color: #52667C; }
+        .dash-comparativo-hint { font-size: 9px; color: #8496A8; margin: -6px 0 16px; }
         .kpi-card {
           border: 1px solid #dde3e8; border-top: 3px solid #2E7D6B; border-radius: 8px;
           padding: 10px 10px 9px; text-align: center; page-break-inside: avoid;
@@ -1452,6 +1578,30 @@ function imprimirResumoMensal(geral, grupos) {
         .kpi-grid .kpi-card:nth-child(4n+4) { border-top-color: #8B6BAE; }
         .kpi-valor { display: block; font-family: 'Times New Roman', Times, serif; font-size: 18px; font-weight: 700; color: #1F3A5F; }
         .kpi-label { display: block; font-size: 8.7px; color: #5b7186; text-transform: uppercase; letter-spacing: .025em; margin-top: 3px; line-height: 1.35; }
+
+        /* ---- Filtros aplicados (quando o relatório é gerado a partir do painel com filtros ativos) ---- */
+        .filtro-box {
+          display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 18px;
+          background: #FBF6EA; border: 1px solid #D7C39A; border-radius: 7px; padding: 9px 13px;
+          font-size: 9.5px; color: #7A5A1E;
+        }
+        .filtro-box strong { color: #5A4116; text-transform: uppercase; letter-spacing: .04em; font-size: 8px; margin-right: 2px; }
+        .filtro-chip-pdf {
+          background: #fff; border: 1px solid #D7C39A; border-radius: 20px; padding: 2px 9px; font-weight: 600;
+        }
+
+        /* ---- Sumário: índice das seções do relatório, logo abaixo da capa ---- */
+        .sumario-box { margin: 0 0 22px; page-break-inside: avoid; }
+        .sumario-box h5 {
+          font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: #B98A34;
+          margin: 0 0 8px; font-weight: 700;
+        }
+        .sumario-lista { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 18px; list-style: none; margin: 0; padding: 0; }
+        .sumario-lista li {
+          font-size: 10px; color: #1F3A5F; display: flex; align-items: baseline; gap: 6px;
+          border-bottom: 1px dotted #D7E0E6; padding-bottom: 3px;
+        }
+        .sumario-lista li::before { content: "§"; color: #B98A34; font-weight: 700; }
 
         .resumo-secao { margin-bottom: 20px; page-break-inside: avoid; }
         .resumo-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
@@ -1549,14 +1699,34 @@ function imprimirResumoMensal(geral, grupos) {
           <p>Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
         </div>
         <div class="capa-ficha">
-          <span class="lbl">Total de famílias</span>
-          <span class="num">${geral.total}</span>
+          <span class="lbl">${temFiltro ? "Famílias no filtro" : "Total de famílias"}</span>
+          <span class="num">${geral.total}${temFiltro && contexto.totalGeral != null ? ` <span style="font-size:11px;font-weight:400;color:#8496A8;">/ ${contexto.totalGeral}</span>` : ""}</span>
           <span class="lbl" style="margin-top:5px;">Emitido em</span>
           ${fmtDateBR(todayISO())}
         </div>
       </div>
 
-      ${resumoGeralHTML(geral)}
+      ${temFiltro ? `
+      <div class="filtro-box">
+        <strong>Filtros aplicados neste relatório:</strong>
+        ${filtros.map(f => `<span class="filtro-chip-pdf">${escapeHtml(f)}</span>`).join("")}
+      </div>` : ""}
+
+      <div class="sumario-box">
+        <h5>Neste relatório</h5>
+        <ul class="sumario-lista">
+          <li>Visão geral e situação dos PAFs</li>
+          <li>Perfil das famílias por unidade</li>
+          <li>Território, migração e povos indígenas</li>
+          <li>Vulnerabilidades e situações sociais</li>
+          <li>Programas, benefícios e encaminhamentos</li>
+          <li>Equipe de referência e rede acionada</li>
+          <li>Metas e evolução do Plano</li>
+          <li>Evolução mensal (entradas e saídas)</li>
+        </ul>
+      </div>
+
+      ${resumoGeralHTML(geral, contexto.anteriorTotal)}
       <div class="resumo-secao">
         <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
         ${resumoMensalTabelaHTML(grupos)}
@@ -1944,7 +2114,7 @@ function renderHomeHTML() {
     <div class="empty-state">
       <div class="empty-illustration">${protecaoIllustration(52)}</div>
       <p>${state.pafs.length === 0 ? "Nenhum Plano de Acompanhamento Familiar cadastrado ainda." : "Nenhum registro corresponde à busca/filtro."}</p>
-      ${state.pafs.length === 0 ? '<button class="btn btn-primary" id="emptyNewBtn">+ Novo PAF</button>' : ""}
+      ${state.pafs.length === 0 ? `<button class="btn btn-primary" id="emptyNewBtn">${uiIconSvg("plus", 15)} Novo PAF</button>` : ""}
     </div>`;
 
   return `
@@ -1957,8 +2127,8 @@ function renderHomeHTML() {
       </div>
       <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost" id="resumoMensalBtn">📊 Ver gráficos</button>
-        <button class="btn btn-primary" id="newPafBtn">+ Novo PAF</button>
+        <button class="btn btn-ghost" id="resumoMensalBtn">${uiIconSvg("chartBars", 15)} Ver gráficos</button>
+        <button class="btn btn-primary" id="newPafBtn">${uiIconSvg("plus", 15)} Novo PAF</button>
       </div>
     </div>
     ${pilaresPaifStripHTML()}
@@ -2060,7 +2230,7 @@ function renderEditorHTML() {
     <div class="form-scroll" id="formScroll">
       <div class="form-inner">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-          <button class="btn btn-ghost btn-sm" id="backHomeBtn">← Voltar à lista</button>
+          <button class="btn btn-ghost btn-sm" id="backHomeBtn">${uiIconSvg("chevronLeft", 13)} Voltar à lista</button>
           <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
           <span class="section-pos-tag">Seção ${activeIdx + 1} de ${totalSecoes}</span>
           <div class="status-picker" style="margin-left:auto">
@@ -2074,10 +2244,10 @@ function renderEditorHTML() {
         </div>
         <div class="section-nav">
           ${prevSection
-            ? `<button class="btn btn-ghost section-nav-btn prev" data-section="${prevSection.id}"><span class="section-nav-arrow">←</span><span class="section-nav-text"><em>Seção anterior</em><span class="section-nav-label">${prevSection.label}</span></span></button>`
+            ? `<button class="btn btn-ghost section-nav-btn prev" data-section="${prevSection.id}"><span class="section-nav-arrow">${uiIconSvg("chevronLeft", 14)}</span><span class="section-nav-text"><em>Seção anterior</em><span class="section-nav-label">${prevSection.label}</span></span></button>`
             : `<span class="section-nav-spacer"></span>`}
           ${nextSection
-            ? `<button class="btn btn-primary section-nav-btn next" data-section="${nextSection.id}"><span class="section-nav-text"><em>Próxima seção</em><span class="section-nav-label">${nextSection.label}</span></span><span class="section-nav-arrow">→</span></button>`
+            ? `<button class="btn btn-primary section-nav-btn next" data-section="${nextSection.id}"><span class="section-nav-text"><em>Próxima seção</em><span class="section-nav-label">${nextSection.label}</span></span><span class="section-nav-arrow">${uiIconSvg("chevronRight", 14)}</span></button>`
             : `<span class="section-nav-spacer"></span>`}
         </div>
       </div>
@@ -2237,7 +2407,7 @@ function renderSection(id, paf) {
                 <td><input type="text" list="nacionalidadesList" data-field="membros.${i}.nacionalidade" value="${escapeHtml(m.nacionalidade)}"></td>
                 <td><input type="text" list="etniasIndigenasList" data-field="membros.${i}.etnia" value="${escapeHtml(m.etnia)}"></td>
                 <td style="text-align:center;"><input type="checkbox" data-field-check="membros.${i}.pcd" ${m.pcd ? "checked" : ""} title="Pessoa com deficiência"></td>
-                <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover" aria-label="Remover membro">✕</button></td>
+                <td><button class="row-del" data-action="remove-membro" data-idx="${i}" title="Remover" aria-label="Remover membro">${uiIconSvg("close", 12)}</button></td>
               </tr>`).join("")}
           </tbody>
         </table>
@@ -2405,8 +2575,8 @@ function renderSection(id, paf) {
                 <td><input type="text" data-field="encaminhamentosForm.${i}.profissionalOrigem" value="${escapeHtml(e.profissionalOrigem)}" placeholder="${escapeHtml(paf.tecnicoReferencia) || ''}"></td>
                 <td><input type="text" data-field="encaminhamentosForm.${i}.telefoneOrigem" value="${escapeHtml(e.telefoneOrigem)}"></td>
                 <td style="white-space:nowrap;">
-                  <button class="btn btn-ghost btn-sm" data-action="imprimir-encaminhamento" data-idx="${i}" title="Gerar e imprimir" aria-label="Gerar e imprimir formulário de encaminhamento">🖨️</button>
-                  <button class="row-del" data-action="remove-encaminhamento" data-idx="${i}" title="Remover" aria-label="Remover encaminhamento">✕</button>
+                  <button class="btn btn-ghost btn-sm" data-action="imprimir-encaminhamento" data-idx="${i}" title="Gerar e imprimir" aria-label="Gerar e imprimir formulário de encaminhamento">${uiIconSvg("printer", 13)}</button>
+                  <button class="row-del" data-action="remove-encaminhamento" data-idx="${i}" title="Remover" aria-label="Remover encaminhamento">${uiIconSvg("close", 12)}</button>
                 </td>
               </tr>
               <tr>
@@ -2498,7 +2668,7 @@ function renderSection(id, paf) {
                 <span class="mes">${escapeHtml(badge.mes)}</span>
               </div>
               <div class="timeline-card">
-                <button class="row-del" data-action="remove-atendimento" data-idx="${i}" title="Remover este atendimento" aria-label="Remover este atendimento">✕</button>
+                <button class="row-del" data-action="remove-atendimento" data-idx="${i}" title="Remover este atendimento" aria-label="Remover este atendimento">${uiIconSvg("close", 12)}</button>
                 <div class="timeline-row">
                   <div class="f"><label>Data</label><input type="date" data-field="atendimentos.${i}.data" value="${escapeHtml(a.data)}"></div>
                   <div class="f"><label>Tipo de Atendimento</label>
@@ -2617,7 +2787,7 @@ function renderSection(id, paf) {
           <input type="file" id="anexoInput" accept="image/*,application/pdf" multiple style="display:none">
         </label>
         <p class="hint">Imagens são comprimidas automaticamente ao anexar. Tamanho total dos anexos deste PAF: <strong>${fmtBytes(total)}</strong>${state.mode === "cloud" ? " (modo nuvem)" : " (somente neste dispositivo)"}.</p>
-        ${avisoNuvem ? `<p class="anexo-aviso">⚠️ Os anexos estão ficando grandes para o modo nuvem (limite de sincronização por registro). Prefira menos arquivos ou imagens menores.</p>` : ""}
+        ${avisoNuvem ? `<p class="anexo-aviso">${uiIconSvg("warning", 13)} Os anexos estão ficando grandes para o modo nuvem (limite de sincronização por registro). Prefira menos arquivos ou imagens menores.</p>` : ""}
         ${anexos.length ? `<div class="anexo-grid">${cards}</div>` : `<p class="hint" style="margin-top:10px;">Nenhum anexo adicionado ainda.</p>`}
       </div>`;
     }
@@ -2949,7 +3119,7 @@ function exportPDF(paf) {
               <span class="reg-tecnico">${escapeHtml(a.tecnico) || escapeHtml(paf.tecnicoReferencia) || "Técnico não informado"}</span>
             </div>
             ${a.evolucao ? `<p class="reg-evolucao">${escapeHtml(a.evolucao)}</p>` : `<p class="reg-evolucao muted">Sem observações registradas.</p>`}
-            ${a.encaminhamentos ? `<p class="reg-encam"><strong>↳ Encaminhamentos:</strong> ${escapeHtml(a.encaminhamentos)}</p>` : ""}
+            ${a.encaminhamentos ? `<p class="reg-encam"><strong>${uiIconSvg("nestedArrow", 11)} Encaminhamentos:</strong> ${escapeHtml(a.encaminhamentos)}</p>` : ""}
           </div>
         </div>`;
       }).join("")
