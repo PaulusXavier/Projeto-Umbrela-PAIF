@@ -2378,20 +2378,25 @@ function situacaoMembrosField(paf, i, row) {
 // específico ao abrir o registro — sem precisar ir até o painel geral de Gráficos.
 function computeFamiliaResumo(paf) {
   const membrosComNome = (paf.membros || []).filter(m => m.nome);
+  // O responsável familiar tem seus próprios campos no Cabeçalho (não fica na lista de
+  // "Membros da Família"), mas para os gráficos ele conta como mais um membro da família.
+  const membrosParaGraficos = paf.responsavel
+    ? [...membrosComNome, { sexo: paf.responsavelSexo, nascimento: paf.responsavelNascimento, parentesco: "Responsável familiar", pcd: false }]
+    : membrosComNome;
 
   const porSexo = {};
-  membrosComNome.forEach(m => {
+  membrosParaGraficos.forEach(m => {
     const label = m.sexo === "F" ? "Feminino" : m.sexo === "M" ? "Masculino" : "Não informado";
     porSexo[label] = (porSexo[label] || 0) + 1;
   });
 
   const porFaixa = {};
-  membrosComNome.forEach(m => {
+  membrosParaGraficos.forEach(m => {
     porFaixa[faixaEtaria(calcularIdade(m.nascimento))] = (porFaixa[faixaEtaria(calcularIdade(m.nascimento))] || 0) + 1;
   });
 
   const porParentesco = {};
-  membrosComNome.forEach(m => {
+  membrosParaGraficos.forEach(m => {
     const p = (m.parentesco || "").trim() || "Não informado";
     porParentesco[p] = (porParentesco[p] || 0) + 1;
   });
@@ -2429,7 +2434,7 @@ function computeFamiliaResumo(paf) {
   const rendeSocioassistencial = [...(paf.servBasica || []), ...(paf.servMedia || []), ...(paf.servAlta || [])];
 
   return {
-    totalMembros: membrosComNome.length,
+    totalMembros: membrosParaGraficos.length,
     totalPCD: membrosComNome.filter(m => m.pcd).length,
     porSexo, porFaixa, porParentesco,
     totalSituacoesAtivas, totalSituacoesSuperadas,
