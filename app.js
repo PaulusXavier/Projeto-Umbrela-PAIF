@@ -240,7 +240,6 @@ const ENCAMINHAMENTO_AREAS = [
 
 const SECTIONS = [
   { id: "cabecalho", label: "Cabeçalho" },
-  { id: "graficos", label: "Gráficos da Família" },
   { id: "familia", label: "Membros da Família" },
   { id: "diagnostico", label: "Diagnóstico" },
   { id: "grupo", label: "Situações, Trabalho Coletivo e Serviços" },
@@ -252,7 +251,8 @@ const SECTIONS = [
   { id: "plano", label: "Elaboração do Plano" },
   { id: "encerramento", label: "Encerramento" },
   { id: "anexos", label: "Anexos" },
-  { id: "observacoes", label: "Observações" }
+  { id: "observacoes", label: "Observações" },
+  { id: "graficos", label: "Gráficos da Família" }
 ];
 
 // Ícones de linha (mesmo vocabulário visual do brasão do cabeçalho: traço fino,
@@ -2099,20 +2099,38 @@ function renderHomeHTML() {
     return `<button class="filter-chip ${state.statusFilter === s ? "active" : ""}" data-status="${s}">${label}</button>`;
   }).join("");
 
+  // Visão geral rápida do painel (independe da busca/filtro ativos), para dar
+  // uma leitura imediata do volume de PAFs por situação antes de rolar a lista.
+  const statsGeral = state.pafs.length ? computeResumoGeral(state.pafs) : null;
+  const kpiStripHTML = statsGeral ? `
+    <div class="kpi-grid home-kpi-strip">
+      ${kpiCardHTML(statsGeral.total, "Total de PAFs", "cabecalho")}
+      ${kpiCardHTML(statsGeral.porStatus.andamento || 0, "Em andamento", "diagnostico")}
+      ${kpiCardHTML(statsGeral.porStatus.encaminhado || 0, "Encaminhados", "encaminhamentos")}
+      ${kpiCardHTML(statsGeral.porStatus.concluido || 0, "Concluídos", "encerramento")}
+    </div>` : "";
+
   const rows = list.map(p => {
     const membrosCount = (p.membros || []).filter(m => m.nome).length;
+    const atendCount = (p.atendimentos || []).length;
     const protocolo = protocoloNumero(p);
     const inicial = escapeHtml((p.responsavel || "?").trim().charAt(0).toUpperCase() || "?");
+    const progresso = pafProgresso(p);
+    const atualizadoEm = fmtDateBR((p.updatedAt || "").slice(0, 10));
     return `
     <div class="record-row status-${p.situacaoPAF}" data-open="${p.id}">
-      <div class="record-index">${inicial}</div>
+      <div class="record-index record-index-${p.situacaoPAF}">${inicial}</div>
       <div class="record-main">
         <div class="record-name">${escapeHtml(p.responsavel) || "Sem nome do responsável"}</div>
         <div class="record-protocolo">Prontuário Nº ${protocolo}</div>
+        <div class="record-progress" title="${progresso}% do PAF preenchido"><div class="record-progress-fill" style="width:${progresso}%"></div></div>
       </div>
       <div class="record-cras">${escapeHtml(p.crasNome) || "—"}</div>
-      <div class="record-col record-membros">${membrosCount} memb.</div>
-      <div class="record-col record-data">${fmtDateBR(p.dataInicial) || "—"}</div>
+      <div class="record-col record-membros">
+        <span class="record-chip">${sectionIconSvg("familia", 11)}${membrosCount}</span>
+        <span class="record-chip-sub">${atendCount} atend.</span>
+      </div>
+      <div class="record-col record-data" title="${atualizadoEm ? "Atualizado em " + atualizadoEm : ""}">${fmtDateBR(p.dataInicial) || "—"}</div>
       <div class="record-status">
         <span class="folder-tab ${p.situacaoPAF}">${STATUS_LABELS[p.situacaoPAF] || "Em andamento"}</span>
       </div>
@@ -2162,6 +2180,7 @@ function renderHomeHTML() {
         <button class="btn btn-primary" id="newPafBtn">${uiIconSvg("plus", 15)} Novo PAF</button>
       </div>
     </div>
+    ${kpiStripHTML}
     ${pilaresPaifStripHTML()}
     <div class="search-row">
       <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF ou CRAS…" value="${escapeHtml(state.search)}">
@@ -2233,18 +2252,23 @@ function tabCompleteness(paf) {
   };
 }
 
+// Percentual de preenchimento do PAF (mesmas seções usadas na barra de progresso do
+// editor, sempre excluindo "Gráficos da Família" por não ter campos próprios) —
+// reaproveitado tanto no editor quanto nos cartões da lista de registros.
+const SECOES_PROGRESSO = SECTIONS.filter(s => s.id !== "graficos");
+function pafProgresso(paf) {
+  const complete = tabCompleteness(paf);
+  const completas = SECOES_PROGRESSO.filter(s => complete[s.id]).length;
+  return Math.round((completas / SECOES_PROGRESSO.length) * 100);
+}
+
 function renderEditorHTML() {
   const paf = state.current;
   const complete = tabCompleteness(paf);
-  // A seção "Gráficos da Família" é só leitura (não tem campos próprios preenchíveis),
-  // então fica de fora do cálculo de progresso de preenchimento do PAF.
-  const secoesProgresso = SECTIONS.filter(s => s.id !== "graficos");
-  const totalSecoes = secoesProgresso.length;
-  const secoesCompletas = secoesProgresso.filter(s => complete[s.id]).length;
-  const progresso = Math.round((secoesCompletas / totalSecoes) * 100);
+  const progresso = pafProgresso(paf);
   const rail = SECTIONS.map(s => `
     <div class="tab-item ${state.activeSection === s.id ? "active" : ""} ${complete[s.id] ? "complete" : ""}" data-section="${s.id}">
-      <span class="rivet"></span>${sectionIconSvg(s.id)}<span class="tab-item-label">${s.label}</span>
+      <span class="rivet"></span>${sectionIconSvg(s.id)}<span class="tab-item-label${s.id === "graficos" ? " tab-item-label-strong" : ""}">${s.label}</span>
     </div>`).join("");
 
   const activeIdx = SECTIONS.findIndex(s => s.id === state.activeSection);
@@ -2255,7 +2279,7 @@ function renderEditorHTML() {
   <div class="editor-wrap">
     <nav class="tab-rail ${state.railOpen ? "open" : ""}" id="tabRail">
       <div class="rail-label">Seções do PAF</div>
-      <div class="rail-progress" title="${secoesCompletas} de ${totalSecoes} seções com informações preenchidas">
+      <div class="rail-progress" title="${progresso}% das seções com informações preenchidas">
         <div class="rail-progress-track"><div class="rail-progress-fill" style="width:${progresso}%"></div></div>
         <span class="rail-progress-label">${progresso}% preenchido</span>
       </div>
@@ -2266,7 +2290,7 @@ function renderEditorHTML() {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="backHomeBtn">${uiIconSvg("chevronLeft", 13)} Voltar à lista</button>
           <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
-          <span class="section-pos-tag">Seção ${activeIdx + 1} de ${totalSecoes}</span>
+          <span class="section-pos-tag">Seção ${activeIdx + 1} de ${SECTIONS.length}</span>
           <div class="status-picker" style="margin-left:auto">
             ${["andamento", "encaminhado", "concluido", "cancelado"].map(s => `
               <button class="status-opt ${paf.situacaoPAF === s ? "selected " + s : ""}" data-set-status="${s}">${STATUS_LABELS[s]}</button>
