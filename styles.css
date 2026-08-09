@@ -912,6 +912,13 @@ main { flex: 1; display: flex; min-height: 0; }
 .resumo-tabela tbody tr:nth-child(even) td { background: var(--paper-soft); }
 .resumo-tabela tfoot th { background: var(--gold-soft); color: #7A5A1E; }
 
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-tag {
+  display: inline-block; font-size: 11.5px; line-height: 1.3; padding: 5px 10px;
+  background: var(--accent-soft); color: var(--accent-dark); border: 1px solid var(--line);
+  border-radius: 999px; font-weight: 600;
+}
+
 /* ---- Gráficos: rosquinha (donut), barra de evolução mensal e legendas ---- */
 .donut-wrap { display: flex; align-items: center; gap: 14px; }
 .donut-svg { flex-shrink: 0; }
