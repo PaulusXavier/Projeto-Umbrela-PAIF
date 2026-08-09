@@ -661,6 +661,9 @@ main { flex: 1; display: flex; min-height: 0; }
 .matrix-row .situ-label { font-size: 12.5px; padding-top: 8px; color: var(--ink); }
 .matrix-row input[type=text] { width: 100%; padding: 7px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--paper-soft); }
 .matrix-row .chk { padding: 6px 0 0; }
+.matrix-row.potencial-row { grid-template-columns: 1.8fr 1.5fr 1.8fr; }
+.matrix-row.potencial-row .radio-row { padding-top: 6px; }
+@media (max-width: 700px) { .matrix-row.potencial-row { grid-template-columns: 1fr; } }
 .situ-membros-picker { display: flex; flex-wrap: wrap; gap: 4px 10px; padding-top: 4px; }
 .situ-membros-picker .chk-mini { font-size: 12px; }
 
