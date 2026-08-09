@@ -240,6 +240,7 @@ const ENCAMINHAMENTO_AREAS = [
 
 const SECTIONS = [
   { id: "cabecalho", label: "Cabeçalho" },
+  { id: "graficos", label: "Gráficos da Família" },
   { id: "familia", label: "Membros da Família" },
   { id: "diagnostico", label: "Diagnóstico" },
   { id: "grupo", label: "Situações, Trabalho Coletivo e Serviços" },
@@ -259,6 +260,7 @@ const SECTIONS = [
 // visualmente do que trata cada etapa do PAF, sem virar decoração gratuita.
 const SECTION_ICONS = {
   cabecalho: `<circle cx="12" cy="8.5" r="3.1"/><path d="M5.5 19.5c1.2-3.4 3.7-5 6.5-5s5.3 1.6 6.5 5"/>`,
+  graficos: `<path d="M4 20V10.5M11 20V4M18 20v-7.5"/><path d="M4 20h16"/>`,
   familia: `<circle cx="8" cy="8" r="2.6"/><circle cx="16" cy="8" r="2.6"/><path d="M3.2 19c.9-2.8 2.6-4.2 4.8-4.2s3.9 1.4 4.8 4.2M10.2 19c.9-2.8 2.6-4.2 4.8-4.2s3.9 1.4 4.8 4.2"/>`,
   diagnostico: `<circle cx="10.5" cy="10.5" r="5.3"/><path d="M14.6 14.6 19 19"/><path d="M8 10.5h5M10.5 8v5"/>`,
   grupo: `<path d="M4 15c0-3 1.6-5 4-5s3.3 1.4 4 2.6c.7-1.2 1.6-2.6 4-2.6s4 2 4 5"/><path d="M4 15v2.2M20 15v2.2"/><path d="M9.5 9.5a3 2.2 0 1 0 5 0"/>`,
@@ -2040,7 +2042,8 @@ function openPAF(id) {
   });
 
   state.view = "editor";
-  state.activeSection = "cabecalho";
+  // Ao abrir um PAF já existente, mostra primeiro os gráficos da família.
+  state.activeSection = "graficos";
   renderApp();
 }
 
@@ -2233,8 +2236,11 @@ function tabCompleteness(paf) {
 function renderEditorHTML() {
   const paf = state.current;
   const complete = tabCompleteness(paf);
-  const totalSecoes = SECTIONS.length;
-  const secoesCompletas = SECTIONS.filter(s => complete[s.id]).length;
+  // A seção "Gráficos da Família" é só leitura (não tem campos próprios preenchíveis),
+  // então fica de fora do cálculo de progresso de preenchimento do PAF.
+  const secoesProgresso = SECTIONS.filter(s => s.id !== "graficos");
+  const totalSecoes = secoesProgresso.length;
+  const secoesCompletas = secoesProgresso.filter(s => complete[s.id]).length;
   const progresso = Math.round((secoesCompletas / totalSecoes) * 100);
   const rail = SECTIONS.map(s => `
     <div class="tab-item ${state.activeSection === s.id ? "active" : ""} ${complete[s.id] ? "complete" : ""}" data-section="${s.id}">
@@ -2341,8 +2347,165 @@ function situacaoMembrosField(paf, i, row) {
   </details>`;
 }
 
+/* ---------------------------- Gráficos da Família (por PAF) ---------------------------- */
+
+// Mesma lógica do resumo geral (computeResumoGeral), mas aplicada a um único PAF/família,
+// para que a equipe visualize rapidamente o perfil e a evolução daquele acompanhamento
+// específico ao abrir o registro — sem precisar ir até o painel geral de Gráficos.
+function computeFamiliaResumo(paf) {
+  const membrosComNome = (paf.membros || []).filter(m => m.nome);
+
+  const porSexo = {};
+  membrosComNome.forEach(m => {
+    const label = m.sexo === "F" ? "Feminino" : m.sexo === "M" ? "Masculino" : "Não informado";
+    porSexo[label] = (porSexo[label] || 0) + 1;
+  });
+
+  const porFaixa = {};
+  membrosComNome.forEach(m => {
+    porFaixa[faixaEtaria(calcularIdade(m.nascimento))] = (porFaixa[faixaEtaria(calcularIdade(m.nascimento))] || 0) + 1;
+  });
+
+  const porParentesco = {};
+  membrosComNome.forEach(m => {
+    const p = (m.parentesco || "").trim() || "Não informado";
+    porParentesco[p] = (porParentesco[p] || 0) + 1;
+  });
+
+  let totalSituacoesAtivas = 0, totalSituacoesSuperadas = 0;
+  (paf.situacoesSociais || []).forEach(s => {
+    if (s.membros) {
+      totalSituacoesAtivas++;
+      if (s.superada) totalSituacoesSuperadas++;
+    }
+  });
+
+  const porPotencial = {};
+  (paf.potencialidades || []).forEach(p => { if (p.situacao) porPotencial[p.situacao] = (porPotencial[p.situacao] || 0) + 1; });
+
+  const porEncArea = {};
+  (paf.encaminhamentosForm || []).forEach(e => {
+    const area = (e.area || "").trim() || "Não informada";
+    porEncArea[area] = (porEncArea[area] || 0) + 1;
+  });
+
+  const porAtendimentoTipo = {};
+  const porAtendimentoMesRaw = {};
+  (paf.atendimentos || []).forEach(a => {
+    const tipo = (a.tipo || "").trim() || "Não informado";
+    porAtendimentoTipo[tipo] = (porAtendimentoTipo[tipo] || 0) + 1;
+    if (a.data) {
+      const ym = a.data.slice(0, 7);
+      porAtendimentoMesRaw[ym] = (porAtendimentoMesRaw[ym] || 0) + 1;
+    }
+  });
+  const porAtendimentoMes = {};
+  Object.keys(porAtendimentoMesRaw).sort().forEach(ym => { porAtendimentoMes[labelYmCurto(ym)] = porAtendimentoMesRaw[ym]; });
+
+  const rendeSocioassistencial = [...(paf.servBasica || []), ...(paf.servMedia || []), ...(paf.servAlta || [])];
+
+  return {
+    totalMembros: membrosComNome.length,
+    totalPCD: membrosComNome.filter(m => m.pcd).length,
+    porSexo, porFaixa, porParentesco,
+    totalSituacoesAtivas, totalSituacoesSuperadas,
+    pctSituacoesSuperadas: totalSituacoesAtivas ? Math.round((totalSituacoesSuperadas / totalSituacoesAtivas) * 100) : 0,
+    porPotencial, porEncArea, porAtendimentoTipo, porAtendimentoMes,
+    totalEncaminhamentos: (paf.encaminhamentosForm || []).length,
+    totalAtendimentos: (paf.atendimentos || []).length,
+    rendeSocioassistencial,
+    atividadesColetivas: paf.atividadesColetivas || [],
+    vulnerabilidades: paf.vulnerabilidades || [],
+    redeApoio: paf.redeApoio || [],
+    programasQuais: paf.participaProgramas === "Sim" ? (paf.programasQuais || []) : [],
+    beneficioQuais: paf.recebeBeneficio === "Sim" ? (paf.beneficioQuais || []) : []
+  };
+}
+
+function chipListHTML(arr) {
+  if (!arr || !arr.length) return `<p class="muted" style="font-size:12px;">Nenhum registrado.</p>`;
+  return `<div class="chip-list">${arr.map(v => `<span class="chip-tag">${escapeHtml(v)}</span>`).join("")}</div>`;
+}
+
+function graficosFamiliaHTML(paf) {
+  const r = computeFamiliaResumo(paf);
+  const meses = mesesEmAcompanhamento(paf.dataInicial);
+  const semDadosFamilia = r.totalMembros === 0;
+
+  return `
+  <div class="section-card prontuario-header">
+    <div class="prontuario-avatar">${escapeHtml((paf.responsavel || "?").trim().charAt(0).toUpperCase() || "?")}</div>
+    <div class="prontuario-info">
+      <h2 class="prontuario-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</h2>
+      <div class="prontuario-tags">
+        <span class="folder-tab ${paf.situacaoPAF}">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
+      </div>
+      <div class="prontuario-fields">
+        <div><span class="k">CRAS</span><span class="v">${escapeHtml(paf.crasNome) || "—"}</span></div>
+        <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
+        <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
+      </div>
+    </div>
+    <div class="prontuario-stats">
+      <div class="stat-box"><span class="stat-num">${r.totalMembros}</span><span class="stat-label">Membros da família</span></div>
+      <div class="stat-box"><span class="stat-num">${meses === null ? "—" : meses}</span><span class="stat-label">Meses em acompanhamento</span></div>
+      <div class="stat-box"><span class="stat-num">${r.totalAtendimentos}</span><span class="stat-label">Atendimentos</span></div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <h2><span class="section-icon-badge">${sectionIconSvg("graficos", 17)}</span>Gráficos da Família</h2>
+    <p class="section-sub">Leitura visual, a partir dos dados já preenchidos neste PAF, do perfil, do diagnóstico e da evolução do acompanhamento desta família específica.</p>
+    ${semDadosFamilia ? `<p class="hint">Cadastre os membros da família na seção "Membros da Família" para ver aqui a composição familiar e os demais gráficos.</p>` : ""}
+
+    <div class="resumo-secao">
+      <h4>${sectionIconSvg("familia", 16)} Composição familiar</h4>
+      <div class="resumo-cols resumo-cols-donut">
+        <div><strong>Sexo dos membros</strong>${donutChartSVG(r.porSexo, { centro: "membros" })}</div>
+        <div><strong>Faixa etária</strong>${donutChartSVG(r.porFaixa, { centro: "membros" })}</div>
+        <div><strong>Parentesco</strong>${barrasHTML(r.porParentesco)}</div>
+      </div>
+      ${r.totalPCD ? `<p class="hint" style="margin-top:10px;">${r.totalPCD} membro(s) com deficiência (PCD) identificado(s).</p>` : ""}
+    </div>
+
+    <div class="resumo-secao">
+      <h4>${sectionIconSvg("diagnostico", 16)} Diagnóstico: vulnerabilidades e potencialidades</h4>
+      <div class="resumo-cols">
+        <div><strong>Vulnerabilidades identificadas</strong>${chipListHTML(r.vulnerabilidades)}</div>
+        <div><strong>Potencialidades da família</strong>${donutChartSVG(r.porPotencial, { centro: "potenciais" })}</div>
+        <div><strong>Situações sociais: superadas x em acompanhamento</strong>${donutChartSVG({ "Superadas": r.totalSituacoesSuperadas, "Em acompanhamento": Math.max(r.totalSituacoesAtivas - r.totalSituacoesSuperadas, 0) }, { centro: "situações" })}</div>
+      </div>
+      ${r.totalSituacoesAtivas ? `<p class="hint" style="margin-top:10px;">Taxa de superação registrada: ${r.pctSituacoesSuperadas}% (${r.totalSituacoesSuperadas} de ${r.totalSituacoesAtivas} situações sociais identificadas para esta família).</p>` : ""}
+    </div>
+
+    <div class="resumo-secao">
+      <h4>${sectionIconSvg("metas", 16)} Atendimentos e encaminhamentos</h4>
+      ${r.totalAtendimentos ? `
+      <div class="resumo-cols">
+        <div><strong>Atendimentos por tipo</strong>${donutChartSVG(r.porAtendimentoTipo, { centro: "atend." })}</div>
+        <div><strong>Atendimentos por mês</strong>${barrasHTML(r.porAtendimentoMes)}</div>
+        <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea)}</div>
+      </div>` : `
+      <div class="resumo-cols">
+        <div><strong>Atendimentos por tipo</strong><p class="muted" style="font-size:12px;">Nenhum atendimento registrado ainda.</p></div>
+        <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea)}</div>
+      </div>`}
+    </div>
+
+    <div class="resumo-secao">
+      <h4>${sectionIconSvg("rede", 16)} Programas, benefícios e rede acionada</h4>
+      <div class="resumo-cols">
+        <div><strong>Programas/projetos</strong>${chipListHTML(r.programasQuais)}</div>
+        <div><strong>Benefícios recebidos</strong>${chipListHTML(r.beneficioQuais)}</div>
+        <div><strong>Rede socioassistencial acionada</strong>${chipListHTML(r.rendeSocioassistencial)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderSection(id, paf) {
   switch (id) {
+    case "graficos": return graficosFamiliaHTML(paf);
     case "cabecalho": return `
       <div class="section-card">
         ${sectionHeader("01", "Cabeçalho", "Identificação do CRAS, do responsável familiar e do plano.")}
