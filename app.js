@@ -26,6 +26,24 @@ const VULNERABILIDADES_FAMILIA = [
   "Famílias com crianças ou adolescentes em Serviço de Acolhimento Institucional"
 ];
 
+// Potencialidades da família — contraponto necessário ao diagnóstico de vulnerabilidades
+// (seção 03): baseado no modelo metodológico de Plano de Acompanhamento Familiar
+// pactuado pela Câmara Técnica da Comissão Intergestores Bipartite (CIB/MG, 2023) e
+// adotado como referência técnica por Sedese-MG para o PAIF e o PAEFI. Reconhece que
+// toda família, mesmo em vulnerabilidade, detém recursos e potencialidades próprias
+// (Caderno de Orientações Técnicas do PAIF, MDS) que devem ser mobilizados no Plano.
+const POTENCIALIDADES_FAMILIA = [
+  "Percepção da família em relação a direitos e deveres",
+  "Potencial para participação comunitária (sentimento de pertencimento)",
+  "Reconhecimento da capacidade de mudança (a família compreende que precisa modificar sua rotina e aproveitar novas oportunidades)",
+  "Desenvolvimento para atividades produtivas (inclusão no mercado de trabalho)",
+  "Apoio de rede primária (parentes, amigos, outros familiares)",
+  "Organização da família em função de objetivos comuns (organização da rotina familiar)",
+  "Manutenção dos vínculos de solidariedade (fortes vínculos comunitários)",
+  "Aptidão para trabalhos manuais",
+  "Compromisso(s) de cuidado(s) mútuo(s)"
+];
+
 const SITUACOES_SOCIAIS = [
   "Ausência de documentação civil",
   "Dificuldade de acesso a serviços públicos/benefícios",
@@ -129,9 +147,9 @@ const SEGURANCAS_SOCIOASSISTENCIAIS = [
 // ações que a própria equipe do CRAS realiza com a família e no território.
 const ATIVIDADES_COLETIVAS_PAIF = [
   "Acolhida (recepção e escuta inicial da família no CRAS)",
-  "Grupos de acompanhamento familiar do PAIF",
+  "Acompanhamento em grupo de famílias (PAIF)",
   "Grupos de Convivência e Fortalecimento de Vínculos (SCFV) articulados ao PAIF",
-  "Oficinas socioeducativas com famílias",
+  "Oficinas com famílias",
   "Ações comunitárias, campanhas ou mutirões no território",
   "Palestras informativas sobre direitos e serviços",
   "Mobilização e articulação da rede social de apoio no território"
@@ -551,6 +569,8 @@ function emptyPAF() {
     vulnerabilidades: [],
     vulnerabilidadesOutros: "",
     situacoesSociais: SITUACOES_SOCIAIS.map(s => ({ situacao: s, membros: "", superada: false })),
+    potencialidades: POTENCIALIDADES_FAMILIA.map(p => ({ potencial: p, situacao: "", observacoes: "" })),
+    barreirasDesafios: "",
     servBasica: [], servMedia: [], servAlta: [],
     atividadesColetivas: [],
     atividadesColetivasOutras: "",
@@ -2013,6 +2033,11 @@ function openPAF(id) {
   METAS_FIXAS.forEach(m => {
     if (!metasExistentes.has(m)) state.current.metas.push({ meta: m, prazo: "", resultados: "" });
   });
+  if (!state.current.potencialidades) state.current.potencialidades = [];
+  const potenciaisExistentes = new Set(state.current.potencialidades.map(p => p.potencial));
+  POTENCIALIDADES_FAMILIA.forEach(p => {
+    if (!potenciaisExistentes.has(p)) state.current.potencialidades.push({ potencial: p, situacao: "", observacoes: "" });
+  });
 
   state.view = "editor";
   state.activeSection = "cabecalho";
@@ -2191,7 +2216,7 @@ function tabCompleteness(paf) {
   return {
     cabecalho: !!(paf.responsavel && paf.crasNome),
     familia: paf.membros.some(m => m.nome),
-    diagnostico: paf.vulnerabilidades.length > 0,
+    diagnostico: paf.vulnerabilidades.length > 0 || (paf.potencialidades || []).some(p => p.situacao || p.observacoes),
     grupo: paf.situacoesSociais.some(s => s.membros) || (paf.atividadesColetivas || []).length || paf.servBasica.length || paf.servMedia.length || paf.servAlta.length,
     encaminhamentos: (paf.encaminhamentosForm || []).length > 0,
     programas: !!paf.participaProgramas,
@@ -2533,6 +2558,24 @@ function renderSection(id, paf) {
         ${notaTecnica("Genograma e ecomapa são instrumentais de leitura sistêmica da família e de sua rede de relações — recursos reconhecidos pelas Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS —, e não instrumentos de diagnóstico clínico individual. Seu uso no PAIF apoia a compreensão dos vínculos, papéis e potencialidades da família e do território, sempre a serviço do caráter preventivo e protetivo do Serviço, e nunca como avaliação psicológica formal ou psicoterapia, que estão fora do escopo do PAIF.")}
         ${chkList("instrumentaisTecnicos", INSTRUMENTAIS_TECNICOS, paf.instrumentaisTecnicos || [], true)}
         <div class="f c12" style="margin-top:12px"><label>Aspectos relacionais observados (dinâmica, comunicação, papéis, potencialidades e vínculos da família)</label><textarea rows="3" data-field="aspectosPsicossociaisObs">${escapeHtml(paf.aspectosPsicossociaisObs)}</textarea></div>
+      </div>
+
+      <div class="section-card">
+        <h2><span class="num">03f</span>Potencialidades da Família</h2>
+        <p class="section-sub">Contraponto necessário ao levantamento de vulnerabilidades acima: recursos e capacidades da própria família que podem ser mobilizados no Plano.</p>
+        ${notaTecnica("O modelo metodológico de Plano de Acompanhamento Familiar pactuado pela Câmara Técnica da Comissão Intergestores Bipartite (CIB/MG, 2023) e adotado como referência técnica por Sedese-MG para o PAIF e o PAEFI inclui, ao lado do diagnóstico de vulnerabilidades, um levantamento estruturado de potencialidades da família. Isso concretiza o princípio, já presente no Caderno de Orientações Técnicas do PAIF (MDS), de que nenhuma família em vulnerabilidade está desprovida de tudo: identificar seus recursos, vínculos e capacidades é o que permite construir metas realistas e não apenas listar problemas.")}
+        <div class="matrix-row potencial-row" style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
+          <div>Potencial</div><div>Situação</div><div>Observações</div>
+        </div>
+        ${(paf.potencialidades || []).map((row, i) => `
+          <div class="matrix-row potencial-row">
+            <div class="situ-label">${escapeHtml(row.potencial)}</div>
+            <div class="radio-row">
+              ${["Sim", "Não", "Parcial"].map(v => `<label><input type="radio" name="potencialidades.${i}.situacao" data-field="potencialidades.${i}.situacao" value="${v}" ${row.situacao === v ? "checked" : ""}> ${v}</label>`).join("")}
+            </div>
+            <input type="text" placeholder="Observações" data-field="potencialidades.${i}.observacoes" value="${escapeHtml(row.observacoes)}">
+          </div>`).join("")}
+        <div class="f c12" style="margin-top:12px"><label>Barreiras e desafios para a superação das vulnerabilidades</label><textarea rows="2" data-field="barreirasDesafios" placeholder="Ex.: dificuldade de acesso a serviços no território, ausência de rede de apoio, entre outros...">${escapeHtml(paf.barreirasDesafios)}</textarea></div>
       </div>`;
     }
 
@@ -2551,6 +2594,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         <h2><span class="num">04a</span>Trabalho Social Coletivo do PAIF</h2>
         <p class="section-sub">Ações realizadas pela própria equipe do CRAS com a família e no território — diferente dos encaminhamentos a outros serviços/órgãos (seção 05).</p>
+        ${notaTecnica("O Caderno de Orientações — PAIF e SCFV: Articulação necessária na Proteção Social Básica (MDS/SNAS, 2015) alerta que \"Oficina com Famílias\" (PAIF) e \"Grupo\" (SCFV) não são sinônimos, embora ambos sejam chamados de \"grupo\" no dia a dia do CRAS. A Oficina com Famílias é conduzida por técnico de nível superior, reúne de 7 a 15 participantes (preferencialmente responsáveis familiares) por 60 a 120 minutos, pode ser aberta ou fechada, e discute questões e vulnerabilidades comuns às famílias do território — nunca é oficina de trabalhos manuais, terapia ou prática psicoterápica. Já o Grupo do SCFV reúne até 30 usuários por ciclo de vida, sob condução do orientador social, com encontros regulares (intervalo máximo de 15 dias). O documento também reforça a laicidade do serviço: orações, cânticos ou outras práticas religiosas não devem fundamentar o trabalho social do PAIF, ainda que propostas pelos próprios usuários.")}
         ${chkList("atividadesColetivas", ATIVIDADES_COLETIVAS_PAIF, paf.atividadesColetivas || [], true)}
         <div class="f" style="margin-top:12px"><label>Outras</label><input type="text" data-field="atividadesColetivasOutras" value="${escapeHtml(paf.atividadesColetivasOutras)}"></div>
       </div>
@@ -2716,6 +2760,7 @@ function renderSection(id, paf) {
     case "estrategias": return `
       <div class="section-card">
         ${sectionHeader("09", "Estratégias a serem adotadas para superação das vulnerabilidades", "")}
+        ${notaTecnica("O fluxograma de atendimento do PAIF (Caderno de Orientações — PAIF e SCFV, MDS/SNAS, 2015; e protocolos municipais de fluxo do PAIF) situa este PAF na etapa de Acompanhamento Familiar: Acolhida → Estudo Social (seção 03, Diagnóstico) → decisão entre Atendimento pontual (inserção em ações do PAIF, sem Plano) e Acompanhamento continuado (com Plano de Acompanhamento Familiar) → mediações periódicas com a família (seção 08, Registro de Atendimentos) → avaliação do Plano no prazo pactuado (seção 10). Quando os objetivos são alcançados, o acompanhamento se encerra (seção 11); quando não são, o Plano deve ser adequado — revisando estratégias e eixos aqui, sem necessariamente encerrar o processo — e as mediações continuam.")}
         ${chkList("estrategias", ESTRATEGIAS, paf.estrategias, true)}
         <div class="f" style="margin-top:12px"><label>Outras</label><input type="text" data-field="estrategiasOutras" value="${escapeHtml(paf.estrategiasOutras)}"></div>
       </div>
@@ -3104,6 +3149,11 @@ function exportPDF(paf) {
     .map(s => `<tr><td>${escapeHtml(s.situacao)}</td><td>${escapeHtml(s.membros)}</td><td>${s.superada ? "Sim" : "Não"}</td></tr>`)
     .join("") || "<tr><td colspan='3'>Nenhuma situação registrada</td></tr>";
 
+  const potencialidadesHTML = (paf.potencialidades || [])
+    .filter(p => p.situacao || p.observacoes)
+    .map(p => `<tr><td>${escapeHtml(p.potencial)}</td><td>${escapeHtml(p.situacao)}</td><td>${escapeHtml(p.observacoes)}</td></tr>`)
+    .join("") || "<tr><td colspan='3'>Nenhuma potencialidade registrada</td></tr>";
+
   const metasHTML = (paf.metas || [])
     .filter(m => m.prazo || m.resultados)
     .map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`)
@@ -3473,6 +3523,13 @@ function exportPDF(paf) {
         <tbody>${situacoesHTML}</tbody>
       </table>
 
+      <h2>Potencialidades da Família</h2>
+      <table>
+        <thead><tr><th>Potencial</th><th>Situação</th><th>Observações</th></tr></thead>
+        <tbody>${potencialidadesHTML}</tbody>
+      </table>
+      ${paf.barreirasDesafios ? `<p class="muted" style="margin:6px 0 0;"><strong>Barreiras e desafios:</strong> ${escapeHtml(paf.barreirasDesafios)}</p>` : ""}
+
       <h2>Trabalho Social Coletivo do PAIF</h2>
       <div>${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
       ${paf.atividadesColetivasOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.atividadesColetivasOutras)}</p>` : ""}
@@ -3750,6 +3807,11 @@ function exportWord(paf) {
     s => `<tr><td>${escapeHtml(s.situacao)}</td><td>${escapeHtml(s.membros)}</td><td style="text-align:center;">${s.superada ? "Sim" : "Não"}</td></tr>`
   ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhuma situação registrada</td></tr>`;
 
+  const potencialidadesWordHTML = rowsWithZebra(
+    (paf.potencialidades || []).filter(p => p.situacao || p.observacoes),
+    p => `<tr><td>${escapeHtml(p.potencial)}</td><td style="text-align:center;">${escapeHtml(p.situacao) || "—"}</td><td>${escapeHtml(p.observacoes) || "—"}</td></tr>`
+  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhuma potencialidade registrada</td></tr>`;
+
   const membrosWordHTML = rowsWithZebra(
     paf.membros || [],
     m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade) || "—"}</td><td>${escapeHtml(m.etnia) || "—"}</td><td style="text-align:center;">${m.pcd ? "Sim" : "—"}</td></tr>`
@@ -3896,6 +3958,13 @@ function exportWord(paf) {
         <tr><th>Situação Social</th><th>Membros</th><th>Superada</th></tr>
         ${situacoesWordHTML}
       </table>
+
+      ${secao("03a2", "Potencialidades da Família")}
+      <table class="dados">
+        <tr><th>Potencial</th><th>Situação</th><th>Observações</th></tr>
+        ${potencialidadesWordHTML}
+      </table>
+      ${paf.barreirasDesafios ? `<p><b>Barreiras e desafios:</b> <span class="anotacao">${escapeHtml(paf.barreirasDesafios)}</span></p>` : ""}
 
       ${secao("03b", "Trabalho Social Coletivo do PAIF")}
       <p>${(paf.atividadesColetivas || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:italic;">Nenhuma registrada</span>`}${paf.atividadesColetivasOutras ? "<br><b>Outras:</b> " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
