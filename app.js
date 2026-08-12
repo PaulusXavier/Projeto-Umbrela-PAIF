@@ -1513,7 +1513,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         * { box-sizing: border-box; }
         body {
           font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F;
-          font-weight: bold; line-height: 1.5; text-align: justify; margin: 0; padding: 4mm 0 3mm; background: #fff;
+          font-weight: 400; line-height: 1.5; text-align: justify; margin: 0; padding: 4mm 0 3mm; background: #fff;
         }
         h1, h4 { font-family: 'Times New Roman', Times, serif; }
         h4 {
@@ -1530,20 +1530,20 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         .page-header-fixed { display: table-header-group; }
         .page-header-fixed .ph-row {
           display: flex; align-items: flex-end; gap: 8px; border-bottom: 1px solid #C9D2D9; padding-bottom: 5px;
-          margin-bottom: 6mm; font-size: 8px; color: #6C7D8F; white-space: nowrap;
+          margin-bottom: 6mm; font-size: 8.8px; color: #6C7D8F; white-space: nowrap;
         }
         .page-header-fixed .brasao-mini { flex-shrink: 0; color: #B98A34; }
         .page-header-fixed .ph-row > div:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; }
-        .page-header-fixed .ph-org { font-weight: 700; color: #1F3A5F; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-header-fixed .ph-org { font-weight: 700; color: #1F3A5F; font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .page-header-fixed .ph-sub { display: block; font-weight: 400; color: #8496A8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .page-header-fixed .ph-right { flex: 0 0 auto; text-align: right; font-size: 8px; color: #8496A8; }
+        .page-header-fixed .ph-right { flex: 0 0 auto; text-align: right; font-size: 8.8px; color: #8496A8; }
         .page-footer-fixed { display: table-footer-group; }
         .page-footer-fixed .pf-row {
           display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
-          border-top: 1px solid #C9D2D9; padding-top: 5px; margin-top: 6mm; font-size: 7.3px; color: #8496A8; line-height: 1.45;
+          border-top: 1px solid #C9D2D9; padding-top: 5px; margin-top: 6mm; font-size: 8.3px; color: #8496A8; line-height: 1.45;
         }
         .page-footer-fixed .pf-selo {
-          flex-shrink: 0; font-size: 6.6px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+          flex-shrink: 0; font-size: 7.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
           color: #52667C; border: 1px solid #C9D2D9; border-radius: 3px; padding: 2px 6px; white-space: nowrap;
         }
         @media screen { .page-header-fixed, .page-footer-fixed { display: none; } }
@@ -1552,10 +1552,10 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         .orgao-header {
           position: relative; overflow: hidden;
           display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
-          padding: 11px 14px; border-radius: 7px 7px 0 0; font-size: 9px; line-height: 1.4;
+          padding: 11px 14px; border-radius: 7px 7px 0 0; font-size: 9.5px; line-height: 1.4;
           border-bottom: 2px solid #B98A34;
         }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Times New Roman', Times, serif; letter-spacing: .01em; }
+        .orgao-header strong { display: block; color: #fff; font-size: 11px; font-family: 'Times New Roman', Times, serif; letter-spacing: .01em; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
         .orgao-header .brasao-selo {
           position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.07); pointer-events: none;
@@ -1566,33 +1566,33 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           background: linear-gradient(180deg,#F7F9FA 0%,#fff 65%);
         }
         .capa-titulos { flex: 1; }
-        .capa-titulos .capa-eyebrow { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 4px; }
+        .capa-titulos .capa-eyebrow { display: block; font-size: 9.2px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 4px; }
         .capa-titulos h1 { font-size: 19px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
-        .capa-titulos p { margin: 5px 0 0; font-size: 10.5px; color: #2E7D6B; font-weight: 600; }
+        .capa-titulos p { margin: 5px 0 0; font-size: 11px; color: #2E7D6B; font-weight: 600; }
         .capa-titulos .capa-linha { width: 40px; height: 2.5px; background: #B98A34; margin: 9px 0; border-radius: 2px; }
         .capa-ficha {
-          margin-left: auto; text-align: right; font-size: 9px; color: #52667C; line-height: 1.75;
+          margin-left: auto; text-align: right; font-size: 9.5px; color: #52667C; line-height: 1.75;
           border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 7px; padding: 9px 14px; min-width: 138px;
           box-shadow: 0 1px 0 rgba(122,90,30,.08);
         }
         .capa-ficha .num { font-family: 'Times New Roman', Times, serif; font-size: 17px; font-weight: 700; color: #7A5A1E; letter-spacing: .01em; }
-        .capa-ficha .lbl { display: block; font-size: 7px; text-transform: uppercase; letter-spacing: .07em; color: #8496A8; }
+        .capa-ficha .lbl { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: .07em; color: #8496A8; }
 
         .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 20px; }
         .kpi-grid-sec { grid-template-columns: repeat(3, 1fr); margin-bottom: 14px; }
         .kpi-grid-hero { margin-bottom: 12px; }
         .kpi-grid-hero .kpi-card { padding: 14px 10px 12px; border-top-width: 4px; background: linear-gradient(180deg, #FAFBFC 0%, #EEF5F2 100%); }
         .kpi-grid-hero .kpi-valor { font-size: 23px; }
-        .kpi-grid-hero .kpi-label { font-size: 9px; }
+        .kpi-grid-hero .kpi-label { font-size: 9.5px; }
         .kpi-grid-hero .kpi-card:nth-child(1) { border-top-color: #1F3A5F; }
         .kpi-grid-hero .kpi-card:nth-child(2) { border-top-color: #2E7D6B; }
         .kpi-grid-hero .kpi-card:nth-child(3) { border-top-color: #B98A34; }
         .kpi-grid-hero .kpi-card:nth-child(4) { border-top-color: #8B6BAE; }
-        .kpi-delta { display: inline-flex; align-items: center; gap: 3px; margin-top: 6px; padding: 1px 7px; border-radius: 20px; font-size: 8.5px; font-weight: 700; }
+        .kpi-delta { display: inline-flex; align-items: center; gap: 3px; margin-top: 6px; padding: 1px 7px; border-radius: 20px; font-size: 9.2px; font-weight: 700; }
         .kpi-delta-up { background: #DEEAE6; color: #1F5C4E; }
         .kpi-delta-down { background: #F5E0DD; color: #B5473F; }
         .kpi-delta-neutro { background: #E7ECF1; color: #52667C; }
-        .dash-comparativo-hint { font-size: 9px; color: #8496A8; margin: -6px 0 16px; }
+        .dash-comparativo-hint { font-size: 9.5px; color: #8496A8; margin: -6px 0 16px; }
         .kpi-card {
           border: 1px solid #dde3e8; border-top: 3px solid #2E7D6B; border-radius: 8px;
           padding: 10px 10px 9px; text-align: center; page-break-inside: avoid;
@@ -1602,15 +1602,15 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         .kpi-grid .kpi-card:nth-child(4n+3), .kpi-grid-sec .kpi-card:nth-child(3n+3) { border-top-color: #1F3A5F; }
         .kpi-grid .kpi-card:nth-child(4n+4) { border-top-color: #8B6BAE; }
         .kpi-valor { display: block; font-family: 'Times New Roman', Times, serif; font-size: 18px; font-weight: 700; color: #1F3A5F; }
-        .kpi-label { display: block; font-size: 8.7px; color: #5b7186; text-transform: uppercase; letter-spacing: .025em; margin-top: 3px; line-height: 1.35; }
+        .kpi-label { display: block; font-size: 9.3px; color: #5b7186; text-transform: uppercase; letter-spacing: .025em; margin-top: 3px; line-height: 1.35; }
 
         /* ---- Filtros aplicados (quando o relatório é gerado a partir do painel com filtros ativos) ---- */
         .filtro-box {
           display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 18px;
           background: #FBF6EA; border: 1px solid #D7C39A; border-radius: 7px; padding: 9px 13px;
-          font-size: 9.5px; color: #7A5A1E;
+          font-size: 10px; color: #7A5A1E;
         }
-        .filtro-box strong { color: #5A4116; text-transform: uppercase; letter-spacing: .04em; font-size: 8px; margin-right: 2px; }
+        .filtro-box strong { color: #5A4116; text-transform: uppercase; letter-spacing: .04em; font-size: 8.8px; margin-right: 2px; }
         .filtro-chip-pdf {
           background: #fff; border: 1px solid #D7C39A; border-radius: 20px; padding: 2px 9px; font-weight: 600;
         }
@@ -1618,12 +1618,12 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         /* ---- Sumário: índice das seções do relatório, logo abaixo da capa ---- */
         .sumario-box { margin: 0 0 22px; page-break-inside: avoid; }
         .sumario-box h5 {
-          font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: #B98A34;
+          font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: #B98A34;
           margin: 0 0 8px; font-weight: 700;
         }
         .sumario-lista { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 18px; list-style: none; margin: 0; padding: 0; }
         .sumario-lista li {
-          font-size: 10px; color: #1F3A5F; display: flex; align-items: baseline; gap: 6px;
+          font-size: 10.5px; color: #1F3A5F; display: flex; align-items: baseline; gap: 6px;
           border-bottom: 1px dotted #D7E0E6; padding-bottom: 3px;
         }
         .sumario-lista li::before { content: "§"; color: #B98A34; font-weight: 700; }
@@ -1634,18 +1634,18 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           background: #FAFBFC; border: 1px solid #E3E8EC; border-radius: 8px; padding: 12px 13px;
         }
         .resumo-cols strong {
-          display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+          display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em;
           color: #7A8CA0; margin-bottom: 9px; font-weight: 700;
         }
 
-        .stat-bar-row { display: grid; grid-template-columns: 1fr 60px 60px; align-items: center; gap: 6px; font-size: 10.5px; padding: 3px 0; }
+        .stat-bar-row { display: grid; grid-template-columns: 1fr 60px 60px; align-items: center; gap: 6px; font-size: 11px; padding: 3px 0; }
         .stat-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .stat-bar-track { height: 6px; background: #EAF1EE; border-radius: 3px; overflow: hidden; }
         .stat-bar-fill { height: 100%; background: #2E7D6B; border-radius: 3px; }
         .stat-bar-value { text-align: right; white-space: nowrap; }
         .stat-bar-value em { color: #5b7186; font-style: normal; }
 
-        .resumo-tabela { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+        .resumo-tabela { width: 100%; border-collapse: collapse; font-size: 11px; }
         .resumo-tabela th, .resumo-tabela td { border: 1px solid #dde3e8; padding: 5px 7px; text-align: center; }
         .resumo-tabela thead th { background: #1F3A5F; color: #fff; font-weight: 600; letter-spacing: .01em; }
         .resumo-tabela tbody tr:nth-child(even) td { background: #F6F8F9; }
@@ -1654,8 +1654,8 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         .donut-wrap { display: flex; align-items: center; gap: 12px; }
         .donut-svg { flex-shrink: 0; }
         .donut-total-num { font-size: 17px; font-weight: 700; fill: #1F3A5F; font-family: 'Times New Roman', Times, serif; }
-        .donut-total-label { font-size: 7px; fill: #5b7186; text-transform: uppercase; letter-spacing: .03em; }
-        .donut-legend { display: flex; flex-direction: column; gap: 4px; font-size: 9.5px; min-width: 0; flex: 1; }
+        .donut-total-label { font-size: 8px; fill: #5b7186; text-transform: uppercase; letter-spacing: .03em; }
+        .donut-legend { display: flex; flex-direction: column; gap: 4px; font-size: 10px; min-width: 0; flex: 1; }
         .donut-legend-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
         .donut-legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
         .donut-legend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1666,22 +1666,22 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           page-break-inside: avoid; margin-bottom: 10px; background: #FAFBFC;
           border: 1px solid #E3E8EC; border-radius: 8px; padding: 14px 16px 8px;
         }
-        .chart-legend-inline { display: flex; gap: 16px; font-size: 10px; margin-bottom: 6px; color: #52667C; }
+        .chart-legend-inline { display: flex; gap: 16px; font-size: 10.5px; margin-bottom: 6px; color: #52667C; }
         .chart-legend-inline span { display: flex; align-items: center; gap: 4px; }
         .chart-legend-inline i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
         .evolucao-chart { display: block; }
-        .chart-bar-num { font-size: 8px; fill: #1F3A5F; }
-        .chart-bar-mes { font-size: 8px; fill: #5b7186; }
+        .chart-bar-num { font-size: 8.8px; fill: #1F3A5F; }
+        .chart-bar-mes { font-size: 8.8px; fill: #5b7186; }
 
         .assinatura-bloco { margin-top: 38px; page-break-inside: avoid; text-align: center; }
         .assinatura-linha { width: 260px; border-top: 1px solid #1F3A5F; margin: 0 auto 6px; }
         .assinatura-nome { font-size: 12px; font-weight: 700; margin: 0; }
-        .assinatura-cargo { font-size: 10.5px; color: #5b7186; margin: 1px 0 0; }
-        .assinatura-local { font-size: 10px; color: #5b7186; margin: 10px 0 0; }
+        .assinatura-cargo { font-size: 11px; color: #5b7186; margin: 1px 0 0; }
+        .assinatura-local { font-size: 10.5px; color: #5b7186; margin: 10px 0 0; }
 
         .rodape-doc {
           margin-top: 24px; padding-top: 9px; border-top: 1px dashed #D7E0E6;
-          font-size: 7.8px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic;
+          font-size: 8.6px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic;
         }
       </style>
 
@@ -1725,7 +1725,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         </div>
         <div class="capa-ficha">
           <span class="lbl">${temFiltro ? "Famílias no filtro" : "Total de famílias"}</span>
-          <span class="num">${geral.total}${temFiltro && contexto.totalGeral != null ? ` <span style="font-size:11px;font-weight:400;color:#8496A8;">/ ${contexto.totalGeral}</span>` : ""}</span>
+          <span class="num">${geral.total}${temFiltro && contexto.totalGeral != null ? ` <span style="font-size: 11px;font-weight:400;color:#8496A8;">/ ${contexto.totalGeral}</span>` : ""}</span>
           <span class="lbl" style="margin-top:5px;">Emitido em</span>
           ${fmtDateBR(todayISO())}
         </div>
@@ -2452,7 +2452,7 @@ function computeFamiliaResumo(paf) {
 }
 
 function chipListHTML(arr) {
-  if (!arr || !arr.length) return `<p class="muted" style="font-size:12px;">Nenhum registrado.</p>`;
+  if (!arr || !arr.length) return `<p class="muted" style="font-size: 12px;">Nenhum registrado.</p>`;
   return `<div class="chip-list">${arr.map(v => `<span class="chip-tag">${escapeHtml(v)}</span>`).join("")}</div>`;
 }
 
@@ -2516,7 +2516,7 @@ function graficosFamiliaHTML(paf) {
         <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea)}</div>
       </div>` : `
       <div class="resumo-cols">
-        <div><strong>Atendimentos por tipo</strong><p class="muted" style="font-size:12px;">Nenhum atendimento registrado ainda.</p></div>
+        <div><strong>Atendimentos por tipo</strong><p class="muted" style="font-size: 12px;">Nenhum atendimento registrado ainda.</p></div>
         <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea)}</div>
       </div>`}
     </div>
@@ -2756,7 +2756,7 @@ function renderSection(id, paf) {
         <h2><span class="num">03f</span>Potencialidades da Família</h2>
         <p class="section-sub">Contraponto necessário ao levantamento de vulnerabilidades acima: recursos e capacidades da própria família que podem ser mobilizados no Plano.</p>
         ${notaTecnica("O modelo metodológico de Plano de Acompanhamento Familiar pactuado pela Câmara Técnica da Comissão Intergestores Bipartite (CIB/MG, 2023) e adotado como referência técnica por Sedese-MG para o PAIF e o PAEFI inclui, ao lado do diagnóstico de vulnerabilidades, um levantamento estruturado de potencialidades da família. Isso concretiza o princípio, já presente no Caderno de Orientações Técnicas do PAIF (MDS), de que nenhuma família em vulnerabilidade está desprovida de tudo: identificar seus recursos, vínculos e capacidades é o que permite construir metas realistas e não apenas listar problemas.")}
-        <div class="matrix-row potencial-row" style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
+        <div class="matrix-row potencial-row" style="font-size: 11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
           <div>Potencial</div><div>Situação</div><div>Observações</div>
         </div>
         ${(paf.potencialidades || []).map((row, i) => `
@@ -2896,7 +2896,7 @@ function renderSection(id, paf) {
         <div class="prontuario-stats">
           <div class="stat-box"><span class="stat-num">${(paf.atendimentos || []).length}</span><span class="stat-label">Atendimentos</span></div>
           <div class="stat-box"><span class="stat-num">${meses === null ? "—" : meses}</span><span class="stat-label">Meses em acompanhamento</span></div>
-          <div class="stat-box"><span class="stat-num" style="font-size:14px;">${ultimoAtendimento ? fmtDateBR(ultimoAtendimento.data) : "—"}</span><span class="stat-label">Último atendimento</span></div>
+          <div class="stat-box"><span class="stat-num" style="font-size: 14px;">${ultimoAtendimento ? fmtDateBR(ultimoAtendimento.data) : "—"}</span><span class="stat-label">Último atendimento</span></div>
         </div>
       </div>
 
@@ -2938,7 +2938,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         <h2><span class="num">08a</span>Metas, Evolução e Resultados</h2>
         <p class="section-sub">Equipe técnica.</p>
-        <div class="meta-row" style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
+        <div class="meta-row" style="font-size: 11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
           <div>Meta</div><div>Prazo de execução</div><div>Resultados alcançados</div>
         </div>
         ${paf.metas.map((row, i) => `
@@ -2967,11 +2967,11 @@ function renderSection(id, paf) {
       <div class="section-card">
         ${sectionHeader("10", "Elaboração do Plano", "")}
         ${notaTecnica("Marque os objetivos do PAIF (conforme a Tipificação Nacional de Serviços Socioassistenciais) que este Plano pretende trabalhar com a família — isso ajuda a manter o acompanhamento alinhado à finalidade do Serviço, e não apenas à resolução de uma demanda pontual. As Referências Técnicas do CFP/CREPOP destacam que o Plano deve ter caráter não tutelar: a família participa ativamente da definição de suas metas, e o trabalho técnico busca fortalecer sua autonomia e protagonismo, e não apenas prover respostas assistencialistas às suas demandas. O SUAS busca superar a antiga lógica de \"polícia das famílias\" — palestras e oficinas educativas desarticuladas dos serviços, oferecidas como condição ou favor — e também a ideia de que a assistência social é \"ajuda\": trata-se de direito do cidadão e dever do Estado. Evite, portanto, redigir metas e estratégias em tom de condição, favor ou disciplinamento de comportamento.")}
-        <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
+        <label style="font-size: 11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
         ${chkList("objetivosPaif", OBJETIVOS_PAIF, paf.objetivosPaif || [], true)}
         <div class="f" style="margin:12px 0 20px"><label>Outros objetivos</label><input type="text" data-field="objetivosPaifOutros" value="${escapeHtml(paf.objetivosPaifOutros)}"></div>
         ${notaTecnica("A Política Nacional de Assistência Social (PNAS/2004) e a Norma Operacional Básica do SUAS (NOB-SUAS/2012) organizam a proteção socioassistencial em torno de seguranças a serem afiançadas aos usuários. Indicar aqui qual(is) delas este Plano busca garantir para a família ajuda a explicitar a finalidade protetiva do acompanhamento, para além da resposta a uma demanda pontual.")}
-        <label style="font-size:11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Seguranças socioassistenciais afiançadas por este Plano</label>
+        <label style="font-size: 11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Seguranças socioassistenciais afiançadas por este Plano</label>
         ${segurancasChkList(paf.segurancasSocioassistenciais || [])}
         <div class="f" style="margin:12px 0 20px"><label>Outras</label><input type="text" data-field="segurancasSocioassistenciaisOutras" value="${escapeHtml(paf.segurancasSocioassistenciaisOutras)}"></div>
         <div class="field-grid">
@@ -3413,7 +3413,7 @@ function exportPDF(paf) {
         @page { margin: 14mm 14mm; }
         * { box-sizing: border-box; }
         body {
-          font-family: 'Times New Roman', Times, serif; font-size: 11.5px; color: #1F3A5F;
+          font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F;
           font-weight: bold; line-height: 1.5; text-align: justify; margin: 0; padding: 5mm 0 3mm;
         }
         .brasao { font-family: 'Times New Roman', Times, serif; }
@@ -3441,15 +3441,15 @@ function exportPDF(paf) {
         }
         .page-header-fixed .ph-row {
           display: flex; align-items: flex-end; gap: 8px;
-          border-bottom: 1px solid #C9D2D9; padding-bottom: 5px; margin-bottom: 6mm; font-size: 8px; color: #6C7D8F;
+          border-bottom: 1px solid #C9D2D9; padding-bottom: 5px; margin-bottom: 6mm; font-size: 8.8px; color: #6C7D8F;
           white-space: nowrap;
         }
         .page-header-fixed .brasao-mini { flex-shrink: 0; color: #B98A34; }
         .page-header-fixed .ph-row > div:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; }
-        .page-header-fixed .ph-org { font-weight: 700; color: #1F3A5F; font-size: 9px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-header-fixed .ph-org { font-weight: 700; color: #1F3A5F; font-size: 9.5px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .page-header-fixed .ph-sub { display: block; font-weight: 400; color: #8496A8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .page-header-fixed .ph-right { flex: 0 0 auto; max-width: 42%; margin-left: auto; text-align: right; overflow: hidden; }
-        .page-header-fixed .ph-right b { display: block; color: #1F3A5F; font-family: 'IBM Plex Mono', 'Courier New', monospace; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-header-fixed .ph-right b { display: block; color: #1F3A5F; font-family: 'IBM Plex Mono', 'Courier New', monospace; font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .page-header-fixed .ph-right span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         .page-footer-fixed {
@@ -3457,10 +3457,10 @@ function exportPDF(paf) {
         }
         .page-footer-fixed .pf-row {
           display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
-          border-top: 1px solid #C9D2D9; padding-top: 5px; margin-top: 6mm; font-size: 7.3px; color: #8496A8; line-height: 1.45;
+          border-top: 1px solid #C9D2D9; padding-top: 5px; margin-top: 6mm; font-size: 8.3px; color: #8496A8; line-height: 1.45;
         }
         .page-footer-fixed .pf-selo {
-          flex-shrink: 0; font-size: 6.6px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+          flex-shrink: 0; font-size: 7.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
           color: #52667C; border: 1px solid #C9D2D9; border-radius: 3px; padding: 2px 6px; white-space: nowrap;
         }
 
@@ -3474,11 +3474,11 @@ function exportPDF(paf) {
         .orgao-header {
           position: relative; overflow: hidden;
           display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
-          padding: 10px 12px; border-radius: 7px 7px 0 0; margin-bottom: 0; font-size: 9px; line-height: 1.4;
+          padding: 10px 12px; border-radius: 7px 7px 0 0; margin-bottom: 0; font-size: 9.5px; line-height: 1.4;
           border-bottom: 2px solid #B98A34;
         }
         .orgao-header .brasao-mini { flex-shrink: 0; color: #E7D0A0; }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Times New Roman', Times, serif; letter-spacing: .01em; }
+        .orgao-header strong { display: block; color: #fff; font-size: 11px; font-family: 'Times New Roman', Times, serif; letter-spacing: .01em; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
         .orgao-header .brasao-selo {
           position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.07); pointer-events: none;
@@ -3495,17 +3495,17 @@ function exportPDF(paf) {
           background: #FBF6EA;
         }
         .capa-titulos { flex: 1; }
-        .capa-titulos .capa-eyebrow { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 3px; }
+        .capa-titulos .capa-eyebrow { display: block; font-size: 9.2px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 3px; }
         .capa-titulos h1 { font-family: 'Times New Roman', Times, serif; font-size: 18px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
         .capa-titulos .capa-linha { width: 38px; height: 2.5px; background: #B98A34; margin: 8px 0; border-radius: 2px; }
-        .capa-titulos p { margin: 0; font-size: 10.5px; color: #2E7D6B; font-weight: 600; }
+        .capa-titulos p { margin: 0; font-size: 11px; color: #2E7D6B; font-weight: 600; }
         .capa-ficha {
-          margin-left: auto; text-align: right; font-size: 9px; color: #52667C; line-height: 1.75;
+          margin-left: auto; text-align: right; font-size: 9.5px; color: #52667C; line-height: 1.75;
           border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 7px; padding: 8px 13px; min-width: 132px;
           box-shadow: 0 1px 0 rgba(122,90,30,.08);
         }
         .capa-ficha .num { font-family: 'IBM Plex Mono', 'Courier New', monospace; font-size: 14px; font-weight: 700; color: #7A5A1E; letter-spacing: .01em; }
-        .capa-ficha .lbl { display: block; font-size: 7px; text-transform: uppercase; letter-spacing: .07em; color: #8496A8; }
+        .capa-ficha .lbl { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: .07em; color: #8496A8; }
 
         .id-band {
           background: linear-gradient(180deg,#F8FAFB 0%,#F3F6F7 100%); border: 1px solid #D7E0E6; border-radius: 8px;
@@ -3514,7 +3514,7 @@ function exportPDF(paf) {
         .id-nome-wrap { flex: 1 1 200px; }
         .id-nome { font-family: 'Times New Roman', Times, serif; font-size: 16.5px; font-weight: bold; margin: 0 0 6px; letter-spacing: -.01em; }
         .id-status {
-          display: inline-flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold;
+          display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold;
           padding: 3px 10px; border-radius: 999px; border: 1.2px solid #2E7D6B; color: #2E7D6B; background: #fff;
         }
         .id-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -3523,17 +3523,17 @@ function exportPDF(paf) {
         .id-status.concluido { border-color: #52667C; color: #52667C; background: #E7E9EC; }
         .id-status.cancelado { border-color: #B5473F; color: #B5473F; background: #F5E0DD; }
         .id-grid {
-          display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 20px; flex: 2 1 380px; font-size: 10.5px;
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 20px; flex: 2 1 380px; font-size: 11px;
           border-left: 1px solid #D7E0E6; padding-left: 16px;
         }
-        .id-grid .k { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; margin-bottom: 2px; }
+        .id-grid .k { display: block; font-size: 9.2px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; margin-bottom: 2px; }
         .id-grid .v { display: block; font-weight: 600; }
         .id-stats { display: flex; gap: 8px; flex: 0 0 auto; border-left: 1px solid #D7E0E6; padding-left: 16px; }
         .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-top: 2.5px solid #B98A34; border-radius: 7px; padding: 7px 11px; min-width: 58px; }
         .id-stat:nth-child(2) { border-top-color: #2E7D6B; }
         .id-stat:nth-child(3) { border-top-color: #1F3A5F; }
         .id-stat .n { display: block; font-family: 'Times New Roman', Times, serif; font-size: 17px; font-weight: bold; color: #1F3A5F; line-height: 1; }
-        .id-stat .l { display: block; font-size: 7.5px; text-transform: uppercase; color: #8496A8; margin-top: 4px; letter-spacing: .02em; }
+        .id-stat .l { display: block; font-size: 8.5px; text-transform: uppercase; color: #8496A8; margin-top: 4px; letter-spacing: .02em; }
 
         body { counter-reset: secao; }
         h2 {
@@ -3546,22 +3546,22 @@ function exportPDF(paf) {
         h2::before {
           content: counter(secao, decimal-leading-zero); flex-shrink: 0;
           display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
-          border-radius: 5px; background: #1F5C4E; color: #fff; font-size: 8px; font-weight: 700;
+          border-radius: 5px; background: #1F5C4E; color: #fff; font-size: 8.8px; font-weight: 700;
           font-family: 'IBM Plex Mono', 'Courier New', monospace;
         }
         h2:nth-of-type(3n+2)::before { background: #B98A34; }
         h2:nth-of-type(3n+3)::before { background: #1F3A5F; }
         .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 18px; margin-bottom: 6px; }
         .field { margin-bottom: 4px; }
-        .label { font-weight: bold; font-size: 9px; text-transform: uppercase; letter-spacing: .02em; color: #52667C; display: block; margin-bottom: 1px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; }
+        .label { font-weight: bold; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; color: #52667C; display: block; margin-bottom: 1px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
         th, td { border: 1px solid #D7E0E6; padding: 6px 8px; text-align: left; vertical-align: top; }
-        th { background: #1F3A5F; font-weight: 600; font-size: 9.5px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
+        th { background: #1F3A5F; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
         tbody tr:nth-child(even) td { background: #F6F8F9; }
         tr { page-break-inside: avoid; }
         .tag {
           display: inline-block; background: #DEEAE6; color: #1F5C4E; border: 1px solid #C3DCD5;
-          padding: 3px 9px; border-radius: 5px; font-size: 9.5px; margin: 2px 5px 2px 0; font-weight: 600;
+          padding: 3px 9px; border-radius: 5px; font-size: 10px; margin: 2px 5px 2px 0; font-weight: 600;
         }
         .muted { color: #8496A8; font-style: italic; }
 
@@ -3574,31 +3574,31 @@ function exportPDF(paf) {
           display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff;
         }
         .reg-badge .dia { font-family: 'Times New Roman', Times, serif; font-size: 14px; font-weight: bold; line-height: 1; }
-        .reg-badge .mes { font-size: 7px; text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
+        .reg-badge .mes { font-size: 8px; text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
         .reg-body { flex: 1; min-width: 0; }
         .reg-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .reg-tipo { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; }
-        .reg-tecnico { font-size: 9.5px; color: #52667C; }
+        .reg-tipo { font-size: 9.5px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; }
+        .reg-tecnico { font-size: 10px; color: #52667C; }
         .reg-evolucao { margin: 0 0 4px; }
         .reg-encam { margin: 0; color: #52667C; }
 
         .fechamento { margin-top: 36px; padding-top: 20px; border-top: 2px solid #F3E7D0; page-break-inside: avoid; }
-        .fechamento .local-data { font-size: 10px; color: #52667C; margin-bottom: 26px; }
+        .fechamento .local-data { font-size: 10.5px; color: #52667C; margin-bottom: 26px; }
         .assinaturas { display: flex; gap: 44px; }
         .assinatura { flex: 1; text-align: center; }
         .assinatura .linha { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; font-weight: 600; }
-        .assinatura .cpf-linha { font-size: 9px; color: #8496A8; font-weight: 400; margin-top: 1px; }
-        .assinatura .titulo { font-size: 9px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
+        .assinatura .cpf-linha { font-size: 9.5px; color: #8496A8; font-weight: 400; margin-top: 1px; }
+        .assinatura .titulo { font-size: 9.5px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
 
         .rodape-doc {
           margin-top: 24px; padding-top: 9px; border-top: 1px dashed #D7E0E6;
-          font-size: 7.8px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic;
+          font-size: 8.6px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic;
         }
 
         .anexos-print-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
         .anexo-print-item { width: 140px; text-align: center; page-break-inside: avoid; }
         .anexo-print-item img { width: 100%; height: 140px; object-fit: cover; border: 1px solid #D7E0E6; border-radius: 6px; }
-        .anexo-print-item span { display: block; font-size: 8.5px; color: #52667C; margin-top: 4px; word-break: break-word; }
+        .anexo-print-item span { display: block; font-size: 9.2px; color: #52667C; margin-top: 4px; word-break: break-word; }
 
         .anexo-pdf-pagina { page-break-before: always; padding-top: 8px; }
         .anexo-pdf-titulo { font-family: 'Times New Roman', Times, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
@@ -3672,7 +3672,7 @@ function exportPDF(paf) {
         <div class="id-stats">
           <div class="id-stat"><span class="n">${(paf.atendimentos || []).length}</span><span class="l">Atendimentos</span></div>
           <div class="id-stat"><span class="n">${meses === null ? "—" : meses}</span><span class="l">Meses</span></div>
-          <div class="id-stat"><span class="n" style="font-size:11px;">${ultimoAtendimento ? fmtDateBR(ultimoAtendimento.data) : "—"}</span><span class="l">Último atend.</span></div>
+          <div class="id-stat"><span class="n" style="font-size: 11px;">${ultimoAtendimento ? fmtDateBR(ultimoAtendimento.data) : "—"}</span><span class="l">Último atend.</span></div>
         </div>
       </div>
 
@@ -3848,9 +3848,9 @@ function imprimirEncaminhamento(paf, enc) {
         .contra .campo, .anotacao { font-family: 'Times New Roman', Times, serif; font-size: 12px; font-weight: normal; text-align: justify; line-height: 1.5; }
         .orgao-header {
           display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
-          padding: 10px 12px; border-radius: 7px 7px 0 0; font-size: 9px; margin-bottom: 0; border-bottom: 2px solid #B98A34;
+          padding: 10px 12px; border-radius: 7px 7px 0 0; font-size: 9.5px; margin-bottom: 0; border-bottom: 2px solid #B98A34;
         }
-        .orgao-header strong { display: block; color: #fff; font-size: 10.5px; font-family: 'Times New Roman', Times, serif; }
+        .orgao-header strong { display: block; color: #fff; font-size: 11px; font-family: 'Times New Roman', Times, serif; }
         .orgao-header .orgao-contato { margin-left: auto; text-align: right; color: #A9BBCB; }
         .titulo-band {
           display: flex; align-items: flex-start; gap: 14px; border: 1px solid #1F3A5F; border-top: none;
@@ -3858,18 +3858,18 @@ function imprimirEncaminhamento(paf, enc) {
           background: linear-gradient(180deg,#F7F9FA 0%,#fff 65%);
         }
         .titulo-band .tb-textos { flex: 1; }
-        .titulo-band .capa-eyebrow { display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 3px; }
+        .titulo-band .capa-eyebrow { display: block; font-size: 9.2px; text-transform: uppercase; letter-spacing: .12em; color: #B98A34; font-weight: 700; margin-bottom: 3px; }
         .titulo-band h1 { font-family: 'Times New Roman', Times, serif; font-size: 17px; margin: 0; color: #1F3A5F; letter-spacing: -.01em; }
         .titulo-band .tb-linha { width: 36px; height: 2.5px; background: #B98A34; margin: 8px 0; border-radius: 2px; }
-        .titulo-band p { margin: 0; font-size: 10px; color: #52667C; }
+        .titulo-band p { margin: 0; font-size: 10.5px; color: #52667C; }
         .titulo-band .capa-ficha {
-          text-align: right; font-size: 9px; color: #52667C; line-height: 1.7;
+          text-align: right; font-size: 9.5px; color: #52667C; line-height: 1.7;
           border: 1px solid #D7C39A; background: #FBF6EA; border-radius: 6px; padding: 7px 12px; min-width: 118px;
         }
         .titulo-band .capa-ficha .num { font-family: 'Times New Roman', Times, serif; font-size: 14px; font-weight: 700; color: #7A5A1E; }
-        .titulo-band .capa-ficha .lbl { display: block; font-size: 6.8px; text-transform: uppercase; letter-spacing: .06em; color: #8496A8; }
-        .canhoto { border: 1px dashed #8496A8; border-radius: 7px; padding: 12px 14px; margin-bottom: 22px; font-size: 10.5px; background: #FBFCFC; }
-        .canhoto b { color: #52667C; text-transform: uppercase; font-size: 9px; letter-spacing: .03em; }
+        .titulo-band .capa-ficha .lbl { display: block; font-size: 7.5px; text-transform: uppercase; letter-spacing: .06em; color: #8496A8; }
+        .canhoto { border: 1px dashed #8496A8; border-radius: 7px; padding: 12px 14px; margin-bottom: 22px; font-size: 11px; background: #FBFCFC; }
+        .canhoto b { color: #52667C; text-transform: uppercase; font-size: 9.5px; letter-spacing: .03em; }
         .corpo { border: 1px solid #D7E0E6; border-radius: 8px; padding: 16px 18px; background: #FDFEFE; }
         .linha { margin: 0 0 11px; }
         .campo-preenchido { border-bottom: 1px solid #1F3A5F; padding: 0 2px; font-weight: 600; }
@@ -3879,8 +3879,8 @@ function imprimirEncaminhamento(paf, enc) {
         .assinaturas { display: flex; gap: 44px; margin-top: 40px; }
         .assinatura { flex: 1; text-align: center; }
         .assinatura .linha-ass { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; }
-        .assinatura .titulo { font-size: 9px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
-        .rodape-print { margin-top: 28px; padding-top: 10px; border-top: 1px dashed #D7E0E6; font-size: 8.3px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic; }
+        .assinatura .titulo { font-size: 9.5px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
+        .rodape-print { margin-top: 28px; padding-top: 10px; border-top: 1px dashed #D7E0E6; font-size: 9px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic; }
       </style>
     </head>
     <body>
@@ -3970,21 +3970,21 @@ function exportWord(paf) {
   const secao = (num, titulo) => `
     <table style="width:100%;border-collapse:collapse;margin:22pt 0 8pt;" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="width:24pt;background:${C.verde};color:#ffffff;font-family:'Courier New',monospace;font-size:9pt;font-weight:bold;text-align:center;padding:5pt 0;">${num}</td>
-        <td style="border-bottom:1.5pt solid ${C.verdeClaro};padding:6pt 0 6pt 8pt;font-family:'Times New Roman', Times, serif;font-size:14pt;color:${C.verde};font-weight:bold;">${titulo}</td>
+        <td style="width:24pt;background:${C.verde};color:#ffffff;font-family:'Courier New',monospace;font-size: 9.5pt;font-weight:bold;text-align:center;padding:5pt 0;">${num}</td>
+        <td style="border-bottom:1.5pt solid ${C.verdeClaro};padding:6pt 0 6pt 8pt;font-family:'Times New Roman', Times, serif;font-size: 14pt;color:${C.verde};font-weight:bold;">${titulo}</td>
       </tr>
     </table>`;
 
   const pill = (texto, corTexto, corFundo) =>
-    `<span style="background:${corFundo};color:${corTexto};padding:2pt 8pt;font-size:9pt;font-weight:bold;text-transform:uppercase;letter-spacing:.02em;">${texto}</span>`;
+    `<span style="background:${corFundo};color:${corTexto};padding:2pt 8pt;font-size: 9.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:.02em;">${texto}</span>`;
 
   const tag = (texto) =>
-    `<span style="background:${C.verdeClaro};color:${C.verde};padding:2pt 7pt;font-size:9.5pt;font-weight:bold;margin-right:4pt;">${escapeHtml(texto)}</span>`;
+    `<span style="background:${C.verdeClaro};color:${C.verde};padding:2pt 7pt;font-size: 10pt;font-weight:bold;margin-right:4pt;">${escapeHtml(texto)}</span>`;
 
   const campo = (label, valor) => `
     <td style="border:none;padding:3pt 10pt 3pt 0;vertical-align:top;width:50%;">
-      <span style="display:block;font-size:8pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};font-weight:bold;">${label}</span>
-      <span style="font-size:10.5pt;">${valor || "—"}</span>
+      <span style="display:block;font-size: 8.8pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};font-weight:bold;">${label}</span>
+      <span style="font-size: 11pt;">${valor || "—"}</span>
     </td>`;
 
   const camposGrid = (pares) => {
@@ -4052,11 +4052,11 @@ function exportWord(paf) {
       out += `<table style="border:none;" cellpadding="0" cellspacing="0"><tr>` + imgs.map(a => `
         <td style="border:none;text-align:center;padding:6pt;vertical-align:top;">
           <img src="${a.dataURL}" style="max-width:200px;max-height:200px;border:1pt solid ${C.borda};"><br>
-          <span style="font-size:8pt;color:${C.cinza};">${escapeHtml(a.nome)}</span>
+          <span style="font-size: 8.8pt;color:${C.cinza};">${escapeHtml(a.nome)}</span>
         </td>`).join("") + `</tr></table>`;
     }
     if (pdfs.length) {
-      out += `<p style="font-size:9.5pt;color:${C.cinza};"><b>Documentos PDF anexados</b> (não incorporados a este arquivo — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map(a => escapeHtml(a.nome)).join(", ")}</p>`;
+      out += `<p style="font-size: 10pt;color:${C.cinza};"><b>Documentos PDF anexados</b> (não incorporados a este arquivo — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map(a => escapeHtml(a.nome)).join(", ")}</p>`;
     }
     return out;
   })();
@@ -4065,12 +4065,12 @@ function exportWord(paf) {
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
     <style>
-      body { font-family: 'Times New Roman', Times, serif; font-size: 10.5pt; font-weight: bold; line-height: 1.5; text-align: justify; color: ${C.azul}; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: bold; line-height: 1.5; text-align: justify; color: ${C.azul}; }
       h1 { font-family: 'Times New Roman', Times, serif; }
       table { border-collapse: collapse; }
       table.dados { width: 100%; margin-top: 6pt; }
-      table.dados th, table.dados td { border: 1pt solid ${C.borda}; padding: 5pt 7pt; font-size: 10pt; text-align: left; vertical-align: top; }
-      table.dados th { background: ${C.fundo}; font-size: 9pt; text-transform: uppercase; letter-spacing: .02em; color: ${C.verde}; border-bottom: 1.5pt solid ${C.verde}; }
+      table.dados th, table.dados td { border: 1pt solid ${C.borda}; padding: 5pt 7pt; font-size: 10.5pt; text-align: left; vertical-align: top; }
+      table.dados th { background: ${C.fundo}; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .02em; color: ${C.verde}; border-bottom: 1.5pt solid ${C.verde}; }
       p { margin: 4pt 0; }
       /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12pt, justificado */
       .anotacao { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal; text-align: justify; line-height: 1.5; }
@@ -4082,10 +4082,10 @@ function exportWord(paf) {
       <table style="width:100%;background:${C.azulEscuro};margin-bottom:0;" cellpadding="0" cellspacing="0">
         <tr>
           <td style="padding:10pt 14pt;color:#ffffff;">
-            <span style="font-family:'Times New Roman', Times, serif;font-size:12pt;font-weight:bold;">Prefeitura Municipal de Boa Vista</span><br>
-            <span style="font-size:8.5pt;color:#C9D6DE;">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS) · CRAS Cristiana Vicente Nunes</span>
+            <span style="font-family:'Times New Roman', Times, serif;font-size: 12pt;font-weight:bold;">Prefeitura Municipal de Boa Vista</span><br>
+            <span style="font-size: 9.2pt;color:#C9D6DE;">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS) · CRAS Cristiana Vicente Nunes</span>
           </td>
-          <td style="padding:10pt 14pt;color:#A9BBCB;font-size:8.5pt;text-align:right;">
+          <td style="padding:10pt 14pt;color:#A9BBCB;font-size: 9.2pt;text-align:right;">
             Rua Santo Agostinho, 193b – Centenário<br>Boa Vista/RR · (95) 98402-6627<br>crascentenariosemges@gmail.com
           </td>
         </tr>
@@ -4095,15 +4095,15 @@ function exportWord(paf) {
       <table style="width:100%;border:1pt solid ${C.azul};border-bottom:2.5pt solid ${C.azul};margin-bottom:14pt;" cellpadding="0" cellspacing="0">
         <tr>
           <td style="padding:12pt 14pt;">
-            <span style="display:block;font-size:8pt;text-transform:uppercase;letter-spacing:.1em;color:${C.dourado};font-weight:bold;">Prontuário SUAS · Proteção Social Básica</span>
-            <span style="display:block;font-family:'Times New Roman', Times, serif;font-size:17pt;color:${C.azul};font-weight:bold;margin-top:2pt;">Plano de Acompanhamento Familiar</span>
-            <span style="display:block;font-size:10.5pt;color:${C.verde};font-weight:bold;margin-top:2pt;">Serviço de Proteção e Atendimento Integral à Família (PAIF)${paf.crasNome ? " · " + escapeHtml(paf.crasNome) : ""}</span>
+            <span style="display:block;font-size: 8.8pt;text-transform:uppercase;letter-spacing:.1em;color:${C.dourado};font-weight:bold;">Prontuário SUAS · Proteção Social Básica</span>
+            <span style="display:block;font-family:'Times New Roman', Times, serif;font-size: 17pt;color:${C.azul};font-weight:bold;margin-top:2pt;">Plano de Acompanhamento Familiar</span>
+            <span style="display:block;font-size: 11pt;color:${C.verde};font-weight:bold;margin-top:2pt;">Serviço de Proteção e Atendimento Integral à Família (PAIF)${paf.crasNome ? " · " + escapeHtml(paf.crasNome) : ""}</span>
           </td>
           <td style="padding:12pt 14pt;text-align:right;background:${C.doradoBg};border-left:1pt solid ${C.doradoBorda};width:150pt;">
-            <span style="display:block;font-size:7pt;text-transform:uppercase;letter-spacing:.06em;color:${C.cinzaClaro};">Ficha nº</span>
-            <span style="display:block;font-family:'Courier New',monospace;font-size:14pt;font-weight:bold;color:#7A5A1E;">${protocoloNumero(paf)}</span>
-            <span style="display:block;font-size:7pt;text-transform:uppercase;letter-spacing:.06em;color:${C.cinzaClaro};margin-top:4pt;">Emitido em</span>
-            <span style="font-size:9pt;">${fmtDateBR(todayISO())}</span>
+            <span style="display:block;font-size: 8pt;text-transform:uppercase;letter-spacing:.06em;color:${C.cinzaClaro};">Ficha nº</span>
+            <span style="display:block;font-family:'Courier New',monospace;font-size: 14pt;font-weight:bold;color:#7A5A1E;">${protocoloNumero(paf)}</span>
+            <span style="display:block;font-size: 8pt;text-transform:uppercase;letter-spacing:.06em;color:${C.cinzaClaro};margin-top:4pt;">Emitido em</span>
+            <span style="font-size: 9.5pt;">${fmtDateBR(todayISO())}</span>
           </td>
         </tr>
       </table>
@@ -4112,7 +4112,7 @@ function exportWord(paf) {
       <table style="width:100%;background:${C.fundo};border:1pt solid ${C.borda};margin-bottom:14pt;" cellpadding="10" cellspacing="0">
         <tr>
           <td style="border:none;vertical-align:top;">
-            <span style="display:block;font-family:'Times New Roman', Times, serif;font-size:15pt;font-weight:bold;color:${C.azul};">${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
+            <span style="display:block;font-family:'Times New Roman', Times, serif;font-size: 15pt;font-weight:bold;color:${C.azul};">${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
             <span style="margin-top:5pt;display:inline-block;">${pill(STATUS_LABELS[paf.situacaoPAF] || "Em andamento", statusCor, statusFundo)}</span>
           </td>
           <td style="border:none;border-left:1pt solid ${C.borda};vertical-align:top;">
@@ -4232,22 +4232,22 @@ function exportWord(paf) {
       <!-- Fechamento e assinaturas -->
       <table style="width:100%;margin-top:34pt;" cellpadding="0" cellspacing="0">
         <tr>
-          <td colspan="2" style="border:none;font-size:9.5pt;color:${C.cinza};padding-bottom:26pt;">Boa Vista/RR, ${fmtDateBR(todayISO())}.</td>
+          <td colspan="2" style="border:none;font-size: 10pt;color:${C.cinza};padding-bottom:26pt;">Boa Vista/RR, ${fmtDateBR(todayISO())}.</td>
         </tr>
         <tr>
           <td style="border:none;border-top:1pt solid ${C.azul};text-align:center;padding-top:5pt;width:50%;">
             <span style="font-weight:bold;">${escapeHtml(paf.tecnicoReferencia) || "Técnico de Referência"}</span><br>
-            <span style="font-size:8.5pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};">Técnico de Referência</span>
+            <span style="font-size: 9.2pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};">Técnico de Referência</span>
           </td>
           <td style="border:none;border-top:1pt solid ${C.azul};text-align:center;padding-top:5pt;width:50%;">
             <span style="font-weight:bold;">${escapeHtml(paf.responsavel) || "Responsável Familiar"}</span><br>
-            <span style="font-size:8.5pt;color:${C.cinzaClaro};">${paf.cpf ? "CPF " + escapeHtml(paf.cpf) : "&nbsp;"}</span><br>
-            <span style="font-size:8.5pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};">Responsável Familiar</span>
+            <span style="font-size: 9.2pt;color:${C.cinzaClaro};">${paf.cpf ? "CPF " + escapeHtml(paf.cpf) : "&nbsp;"}</span><br>
+            <span style="font-size: 9.2pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};">Responsável Familiar</span>
           </td>
         </tr>
       </table>
 
-      <p style="margin-top:22pt;padding-top:8pt;border-top:1pt dashed ${C.borda};font-size:7.8pt;color:${C.cinzaClaro};text-align:center;font-style:italic;">
+      <p style="margin-top:22pt;padding-top:8pt;border-top:1pt dashed ${C.borda};font-size: 8.6pt;color:${C.cinzaClaro};text-align:center;font-style:italic;">
         Documento gerado eletronicamente pelo sistema de gestão do PAF/PAIF do CRAS Cristiana Vicente Nunes em ${fmtDateBR(todayISO())}, para uso exclusivo da equipe técnica do SUAS — sujeito a sigilo profissional.<br>
         Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </p>
