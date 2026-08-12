@@ -1513,7 +1513,11 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         * { box-sizing: border-box; }
         body {
           font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F;
-          font-weight: 400; line-height: 1.5; text-align: justify; margin: 0; padding: 4mm 0 3mm; background: #fff;
+          font-weight: 400; line-height: 1.5; text-align: left; margin: 0; padding: 4mm 0 3mm; background: #fff;
+        }
+        p[style] {
+          text-align: justify; border: 1px solid #D7E0E6; border-radius: 7px;
+          padding: 8px 11px; background: #FBFCFC; margin: 6px 0 0 !important; font-style: normal;
         }
         h1, h4 { font-family: 'Times New Roman', Times, serif; }
         h4 {
@@ -1616,7 +1620,10 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         }
 
         /* ---- Sumário: índice das seções do relatório, logo abaixo da capa ---- */
-        .sumario-box { margin: 0 0 22px; page-break-inside: avoid; }
+        .sumario-box {
+          margin: 0 0 22px; page-break-inside: avoid; border: 1px solid #E3E8EC; border-radius: 8px;
+          padding: 12px 14px; background: #FAFBFC;
+        }
         .sumario-box h5 {
           font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: #B98A34;
           margin: 0 0 8px; font-weight: 700;
@@ -1647,9 +1654,10 @@ function imprimirResumoMensal(geral, grupos, contexto) {
 
         .resumo-tabela { width: 100%; border-collapse: collapse; font-size: 11px; }
         .resumo-tabela th, .resumo-tabela td { border: 1px solid #dde3e8; padding: 5px 7px; text-align: center; }
-        .resumo-tabela thead th { background: #1F3A5F; color: #fff; font-weight: 600; letter-spacing: .01em; }
+        .resumo-tabela thead th { background: #1F3A5F; color: #fff; font-weight: bold; letter-spacing: .01em; }
         .resumo-tabela tbody tr:nth-child(even) td { background: #F6F8F9; }
-        .resumo-tabela tfoot th { background: #FBF6EA; color: #7A5A1E; }
+        .resumo-tabela tbody td, .resumo-tabela tfoot td { font-weight: normal; }
+        .resumo-tabela tfoot th { background: #FBF6EA; color: #7A5A1E; font-weight: bold; }
 
         .donut-wrap { display: flex; align-items: center; gap: 12px; }
         .donut-svg { flex-shrink: 0; }
@@ -1680,8 +1688,8 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         .assinatura-local { font-size: 10.5px; color: #5b7186; margin: 10px 0 0; }
 
         .rodape-doc {
-          margin-top: 24px; padding-top: 9px; border-top: 1px dashed #D7E0E6;
-          font-size: 8.6px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic;
+          margin-top: 24px; padding: 9px 12px; border: 1px dashed #D7E0E6; border-radius: 6px;
+          font-size: 8.6px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: normal;
         }
       </style>
 
@@ -3414,13 +3422,18 @@ function exportPDF(paf) {
         * { box-sizing: border-box; }
         body {
           font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F;
-          font-weight: bold; line-height: 1.5; text-align: justify; margin: 0; padding: 5mm 0 3mm;
+          font-weight: 400; line-height: 1.5; text-align: left; margin: 0; padding: 5mm 0 3mm;
         }
         .brasao { font-family: 'Times New Roman', Times, serif; }
-        /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12px, justificado */
-        .reg-evolucao, .reg-encam, .muted, .anotacao {
+        /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, justificado, dentro de caixa */
+        .reg-evolucao, .reg-encam {
           font-family: 'Times New Roman', Times, serif; font-size: 12px; font-weight: normal;
           text-align: justify; line-height: 1.5;
+        }
+        .anotacao, p[style] {
+          font-family: 'Times New Roman', Times, serif; font-size: 12px; font-weight: normal;
+          text-align: justify; line-height: 1.5; border: 1px solid #D7E0E6; border-radius: 7px;
+          padding: 8px 11px; background: #FBFCFC; margin: 6px 0 0 !important;
         }
 
         /* ---- Cabeçalho e rodapé que repetem em toda página impressa ----
@@ -3526,8 +3539,8 @@ function exportPDF(paf) {
           display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 20px; flex: 2 1 380px; font-size: 11px;
           border-left: 1px solid #D7E0E6; padding-left: 16px;
         }
-        .id-grid .k { display: block; font-size: 9.2px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; margin-bottom: 2px; }
-        .id-grid .v { display: block; font-weight: 600; }
+        .id-grid .k { display: block; font-size: 9.2px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; margin-bottom: 2px; font-weight: bold; }
+        .id-grid .v { display: block; font-weight: normal; }
         .id-stats { display: flex; gap: 8px; flex: 0 0 auto; border-left: 1px solid #D7E0E6; padding-left: 16px; }
         .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-top: 2.5px solid #B98A34; border-radius: 7px; padding: 7px 11px; min-width: 58px; }
         .id-stat:nth-child(2) { border-top-color: #2E7D6B; }
@@ -3551,19 +3564,25 @@ function exportPDF(paf) {
         }
         h2:nth-of-type(3n+2)::before { background: #B98A34; }
         h2:nth-of-type(3n+3)::before { background: #1F3A5F; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 18px; margin-bottom: 6px; }
-        .field { margin-bottom: 4px; }
+        .grid {
+          display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 18px;
+          margin-bottom: 6px; border: 1px solid #D7E0E6; border-radius: 7px; padding: 11px 14px; background: #FBFCFC;
+        }
+        .field { margin-bottom: 4px; font-weight: normal; }
         .label { font-weight: bold; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; color: #52667C; display: block; margin-bottom: 1px; }
         table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
-        th, td { border: 1px solid #D7E0E6; padding: 6px 8px; text-align: left; vertical-align: top; }
-        th { background: #1F3A5F; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
+        th, td { border: 1px solid #D7E0E6; padding: 6px 8px; text-align: left; vertical-align: top; font-weight: normal; }
+        th { background: #1F3A5F; font-weight: bold; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
         tbody tr:nth-child(even) td { background: #F6F8F9; }
         tr { page-break-inside: avoid; }
         .tag {
           display: inline-block; background: #DEEAE6; color: #1F5C4E; border: 1px solid #C3DCD5;
           padding: 3px 9px; border-radius: 5px; font-size: 10px; margin: 2px 5px 2px 0; font-weight: 600;
         }
-        .muted { color: #8496A8; font-style: italic; }
+        .tags-wrap {
+          border: 1px solid #D7E0E6; border-radius: 7px; padding: 9px 11px; background: #FBFCFC; margin-bottom: 6px;
+        }
+        .muted { color: #8496A8; font-style: normal; font-weight: normal; }
 
         .reg-item {
           display: flex; gap: 11px; border: 1px solid #D7E0E6; border-left-width: 3px; border-radius: 7px;
@@ -3582,17 +3601,20 @@ function exportPDF(paf) {
         .reg-evolucao { margin: 0 0 4px; }
         .reg-encam { margin: 0; color: #52667C; }
 
-        .fechamento { margin-top: 36px; padding-top: 20px; border-top: 2px solid #F3E7D0; page-break-inside: avoid; }
-        .fechamento .local-data { font-size: 10.5px; color: #52667C; margin-bottom: 26px; }
+        .fechamento {
+          margin-top: 36px; padding: 16px 18px 20px; border: 1px solid #D7E0E6; border-radius: 8px;
+          background: #FBFCFC; page-break-inside: avoid;
+        }
+        .fechamento .local-data { font-size: 10.5px; color: #52667C; margin-bottom: 26px; text-align: left; }
         .assinaturas { display: flex; gap: 44px; }
         .assinatura { flex: 1; text-align: center; }
-        .assinatura .linha { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; font-weight: 600; }
+        .assinatura .linha { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; font-weight: bold; }
         .assinatura .cpf-linha { font-size: 9.5px; color: #8496A8; font-weight: 400; margin-top: 1px; }
-        .assinatura .titulo { font-size: 9.5px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
+        .assinatura .titulo { font-size: 9.5px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; font-weight: bold; }
 
         .rodape-doc {
-          margin-top: 24px; padding-top: 9px; border-top: 1px dashed #D7E0E6;
-          font-size: 8.6px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic;
+          margin-top: 24px; padding: 9px 12px; border: 1px dashed #D7E0E6; border-radius: 6px;
+          font-size: 8.6px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: normal;
         }
 
         .anexos-print-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
@@ -3684,7 +3706,7 @@ function exportPDF(paf) {
       ${migracaoHTML}
 
       <h2>Diagnóstico e Vulnerabilidades</h2>
-      <div>${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
+      <div class="tags-wrap">${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
       ${paf.vulnerabilidadesOutros ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
 
       <h2>Diagnóstico Socioeconômico</h2>
@@ -3724,7 +3746,7 @@ function exportPDF(paf) {
       ${paf.barreirasDesafios ? `<p class="muted" style="margin:6px 0 0;"><strong>Barreiras e desafios:</strong> ${escapeHtml(paf.barreirasDesafios)}</p>` : ""}
 
       <h2>Trabalho Social Coletivo do PAIF</h2>
-      <div>${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
+      <div class="tags-wrap">${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
       ${paf.atividadesColetivasOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.atividadesColetivasOutras)}</p>` : ""}
 
       <h2>Serviços da Rede Socioassistencial</h2>
@@ -3739,13 +3761,13 @@ function exportPDF(paf) {
         <div class="field"><span class="label">Participa de programas/projetos sociais</span>${escapeHtml(paf.participaProgramas) || "—"}</div>
         <div class="field"><span class="label">Recebe outro benefício assistencial</span>${escapeHtml(paf.recebeBeneficio) || "—"}</div>
       </div>
-      <div>${(paf.programasQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
+      <div class="tags-wrap">${(paf.programasQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
       ${paf.programasOutros ? `<p style="margin:4px 0;"><strong>Outros programas:</strong> ${escapeHtml(paf.programasOutros)}</p>` : ""}
-      <div>${(paf.beneficioQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
+      <div class="tags-wrap">${(paf.beneficioQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
       ${paf.beneficioOutro ? `<p style="margin:4px 0;"><strong>Outro benefício:</strong> ${escapeHtml(paf.beneficioOutro)}</p>` : ""}
 
       <h2>Recursos do Território (Rede de Apoio)</h2>
-      <div>${(paf.redeApoio || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
+      <div class="tags-wrap">${(paf.redeApoio || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
       ${paf.redeApoioOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.redeApoioOutros)}</p>` : ""}
 
       <h2>Registro de Atendimentos</h2>
@@ -3764,11 +3786,11 @@ function exportPDF(paf) {
       </div>
 
       <h2>Objetivos do PAIF Trabalhados no Plano</h2>
-      <div>${(paf.objetivosPaif || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
+      <div class="tags-wrap">${(paf.objetivosPaif || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
       ${paf.objetivosPaifOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.objetivosPaifOutros)}</p>` : ""}
 
       <h2>Seguranças Socioassistenciais Afiançadas</h2>
-      <div>${(paf.segurancasSocioassistenciais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
+      <div class="tags-wrap">${(paf.segurancasSocioassistenciais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
       ${paf.segurancasSocioassistenciaisOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.segurancasSocioassistenciaisOutras)}</p>` : ""}
 
       <h2>Elaboração e Encerramento</h2>
@@ -3843,9 +3865,10 @@ function imprimirEncaminhamento(paf, enc) {
       <style>
         @page { margin: 16mm 14mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F; font-weight: bold; line-height: 1.5; text-align: justify; margin: 0; }
-        /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12px, justificado */
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F; font-weight: 400; line-height: 1.5; text-align: left; margin: 0; }
+        /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12px, justificado, dentro de caixa */
         .contra .campo, .anotacao { font-family: 'Times New Roman', Times, serif; font-size: 12px; font-weight: normal; text-align: justify; line-height: 1.5; }
+        .corpo p.linha { text-align: justify; }
         .orgao-header {
           display: flex; align-items: center; gap: 10px; background: #172C48; color: #C9D6DE;
           padding: 10px 12px; border-radius: 7px 7px 0 0; font-size: 9.5px; margin-bottom: 0; border-bottom: 2px solid #B98A34;
@@ -3872,15 +3895,18 @@ function imprimirEncaminhamento(paf, enc) {
         .canhoto b { color: #52667C; text-transform: uppercase; font-size: 9.5px; letter-spacing: .03em; }
         .corpo { border: 1px solid #D7E0E6; border-radius: 8px; padding: 16px 18px; background: #FDFEFE; }
         .linha { margin: 0 0 11px; }
-        .campo-preenchido { border-bottom: 1px solid #1F3A5F; padding: 0 2px; font-weight: 600; }
+        .campo-preenchido { border-bottom: 1px solid #1F3A5F; padding: 0 2px; font-weight: normal; }
         .contra { margin-top: 32px; border-top: 2px dashed #D7C39A; padding-top: 16px; }
         .contra h2 { font-family: 'Times New Roman', Times, serif; font-size: 14px; font-weight: bold; color: #1F5C4E; margin: 0 0 10px; letter-spacing: .01em; }
         .contra .campo { border: 1px solid #D7E0E6; border-radius: 7px; min-height: 70px; padding: 10px; background: #FAFBFC; }
         .assinaturas { display: flex; gap: 44px; margin-top: 40px; }
         .assinatura { flex: 1; text-align: center; }
         .assinatura .linha-ass { border-top: 1px solid #1F3A5F; margin-bottom: 5px; padding-top: 5px; }
-        .assinatura .titulo { font-size: 9.5px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; }
-        .rodape-print { margin-top: 28px; padding-top: 10px; border-top: 1px dashed #D7E0E6; font-size: 9px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: italic; }
+        .assinatura .titulo { font-size: 9.5px; color: #52667C; text-transform: uppercase; letter-spacing: .03em; font-weight: bold; }
+        .rodape-print {
+          margin-top: 28px; padding: 10px 12px; border: 1px dashed #D7E0E6; border-radius: 6px;
+          font-size: 9px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: normal;
+        }
       </style>
     </head>
     <body>
@@ -3982,15 +4008,15 @@ function exportWord(paf) {
     `<span style="background:${C.verdeClaro};color:${C.verde};padding:2pt 7pt;font-size: 10pt;font-weight:bold;margin-right:4pt;">${escapeHtml(texto)}</span>`;
 
   const campo = (label, valor) => `
-    <td style="border:none;padding:3pt 10pt 3pt 0;vertical-align:top;width:50%;">
+    <td style="border:1pt solid ${C.borda};padding:5pt 10pt;vertical-align:top;width:50%;background:${C.faixa};">
       <span style="display:block;font-size: 8.8pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};font-weight:bold;">${label}</span>
-      <span style="font-size: 11pt;">${valor || "—"}</span>
+      <span style="font-size: 11pt;font-weight:normal;">${valor || "—"}</span>
     </td>`;
 
   const camposGrid = (pares) => {
     const linhas = [];
     for (let i = 0; i < pares.length; i += 2) {
-      linhas.push(`<tr>${campo(pares[i][0], pares[i][1])}${pares[i + 1] ? campo(pares[i + 1][0], pares[i + 1][1]) : "<td style='border:none;'></td>"}</tr>`);
+      linhas.push(`<tr>${campo(pares[i][0], pares[i][1])}${pares[i + 1] ? campo(pares[i + 1][0], pares[i + 1][1]) : `<td style='border:1pt solid ${C.borda};background:${C.faixa};'></td>`}</tr>`);
     }
     return `<table style="width:100%;border-collapse:collapse;margin-bottom:6pt;" cellpadding="0" cellspacing="0">${linhas.join("")}</table>`;
   };
@@ -3998,27 +4024,27 @@ function exportWord(paf) {
   const situacoesWordHTML = rowsWithZebra(
     (paf.situacoesSociais || []).filter(s => s.membros || s.superada),
     s => `<tr><td>${escapeHtml(s.situacao)}</td><td>${escapeHtml(s.membros)}</td><td style="text-align:center;">${s.superada ? "Sim" : "Não"}</td></tr>`
-  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhuma situação registrada</td></tr>`;
+  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:normal;">Nenhuma situação registrada</td></tr>`;
 
   const potencialidadesWordHTML = rowsWithZebra(
     (paf.potencialidades || []).filter(p => p.situacao || p.observacoes),
     p => `<tr><td>${escapeHtml(p.potencial)}</td><td style="text-align:center;">${escapeHtml(p.situacao) || "—"}</td><td>${escapeHtml(p.observacoes) || "—"}</td></tr>`
-  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhuma potencialidade registrada</td></tr>`;
+  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:normal;">Nenhuma potencialidade registrada</td></tr>`;
 
   const membrosWordHTML = rowsWithZebra(
     paf.membros || [],
     m => `<tr><td>${escapeHtml(m.nome)}</td><td>${fmtDateBR(m.nascimento)}</td><td>${escapeHtml(m.sexo)}</td><td>${escapeHtml(m.parentesco)}</td><td>${escapeHtml(m.nacionalidade) || "—"}</td><td>${escapeHtml(m.etnia) || "—"}</td><td style="text-align:center;">${m.pcd ? "Sim" : "—"}</td></tr>`
-  ) || `<tr><td colspan='7' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhum membro informado</td></tr>`;
+  ) || `<tr><td colspan='7' style="text-align:center;color:${C.cinzaClaro};font-style:normal;">Nenhum membro informado</td></tr>`;
 
   const atendimentosWordHTML = rowsWithZebra(
     paf.atendimentos || [],
     a => `<tr><td>${fmtDateBR(a.data)}</td><td>${escapeHtml(a.tipo)}</td><td>${escapeHtml(a.tecnico)}</td><td class="anotacao">${escapeHtml(a.evolucao)}</td><td class="anotacao">${escapeHtml(a.encaminhamentos)}</td></tr>`
-  ) || `<tr><td colspan='5' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhum atendimento registrado</td></tr>`;
+  ) || `<tr><td colspan='5' style="text-align:center;color:${C.cinzaClaro};font-style:normal;">Nenhum atendimento registrado</td></tr>`;
 
   const metasWordHTML = rowsWithZebra(
     paf.metas || [],
     m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`
-  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:italic;">Nenhuma meta informada</td></tr>`;
+  ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:normal;">Nenhuma meta informada</td></tr>`;
 
   const temMigracaoWord = paf.migracaoDataChegadaBrasil || (paf.migracaoDocumentacao || []).length || paf.migracaoDocumentacaoOutro || paf.migracaoInteriorizacao || paf.habitacaoAbrigoNome;
   const migracaoWordHTML = !temMigracaoWord ? "" : `
@@ -4065,15 +4091,18 @@ function exportWord(paf) {
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
     <style>
-      body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: bold; line-height: 1.5; text-align: justify; color: ${C.azul}; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal; line-height: 1.5; text-align: left; color: ${C.azul}; }
       h1 { font-family: 'Times New Roman', Times, serif; }
       table { border-collapse: collapse; }
       table.dados { width: 100%; margin-top: 6pt; }
-      table.dados th, table.dados td { border: 1pt solid ${C.borda}; padding: 5pt 7pt; font-size: 10.5pt; text-align: left; vertical-align: top; }
-      table.dados th { background: ${C.fundo}; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .02em; color: ${C.verde}; border-bottom: 1.5pt solid ${C.verde}; }
+      table.dados th, table.dados td { border: 1pt solid ${C.borda}; padding: 5pt 7pt; font-size: 10.5pt; text-align: left; vertical-align: top; font-weight: normal; }
+      table.dados th { background: ${C.fundo}; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .02em; color: ${C.verde}; border-bottom: 1.5pt solid ${C.verde}; font-weight: bold; }
       p { margin: 4pt 0; }
-      /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12pt, justificado */
-      .anotacao { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal; text-align: justify; line-height: 1.5; }
+      /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12pt, justificado, em caixa */
+      .anotacao {
+        display: block; font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal;
+        text-align: justify; line-height: 1.5; border: 1pt solid ${C.borda}; padding: 7pt 9pt; background: ${C.faixa};
+      }
     </style>
     </head>
     <body>
@@ -4144,7 +4173,7 @@ function exportWord(paf) {
       ${migracaoWordHTML}
 
       ${secao("03", "Diagnóstico e Vulnerabilidades")}
-      <p>${(paf.vulnerabilidades || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:italic;">Nenhuma registrada</span>`}</p>
+      <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};">${(paf.vulnerabilidades || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:normal;">Nenhuma registrada</span>`}</p>
 
       ${secao("03a", "Situações Sociais Registradas")}
       <table class="dados">
@@ -4160,7 +4189,7 @@ function exportWord(paf) {
       ${paf.barreirasDesafios ? `<p><b>Barreiras e desafios:</b> <span class="anotacao">${escapeHtml(paf.barreirasDesafios)}</span></p>` : ""}
 
       ${secao("03b", "Trabalho Social Coletivo do PAIF")}
-      <p>${(paf.atividadesColetivas || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:italic;">Nenhuma registrada</span>`}${paf.atividadesColetivasOutras ? "<br><b>Outras:</b> " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
+      <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};">${(paf.atividadesColetivas || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:normal;">Nenhuma registrada</span>`}${paf.atividadesColetivasOutras ? "<br><b>Outras:</b> " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
 
       ${secao("03c", "Serviços da Rede Socioassistencial")}
       ${camposGrid([
@@ -4182,7 +4211,7 @@ function exportWord(paf) {
       ${secao("03e", "Aspectos Psicossociais e Instrumentais Técnicos")}
       ${camposGrid([
         ["Instrumentais utilizados", (paf.instrumentaisTecnicos || []).map(escapeHtml).join(", ")],
-        ["Aspectos relacionais observados", `<span class="anotacao">${escapeHtml(paf.aspectosPsicossociaisObs) || "—"}</span>`]
+        ["Aspectos relacionais observados", `<span style="text-align:justify;display:inline-block;">${escapeHtml(paf.aspectosPsicossociaisObs) || "—"}</span>`]
       ])}
 
       ${secao("04", "Registro de Atendimentos")}
@@ -4200,7 +4229,7 @@ function exportWord(paf) {
       ])}
 
       ${secao("04c", "Recursos do Território (Rede de Apoio)")}
-      <p>${(paf.redeApoio || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:italic;">Nenhum selecionado</span>`}${paf.redeApoioOutros ? "<br><b>Outros:</b> " + escapeHtml(paf.redeApoioOutros) : ""}</p>
+      <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};">${(paf.redeApoio || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:normal;">Nenhum selecionado</span>`}${paf.redeApoioOutros ? "<br><b>Outros:</b> " + escapeHtml(paf.redeApoioOutros) : ""}</p>
 
       ${secao("05", "Metas e Resultados")}
       <table class="dados">
@@ -4215,8 +4244,8 @@ function exportWord(paf) {
       ])}
 
       ${secao("06", "Elaboração e Encerramento")}
-      <p><b>Objetivos do PAIF trabalhados neste Plano:</b><br>${(paf.objetivosPaif || []).map(tag).join(" ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? "<br><b>Outros:</b> " + escapeHtml(paf.objetivosPaifOutros) : ""}</p>
-      <p><b>Seguranças socioassistenciais afiançadas:</b><br>${(paf.segurancasSocioassistenciais || []).map(tag).join(" ") || "Nenhuma selecionada"}${paf.segurancasSocioassistenciaisOutras ? "<br><b>Outras:</b> " + escapeHtml(paf.segurancasSocioassistenciaisOutras) : ""}</p>
+      <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};"><b>Objetivos do PAIF trabalhados neste Plano:</b><br>${(paf.objetivosPaif || []).map(tag).join(" ") || "Nenhum selecionado"}${paf.objetivosPaifOutros ? "<br><b>Outros:</b> " + escapeHtml(paf.objetivosPaifOutros) : ""}</p>
+      <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};"><b>Seguranças socioassistenciais afiançadas:</b><br>${(paf.segurancasSocioassistenciais || []).map(tag).join(" ") || "Nenhuma selecionada"}${paf.segurancasSocioassistenciaisOutras ? "<br><b>Outras:</b> " + escapeHtml(paf.segurancasSocioassistenciaisOutras) : ""}</p>
       ${camposGrid([
         ["Família participou da elaboração", escapeHtml(paf.familiaParticipou)],
         ["Técnico de Referência", escapeHtml(paf.tecnicoReferencia)],
@@ -4230,24 +4259,24 @@ function exportWord(paf) {
       ${anexosWordHTML}
 
       <!-- Fechamento e assinaturas -->
-      <table style="width:100%;margin-top:34pt;" cellpadding="0" cellspacing="0">
+      <table style="width:100%;margin-top:34pt;border:1pt solid ${C.borda};background:${C.faixa};" cellpadding="16" cellspacing="0">
         <tr>
-          <td colspan="2" style="border:none;font-size: 10pt;color:${C.cinza};padding-bottom:26pt;">Boa Vista/RR, ${fmtDateBR(todayISO())}.</td>
+          <td colspan="2" style="border:none;font-size: 10pt;color:${C.cinza};padding-bottom:26pt;text-align:left;">Boa Vista/RR, ${fmtDateBR(todayISO())}.</td>
         </tr>
         <tr>
           <td style="border:none;border-top:1pt solid ${C.azul};text-align:center;padding-top:5pt;width:50%;">
             <span style="font-weight:bold;">${escapeHtml(paf.tecnicoReferencia) || "Técnico de Referência"}</span><br>
-            <span style="font-size: 9.2pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};">Técnico de Referência</span>
+            <span style="font-size: 9.2pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};font-weight:bold;">Técnico de Referência</span>
           </td>
           <td style="border:none;border-top:1pt solid ${C.azul};text-align:center;padding-top:5pt;width:50%;">
             <span style="font-weight:bold;">${escapeHtml(paf.responsavel) || "Responsável Familiar"}</span><br>
             <span style="font-size: 9.2pt;color:${C.cinzaClaro};">${paf.cpf ? "CPF " + escapeHtml(paf.cpf) : "&nbsp;"}</span><br>
-            <span style="font-size: 9.2pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};">Responsável Familiar</span>
+            <span style="font-size: 9.2pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};font-weight:bold;">Responsável Familiar</span>
           </td>
         </tr>
       </table>
 
-      <p style="margin-top:22pt;padding-top:8pt;border-top:1pt dashed ${C.borda};font-size: 8.6pt;color:${C.cinzaClaro};text-align:center;font-style:italic;">
+      <p style="margin-top:22pt;padding:8pt 10pt;border:1pt dashed ${C.borda};font-size: 8.6pt;color:${C.cinzaClaro};text-align:center;font-style:normal;">
         Documento gerado eletronicamente pelo sistema de gestão do PAF/PAIF do CRAS Cristiana Vicente Nunes em ${fmtDateBR(todayISO())}, para uso exclusivo da equipe técnica do SUAS — sujeito a sigilo profissional.<br>
         Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </p>
