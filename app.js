@@ -1027,6 +1027,139 @@ function donutChartSVG(obj, opts) {
   </div>`;
 }
 
+// Escolhe um "degrau" redondo e legível para o eixo Y (1, 2, 5, 10, 20, 50...),
+// do jeito que qualquer livro de estatística introdutória recomenda para não
+// deixar o eixo com números quebrados.
+function degrauEixoY(max) {
+  if (max <= 5) return 1;
+  if (max <= 10) return 2;
+  if (max <= 25) return 5;
+  if (max <= 50) return 10;
+  if (max <= 100) return 20;
+  return Math.ceil(max / 5 / 50) * 50;
+}
+
+const FAIXA_ETARIA_ORDEM = ["0 a 17 anos", "18 a 29 anos", "30 a 44 anos", "45 a 59 anos", "60 anos ou mais", "Não informada"];
+const FAIXA_ETARIA_CURTA = { "0 a 17 anos": "0–17", "18 a 29 anos": "18–29", "30 a 44 anos": "30–44", "45 a 59 anos": "45–59", "60 anos ou mais": "60+", "Não informada": "N/I" };
+
+// Histograma: gráfico de barras encostadas (sem espaço entre elas), com linhas de
+// grade e eixo Y numerado, para a distribuição de frequência de uma variável
+// contínua já agrupada em classes (ex.: faixa etária) — conforme Larson & Farber,
+// "Estatística Aplicada", cap. 2.1 (Distribuições de frequência e seus gráficos).
+// Diferente do gráfico de pizza/rosca, o histograma preserva a ordem natural das
+// classes (0–17, 18–29...), o que ajuda a enxergar a forma da distribuição etária.
+function histogramaSVG(obj, opts) {
+  opts = opts || {};
+  const ordem = opts.ordem || Object.keys(obj);
+  const rotulos = opts.rotulos || {};
+  const entradas = ordem.map((k) => [k, obj[k] || 0]).filter(([, v]) => v > 0 || !opts.ocultarZerados);
+  const total = entradas.reduce((a, [, v]) => a + v, 0);
+  if (!total) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
+
+  const max = Math.max(...entradas.map(([, v]) => v), 1);
+  const passo = degrauEixoY(max);
+  const maxEixo = Math.ceil(max / passo) * passo;
+  const nDegraus = Math.max(Math.round(maxEixo / passo), 1);
+
+  const padLeft = 26, padRight = 8, padTop = 12, padBottom = 40;
+  const chartH = 120;
+  const colW = 58;
+  const width = padLeft + entradas.length * colW + padRight;
+  const height = chartH + padTop + padBottom;
+
+  const grades = Array.from({ length: nDegraus + 1 }, (_, i) => {
+    const valor = i * passo;
+    const y = padTop + chartH - (valor / maxEixo) * chartH;
+    return `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1" opacity="${i === 0 ? 1 : .45}"></line>
+      <text x="${padLeft - 6}" y="${y + 3}" text-anchor="end" class="hist-eixo-num">${valor}</text>`;
+  }).join("");
+
+  const barras = entradas.map(([k, v], i) => {
+    const x0 = padLeft + i * colW;
+    const h = Math.round((v / maxEixo) * chartH);
+    const y = padTop + chartH - h;
+    const naoInformada = k === "Não informada";
+    return `
+      <rect x="${x0}" y="${y}" width="${colW}" height="${h}" fill="var(--accent, #2E7D6B)" opacity="${naoInformada ? .4 : 1}"></rect>
+      ${v ? `<text x="${x0 + colW / 2}" y="${y - 4}" text-anchor="middle" class="hist-bar-num">${v}</text>` : ""}
+      <text x="${x0 + colW / 2}" y="${padTop + chartH + 16}" text-anchor="middle" class="hist-bar-label">${escapeHtml(rotulos[k] || k)}</text>
+      <text x="${x0 + colW / 2}" y="${padTop + chartH + 29}" text-anchor="middle" class="hist-bar-pct">${Math.round(v / total * 100)}%</text>`;
+  }).join("");
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="histograma-chart" role="img" aria-label="Histograma">
+    ${grades}
+    <line x1="${padLeft}" y1="${padTop + chartH}" x2="${padLeft}" y2="${padTop}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
+    ${barras}
+  </svg>`;
+}
+
+// Gráfico de Pareto: barras em ordem decrescente de frequência + linha de percentual
+// acumulado — conforme Larson & Farber, "Estatística Aplicada", cap. 2.2 (Mais
+// gráficos e apresentações de dados). Ajuda a equipe a identificar rapidamente as
+// "poucas causas vitais": normalmente uma minoria das vulnerabilidades/situações
+// concentra a maior parte dos casos, e é nelas que a intervenção rende mais.
+function paretoChartSVG(obj, opts) {
+  opts = opts || {};
+  const top = opts.top || 7;
+  const entradasBrutas = Object.entries(obj).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (!entradasBrutas.length) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
+  const totalGeral = entradasBrutas.reduce((a, [, v]) => a + v, 0);
+  const entradas = entradasBrutas.slice(0, top);
+  const max = Math.max(...entradas.map(([, v]) => v), 1);
+  const passo = degrauEixoY(max);
+  const maxEixo = Math.ceil(max / passo) * passo;
+  const nDegraus = Math.max(Math.round(maxEixo / passo), 1);
+
+  const padLeft = 26, padRight = 30, padTop = 16, padBottom = 66;
+  const chartH = 128;
+  const colW = 54;
+  const width = padLeft + entradas.length * colW + padRight;
+  const height = chartH + padTop + padBottom;
+
+  const grades = Array.from({ length: nDegraus + 1 }, (_, i) => {
+    const valor = i * passo;
+    const y = padTop + chartH - (valor / maxEixo) * chartH;
+    return `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1" opacity="${i === 0 ? 1 : .45}"></line>
+      <text x="${padLeft - 6}" y="${y + 3}" text-anchor="end" class="hist-eixo-num">${valor}</text>`;
+  }).join("");
+
+  let acumulado = 0;
+  const pontos = [];
+  const barras = entradas.map(([k, v], i) => {
+    const x0 = padLeft + i * colW;
+    const h = Math.round((v / maxEixo) * chartH);
+    const y = padTop + chartH - h;
+    acumulado += v;
+    const pct = Math.round((acumulado / totalGeral) * 100);
+    const yLinha = padTop + chartH - (pct / 100) * chartH;
+    pontos.push([x0 + colW / 2, yLinha, pct]);
+    const rotulo = k.length > 22 ? k.slice(0, 20) + "…" : k;
+    return `
+      <rect x="${x0 + 3}" y="${y}" width="${colW - 6}" height="${h}" fill="var(--accent, #2E7D6B)" rx="2"></rect>
+      <text x="${x0 + colW / 2}" y="${y - 4}" text-anchor="middle" class="hist-bar-num">${v}</text>
+      <text x="${x0 + colW / 2}" y="${padTop + chartH + 14}" text-anchor="end" class="pareto-bar-label" transform="rotate(-38 ${x0 + colW / 2} ${padTop + chartH + 14})">${escapeHtml(rotulo)}</text>`;
+  }).join("");
+
+  const linhaPontos = pontos.map(([x, y]) => `${x},${y}`).join(" ");
+  const marcadores = pontos.map(([x, y, pct]) => `
+    <circle cx="${x}" cy="${y}" r="2.6" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1"></circle>
+    <text x="${x}" y="${y - 7}" text-anchor="middle" class="pareto-pct-num">${pct}%</text>`).join("");
+
+  return `
+    <div class="chart-legend-inline">
+      <span><i style="background:var(--accent, #2E7D6B)"></i> Ocorrências</span>
+      <span><i style="background:var(--gold, #B98A34)"></i> % acumulado</span>
+    </div>
+    <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="pareto-chart" role="img" aria-label="Gráfico de Pareto">
+      ${grades}
+      <line x1="${padLeft}" y1="${padTop + chartH}" x2="${padLeft}" y2="${padTop}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
+      ${barras}
+      <polyline points="${linhaPontos}" fill="none" stroke="var(--gold, #B98A34)" stroke-width="1.6"></polyline>
+      ${marcadores}
+    </svg>
+    ${entradasBrutas.length > top ? `<p class="hint" style="margin-top:4px;">Mostrando as ${top} mais frequentes de ${entradasBrutas.length} categorias registradas.</p>` : ""}`;
+}
+
 function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
   opts = opts || {};
   const limite = opts.limite || 12;
@@ -1039,18 +1172,28 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
     exc: saidas[ym]?.quantidade || 0
   }));
   const maxValor = Math.max(...valores.map(v => Math.max(v.inc, v.exc)), 1);
+  const passo = degrauEixoY(maxValor);
+  const maxEixo = Math.ceil(maxValor / passo) * passo;
+  const nDegraus = Math.max(Math.round(maxEixo / passo), 1);
 
   const colW = 46;
   const chartH = 120;
-  const padTop = 10, padBottom = 34, padSide = 6;
-  const width = meses.length * colW + padSide * 2;
+  const padTop = 10, padBottom = 34, padSide = 26;
+  const width = meses.length * colW + padSide + 10;
   const height = chartH + padTop + padBottom;
   const barW = 14;
 
+  const grades = Array.from({ length: nDegraus + 1 }, (_, i) => {
+    const valor = i * passo;
+    const y = padTop + chartH - (valor / maxEixo) * chartH;
+    return `<line x1="${padSide}" y1="${y}" x2="${width - 6}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1" opacity="${i === 0 ? 1 : .45}"></line>
+      <text x="${padSide - 6}" y="${y + 3}" text-anchor="end" class="hist-eixo-num">${valor}</text>`;
+  }).join("");
+
   const barras = valores.map((v, i) => {
     const x0 = padSide + i * colW;
-    const hInc = Math.round((v.inc / maxValor) * chartH);
-    const hExc = Math.round((v.exc / maxValor) * chartH);
+    const hInc = Math.round((v.inc / maxEixo) * chartH);
+    const hExc = Math.round((v.exc / maxEixo) * chartH);
     const yInc = padTop + (chartH - hInc);
     const yExc = padTop + (chartH - hExc);
     return `
@@ -1069,7 +1212,8 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
       <span><i style="background:var(--danger, #B5473F)"></i> Excluídas</span>
     </div>
     <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="evolucao-chart">
-      <line x1="${padSide}" y1="${padTop + chartH}" x2="${width - padSide}" y2="${padTop + chartH}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
+      ${grades}
+      <line x1="${padSide}" y1="${padTop}" x2="${padSide}" y2="${padTop + chartH}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
       ${barras}
     </svg>`;
 }
@@ -1110,7 +1254,9 @@ function resumoGeralGeralHTML(r, anteriorTotal) {
       <div class="resumo-cols resumo-cols-donut">
         <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": r.porStatus.andamento || 0, "Encaminhado": r.porStatus.encaminhado || 0, "Concluído": r.porStatus.concluido || 0, "Cancelado": r.porStatus.cancelado || 0 }, { centro: "PAFs" })}</div>
         <div><strong>Sexo do responsável</strong>${donutChartSVG(r.porSexo, { centro: "famílias" })}</div>
-        <div><strong>Faixa etária</strong>${donutChartSVG(r.porFaixa, { centro: "famílias" })}</div>
+      </div>
+      <div class="resumo-cols" style="margin-top:16px;">
+        <div><strong>Faixa etária do responsável (histograma)</strong>${histogramaSVG(r.porFaixa, { ordem: FAIXA_ETARIA_ORDEM, rotulos: FAIXA_ETARIA_CURTA })}</div>
       </div>
     </div>`;
 }
@@ -1147,9 +1293,10 @@ function resumoGeralVulnerabilidadesHTML(r) {
   return `
     <div class="resumo-secao">
       <h4>${sectionIconSvg("diagnostico", 16)} Vulnerabilidades e situações sociais</h4>
+      <p class="hint">Gráfico de Pareto: as barras trazem as categorias mais frequentes em ordem decrescente e a linha mostra o percentual acumulado — útil para identificar rapidamente onde concentrar a intervenção.</p>
       <div class="resumo-cols">
-        <div><strong>Vulnerabilidades mais frequentes</strong>${barrasHTML(r.porVulnerabilidade, { top: 8 })}</div>
-        <div><strong>Situações sociais mais frequentes</strong>${barrasHTML(r.porSituacaoSocial, { top: 8 })}</div>
+        <div><strong>Vulnerabilidades mais frequentes</strong>${paretoChartSVG(r.porVulnerabilidade, { top: 7 })}</div>
+        <div><strong>Situações sociais mais frequentes</strong>${paretoChartSVG(r.porSituacaoSocial, { top: 7 })}</div>
       </div>
     </div>
 
@@ -2499,8 +2646,10 @@ function graficosFamiliaHTML(paf) {
       <h4>${sectionIconSvg("familia", 16)} Composição familiar</h4>
       <div class="resumo-cols resumo-cols-donut">
         <div><strong>Sexo dos membros</strong>${donutChartSVG(r.porSexo, { centro: "membros" })}</div>
-        <div><strong>Faixa etária</strong>${donutChartSVG(r.porFaixa, { centro: "membros" })}</div>
         <div><strong>Parentesco</strong>${barrasHTML(r.porParentesco)}</div>
+      </div>
+      <div class="resumo-cols" style="margin-top:16px;">
+        <div><strong>Faixa etária dos membros (histograma)</strong>${histogramaSVG(r.porFaixa, { ordem: FAIXA_ETARIA_ORDEM, rotulos: FAIXA_ETARIA_CURTA })}</div>
       </div>
       ${r.totalPCD ? `<p class="hint" style="margin-top:10px;">${r.totalPCD} membro(s) com deficiência (PCD) identificado(s).</p>` : ""}
     </div>
