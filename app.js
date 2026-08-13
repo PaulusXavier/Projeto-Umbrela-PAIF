@@ -3790,6 +3790,53 @@ function exportPDF(paf) {
         .anexo-pdf-embed { width: 100%; height: 92vh; border: 1px solid #D7E0E6; display: block; }
         .anexo-pdf-fallback-link { text-align: center; font-size: 9px; color: #71859A; margin-top: 4px; }
         .anexo-pdf-fallback-link a { color: #2E7D6B; font-weight: bold; }
+
+        /* ---- Gráficos da Família (seção final do PAF impresso) ---- */
+        .graficos-print-secao { margin-top: 4px; }
+        .graficos-print-secao h4 {
+          display: flex; align-items: center; gap: 7px;
+          font-family: 'Times New Roman', Times, serif; font-size: 12.5px; font-weight: bold;
+          color: #1F3A5F; margin: 20px 0 10px; padding-bottom: 6px;
+          border-bottom: 1.6px solid #E9EEF1; page-break-after: avoid;
+        }
+        .graficos-print-secao h4:first-of-type { margin-top: 4px; }
+        .graficos-print-secao .section-icon { color: #B98A34; flex-shrink: 0; }
+        .resumo-secao { margin-bottom: 16px; page-break-inside: avoid; }
+        .resumo-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: start; }
+        .resumo-cols-donut { grid-template-columns: repeat(2, 1fr); }
+        .resumo-cols > div { border: 1px solid #D7E0E6; border-radius: 7px; padding: 10px 11px; background: #FBFCFC; page-break-inside: avoid; }
+        .resumo-cols strong {
+          display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: .035em;
+          color: #7A8CA0; margin-bottom: 8px; font-weight: bold;
+        }
+        .hint { font-size: 9.8px; color: #8496A8; font-style: normal; margin: 4px 0; }
+        .stat-bars { display: flex; flex-direction: column; gap: 3px; }
+        .stat-bar-row { display: grid; grid-template-columns: 1fr 50px 56px; align-items: center; gap: 5px; font-size: 10px; padding: 2px 0; }
+        .stat-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .stat-bar-track { height: 5px; background: #EAF1EE; border-radius: 3px; overflow: hidden; }
+        .stat-bar-fill { height: 100%; background: #2E7D6B; border-radius: 3px; }
+        .stat-bar-value { text-align: right; white-space: nowrap; font-weight: normal; }
+        .stat-bar-value em { color: #8496A8; font-style: normal; }
+        .donut-wrap { display: flex; align-items: center; gap: 10px; }
+        .donut-svg { flex-shrink: 0; }
+        .donut-total-num { font-size: 15px; font-weight: bold; fill: #1F3A5F; font-family: 'Times New Roman', Times, serif; }
+        .donut-total-label { font-size: 7.5px; fill: #8496A8; text-transform: uppercase; letter-spacing: .03em; }
+        .donut-legend { display: flex; flex-direction: column; gap: 3px; font-size: 9.5px; min-width: 0; flex: 1; }
+        .donut-legend-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .donut-legend-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+        .donut-legend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .donut-legend-value { margin-left: auto; font-weight: normal; }
+        .donut-legend-value em { color: #8496A8; font-style: normal; }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 4px; }
+        .chip-tag {
+          display: inline-block; background: #DEEAE6; color: #1F5C4E; border: 1px solid #C3DCD5;
+          padding: 2px 8px; border-radius: 5px; font-size: 9.5px; font-weight: 600;
+        }
+        .histograma-chart, .evolucao-chart { display: block; }
+        .hist-eixo-num, .hist-bar-pct { font-size: 8px; fill: #8496A8; }
+        .hist-bar-num { font-size: 8.5px; fill: #1F3A5F; font-weight: bold; }
+        .hist-bar-label { font-size: 8.5px; fill: #52667C; }
+
         @media print {
           .anexo-pdf-embed { height: 92vh; }
         }
