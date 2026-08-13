@@ -2620,35 +2620,13 @@ function chipListHTML(arr) {
   return `<div class="chip-list">${arr.map(v => `<span class="chip-tag">${escapeHtml(v)}</span>`).join("")}</div>`;
 }
 
-function graficosFamiliaHTML(paf) {
+// Extraído de graficosFamiliaHTML para ser reaproveitado também na impressão/PDF
+// da ficha individual do PAF (exportPDF), sem duplicar os blocos de gráficos.
+function graficosFamiliaBlocosHTML(paf) {
   const r = computeFamiliaResumo(paf);
-  const meses = mesesEmAcompanhamento(paf.dataInicial);
   const semDadosFamilia = r.totalMembros === 0;
 
   return `
-  <div class="section-card prontuario-header">
-    <div class="prontuario-avatar">${escapeHtml((paf.responsavel || "?").trim().charAt(0).toUpperCase() || "?")}</div>
-    <div class="prontuario-info">
-      <h2 class="prontuario-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</h2>
-      <div class="prontuario-tags">
-        <span class="folder-tab ${paf.situacaoPAF}">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
-      </div>
-      <div class="prontuario-fields">
-        <div><span class="k">CRAS</span><span class="v">${escapeHtml(paf.crasNome) || "—"}</span></div>
-        <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
-        <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
-      </div>
-    </div>
-    <div class="prontuario-stats">
-      <div class="stat-box"><span class="stat-num">${r.totalMembros}</span><span class="stat-label">Membros da família</span></div>
-      <div class="stat-box"><span class="stat-num">${meses === null ? "—" : meses}</span><span class="stat-label">Meses em acompanhamento</span></div>
-      <div class="stat-box"><span class="stat-num">${r.totalAtendimentos}</span><span class="stat-label">Atendimentos</span></div>
-    </div>
-  </div>
-
-  <div class="section-card">
-    <h2><span class="section-icon-badge">${sectionIconSvg("graficos", 17)}</span>Gráficos da Família</h2>
-    <p class="section-sub">Leitura visual, a partir dos dados já preenchidos neste PAF, do perfil, do diagnóstico e da evolução do acompanhamento desta família específica.</p>
     ${semDadosFamilia ? `<p class="hint">Cadastre os membros da família na seção "Membros da Família" para ver aqui a composição familiar e os demais gráficos.</p>` : ""}
 
     <div class="resumo-secao">
@@ -2694,7 +2672,38 @@ function graficosFamiliaHTML(paf) {
         <div><strong>Benefícios recebidos</strong>${chipListHTML(r.beneficioQuais)}</div>
         <div><strong>Rede socioassistencial acionada</strong>${chipListHTML(r.rendeSocioassistencial)}</div>
       </div>
+    </div>`;
+}
+
+function graficosFamiliaHTML(paf) {
+  const r = computeFamiliaResumo(paf);
+  const meses = mesesEmAcompanhamento(paf.dataInicial);
+
+  return `
+  <div class="section-card prontuario-header">
+    <div class="prontuario-avatar">${escapeHtml((paf.responsavel || "?").trim().charAt(0).toUpperCase() || "?")}</div>
+    <div class="prontuario-info">
+      <h2 class="prontuario-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</h2>
+      <div class="prontuario-tags">
+        <span class="folder-tab ${paf.situacaoPAF}">${STATUS_LABELS[paf.situacaoPAF] || "Em andamento"}</span>
+      </div>
+      <div class="prontuario-fields">
+        <div><span class="k">CRAS</span><span class="v">${escapeHtml(paf.crasNome) || "—"}</span></div>
+        <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
+        <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
+      </div>
     </div>
+    <div class="prontuario-stats">
+      <div class="stat-box"><span class="stat-num">${r.totalMembros}</span><span class="stat-label">Membros da família</span></div>
+      <div class="stat-box"><span class="stat-num">${meses === null ? "—" : meses}</span><span class="stat-label">Meses em acompanhamento</span></div>
+      <div class="stat-box"><span class="stat-num">${r.totalAtendimentos}</span><span class="stat-label">Atendimentos</span></div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <h2><span class="section-icon-badge">${sectionIconSvg("graficos", 17)}</span>Gráficos da Família</h2>
+    <p class="section-sub">Leitura visual, a partir dos dados já preenchidos neste PAF, do perfil, do diagnóstico e da evolução do acompanhamento desta família específica.</p>
+    ${graficosFamiliaBlocosHTML(paf)}
   </div>`;
 }
 
@@ -3963,6 +3972,9 @@ function exportPDF(paf) {
       ${paf.encerramentoOutros ? `<p style="margin:6px 0 0;"><strong>Outros motivos/observações do encerramento:</strong> ${escapeHtml(paf.encerramentoOutros)}</p>` : ""}
 
       ${paf.observacoes ? `<h2>Observações Gerais</h2><p class="anotacao">${escapeHtml(paf.observacoes)}</p>` : ""}
+
+      <h2>Gráficos da Família</h2>
+      <div class="graficos-print-secao">${graficosFamiliaBlocosHTML(paf)}</div>
 
       ${anexosHTML}
 
