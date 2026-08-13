@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Plano de Acompanhamento Familiar - PAF/PAIF</title>
 <meta name="theme-color" content="#1F3A5F">
 <link rel="manifest" href="manifest.json">
@@ -24,14 +26,23 @@
 
   <div class="masthead" id="top">
     <div class="masthead-inner">
-      <div class="masthead-brasao" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="34" height="34">
-          <circle cx="24" cy="24" r="21.5" fill="none" stroke="currentColor" stroke-width="1"/>
-          <circle cx="24" cy="24" r="19" fill="none" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="24" cy="24" r="14.5" fill="none" stroke="currentColor" stroke-width=".8" stroke-dasharray="1.2 2.6"/>
-          <rect x="17.5" y="17.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.4" transform="rotate(45 24 24)"/>
-          <path d="M24 15.5 L24 32.5 M15.5 24 L32.5 24" stroke="currentColor" stroke-width="1" opacity=".55"/>
-          <circle cx="24" cy="24" r="2.6" fill="currentColor"/>
+      <div class="masthead-brasao" aria-hidden="true" title="Guarda-chuva da proteção social à família">
+        <svg viewBox="0 0 48 48" width="38" height="38">
+          <path d="M4 22A20 18 0 0 1 44 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M24 6V37" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M24 37Q24 41.5 20 41.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <g fill="currentColor" stroke="none">
+            <circle cx="9" cy="30" r="2"/>
+            <circle cx="15" cy="34.5" r="1.6"/>
+            <circle cx="33" cy="34.5" r="1.6"/>
+            <circle cx="39" cy="30" r="2"/>
+          </g>
+          <g stroke="currentColor" stroke-width="1.1" stroke-linecap="round" fill="none" opacity=".85">
+            <path d="M9 32.3V43"/>
+            <path d="M15 36.4V43"/>
+            <path d="M33 36.4V43"/>
+            <path d="M39 32.3V43"/>
+          </g>
         </svg>
       </div>
       <div class="masthead-text">
@@ -152,7 +163,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>document.getElementById('footerYear').textContent = new Date().getFullYear();</script>
 <script src="firebase-config.js"></script>
 <script src="app.js"></script>
 </body>
