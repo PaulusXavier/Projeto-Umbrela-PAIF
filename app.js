@@ -2030,6 +2030,14 @@ function handleLogout() {
   });
 }
 
+// Remove a cópia local dos registros (usada só para funcionar offline) sempre que
+// a sessão termina — evita que dados sensíveis das famílias (CPF, endereço,
+// vulnerabilidades etc.) fiquem gravados no navegador depois que o técnico sai da
+// conta, o que importa especialmente em computadores compartilhados no CRAS.
+function limparCacheLocalSensivel() {
+  try { localStorage.removeItem("paf_cache"); } catch (err) { console.error(err); }
+}
+
 function initAuth() {
   attachAuthHandlers();
 
@@ -2054,6 +2062,7 @@ function initAuth() {
       state.mode = "local";
       state.pafs = [];
       state.view = "home";
+      limparCacheLocalSensivel();
       showAuthScreen();
     }
   });
@@ -3547,15 +3556,11 @@ function exportPDF(paf) {
     ${anexosPdf.length ? `<p class="muted">Documentos PDF anexados (incluídos a seguir, uma página por documento): ${anexosPdf.map(a => escapeHtml(a.nome)).join(", ")}</p>` : ""}
   ` : "";
 
-  const anexosPdfPaginasHTML = anexosPdf.map(a => `
+  const anexosPdfPaginasHTML = anexosPdf.map((a, i) => `
     <div class="anexo-pdf-pagina">
       <p class="anexo-pdf-titulo">Anexo — ${escapeHtml(a.nome)}</p>
-      <object data="${a.dataURL}" type="application/pdf" class="anexo-pdf-embed">
-        <div class="anexo-pdf-fallback">
-          <p>Não foi possível exibir este PDF diretamente aqui.</p>
-          <a href="${a.dataURL}" download="${escapeHtml(a.nome)}" target="_blank">Toque aqui para abrir/baixar "${escapeHtml(a.nome)}"</a>
-        </div>
-      </object>
+      <iframe src="${a.dataURL}" class="anexo-pdf-embed js-anexo-pdf-frame" id="anexoPdfFrame${i}" title="${escapeHtml(a.nome)}"></iframe>
+      <p class="anexo-pdf-fallback-link">Se a página deste anexo sair em branco na impressão, <a href="${a.dataURL}" download="${escapeHtml(a.nome)}" target="_blank" rel="noopener noreferrer">toque aqui para abrir/baixar "${escapeHtml(a.nome)}"</a> e imprima-o separadamente.</p>
     </div>`).join("");
 
   const html = `
@@ -3773,10 +3778,12 @@ function exportPDF(paf) {
 
         .anexo-pdf-pagina { page-break-before: always; padding-top: 8px; }
         .anexo-pdf-titulo { font-family: 'Times New Roman', Times, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
-        .anexo-pdf-embed { width: 100%; height: 95vh; border: 1px solid #D7E0E6; }
-        .anexo-pdf-fallback { text-align: center; padding: 40px 20px; border: 1px dashed #D7E0E6; border-radius: 6px; }
-        .anexo-pdf-fallback a { display: inline-block; margin-top: 8px; color: #2E7D6B; font-weight: bold; }
-        @media print { .anexo-pdf-embed { height: 95vh; } }
+        .anexo-pdf-embed { width: 100%; height: 92vh; border: 1px solid #D7E0E6; display: block; }
+        .anexo-pdf-fallback-link { text-align: center; font-size: 9px; color: #71859A; margin-top: 4px; }
+        .anexo-pdf-fallback-link a { color: #2E7D6B; font-weight: bold; }
+        @media print {
+          .anexo-pdf-embed { height: 92vh; }
+        }
 
         @media print {
           .capa-header, h2 { page-break-after: avoid; }
@@ -3983,7 +3990,35 @@ function exportPDF(paf) {
       ${anexosPdfPaginasHTML}
 
       <script>
-        window.onload = () => { setTimeout(() => window.print(), ${anexosPdf.length ? 700 : 50}); };
+        (function () {
+          var totalPdfs = ${anexosPdf.length};
+          var jaImprimiu = false;
+          function dispararImpressao() {
+            if (jaImprimiu) return;
+            jaImprimiu = true;
+            window.print();
+          }
+          if (totalPdfs === 0) {
+            window.onload = function () { setTimeout(dispararImpressao, 50); };
+            return;
+          }
+          // Espera os PDFs incorporados carregarem de verdade antes de imprimir, em vez
+          // de um tempo fixo — PDFs grandes ou vários anexos juntos precisam de mais
+          // tempo, e o "load" real evita tanto impressão precoce (página em branco)
+          // quanto espera desnecessária quando os anexos são pequenos.
+          var frames = document.querySelectorAll(".js-anexo-pdf-frame");
+          var carregados = 0;
+          frames.forEach(function (frame) {
+            frame.addEventListener("load", function () {
+              carregados++;
+              if (carregados >= frames.length) setTimeout(dispararImpressao, 200);
+            });
+          });
+          // Rede de segurança: se o navegador não disparar "load" de forma confiável
+          // para algum PDF embutido, imprime mesmo assim depois de um tempo que cresce
+          // com o número de anexos, em vez de a impressão travar para sempre.
+          window.onload = function () { setTimeout(dispararImpressao, 1200 + totalPdfs * 700); };
+        })();
       </script>
     </body>
     </html>
@@ -4448,6 +4483,8 @@ function exportWord(paf) {
 /* ---------------------------- Inicialização do App ---------------------------- */
 
 window.addEventListener("DOMContentLoaded", () => {
+  const footerYear = document.getElementById("footerYear");
+  if (footerYear) footerYear.textContent = new Date().getFullYear();
   const loginIlustracao = document.getElementById("loginIllustration");
   if (loginIlustracao) loginIlustracao.innerHTML = protecaoIllustration(58);
   const loginLeft = document.getElementById("loginSceneLeft");
