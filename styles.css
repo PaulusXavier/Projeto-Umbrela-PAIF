@@ -1081,6 +1081,15 @@ main { flex: 1; display: flex; min-height: 0; }
 .app-footer-col strong { color: var(--ink); font-weight: 600; font-size: 12.5px; font-family: var(--font-display); }
 .app-footer-col span { display: flex; align-items: flex-start; gap: 5px; }
 .app-footer-col .fico { flex-shrink: 0; margin-top: 2.5px; color: var(--gold); opacity: .85; }
+.app-footer-brand { flex: 0 1 170px; min-width: 150px; }
+.app-footer-brandmark {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1.5px solid var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gold); margin-bottom: 6px;
+}
+.app-footer-brand strong { font-size: 15px; letter-spacing: -.01em; }
+.app-footer-tagline { color: var(--ink-faint); font-size: 11px; line-height: 1.4; }
 .app-footer-tech {
   border-top: 1px dashed var(--line); padding-top: 12px; margin-top: 4px;
   flex-basis: 100%; flex: 1 1 100%;
@@ -1170,6 +1179,10 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 .login-scene { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 0 auto 14px; position: relative; z-index: 1; }
 .login-scene-side { color: var(--gold-soft); opacity: .5; }
+.login-eyebrow {
+  text-align: center; font-size: 10px; font-weight: 600; color: var(--gold-soft);
+  text-transform: uppercase; letter-spacing: .16em; margin: 0 0 4px; position: relative; z-index: 1;
+}
 .login-card h1 { text-align: center; font-size: 18px; margin: 0 0 6px; color: #fff; position: relative; z-index: 1; letter-spacing: -.01em; }
 .login-card p.login-org {
   text-align: center; font-size: 10.5px; color: #A9BBCB; margin: 0 0 14px; line-height: 1.5;
