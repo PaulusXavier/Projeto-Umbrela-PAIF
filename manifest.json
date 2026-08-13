@@ -1,7 +1,7 @@
 {
-  "name": "Plano de Acompanhamento Familiar - PAF/PAIF",
-  "short_name": "PAF/PAIF",
-  "description": "Registro digital do Plano de Acompanhamento Familiar (PAF) do Serviço de Proteção e Atendimento Integral à Família (PAIF), com sincronização entre dispositivos.",
+  "name": "Umbrela - PAIF/PAF",
+  "short_name": "Umbrela",
+  "description": "Umbrela: painel do Plano de Acompanhamento Familiar (PAF) do Serviço de Proteção e Atendimento Integral à Família (PAIF), com sincronização entre dispositivos.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
