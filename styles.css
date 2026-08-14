@@ -1075,6 +1075,16 @@ main { flex: 1; display: flex; min-height: 0; }
 .donut-legend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .donut-legend-value { margin-left: auto; color: var(--ink-soft); }
 .donut-legend-value em { color: var(--ink-faint); font-style: normal; }
+/* Variante linear: itens da legenda em uma única linha horizontal (com quebra
+   automática se faltar espaço), em vez da lista vertical padrão. */
+.donut-legend-linear {
+  flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 18px;
+}
+.donut-legend-linear .donut-legend-item {
+  gap: 7px; padding: 3px 10px 3px 3px; border-radius: 20px;
+  background: var(--paper-soft); border: 1px solid var(--line);
+}
+.donut-legend-linear .donut-legend-value { margin-left: 2px; }
 
 .chart-box {
   background: var(--paper-soft); border: 1px solid var(--line); border-radius: 10px;
