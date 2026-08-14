@@ -552,7 +552,8 @@ function baixarAnexo(anexo) {
 
 const state = {
   view: "home",              // 'home' | 'editor'
-  pafs: [],                  // todos os registros
+  pafs: [],                  // todos os PAFs ativos (Em andamento, Encaminhado, Concluído)
+  desistentes: [],           // registros mínimos de famílias que desistiram do acompanhamento
   current: null,             // PAF em edição
   activeSection: "cabecalho",
   search: "",
@@ -877,17 +878,58 @@ function openSettingsModal() {
         <h3>Configurações</h3>
         <div class="settings-field"><span class="k">Armazenamento</span><span class="v">${modoLabel}</span></div>
         ${emailLinha}
-        <div class="settings-field" style="margin-bottom:18px;"><span class="k">Registros salvos</span><span class="v">${state.pafs.length} PAF(s)</span></div>
+        <div class="settings-field"><span class="k">Registros salvos</span><span class="v">${state.pafs.length} PAF(s)</span></div>
+        <div class="settings-field" style="margin-bottom:18px;"><span class="k">Famílias desistentes</span><span class="v">${state.desistentes.length} registro(s)</span></div>
         <p>Baixe uma cópia de segurança de todos os PAFs cadastrados em um único arquivo JSON.</p>
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="btn btn-ghost" id="settingsCloseBtn">Fechar</button>
-          <button class="btn btn-primary" id="settingsBackupBtn">Baixar backup (JSON)</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost" id="settingsDesistentesBtn">Famílias desistentes</button>
+            <button class="btn btn-primary" id="settingsBackupBtn">Baixar backup (JSON)</button>
+          </div>
         </div>
       </div>
     </div>`;
 
   document.getElementById("settingsCloseBtn").onclick = () => root.innerHTML = "";
   document.getElementById("settingsBackupBtn").onclick = baixarBackupJSON;
+  document.getElementById("settingsDesistentesBtn").onclick = openDesistentesModal;
+}
+
+function openDesistentesModal() {
+  const root = document.getElementById("modalRoot");
+  if (!root) return;
+
+  const linhas = [...state.desistentes]
+    .sort((a, b) => (b.dataDesistencia || "").localeCompare(a.dataDesistencia || ""))
+    .map(d => `
+      <div class="settings-field" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <span class="v" style="font-weight:600;">${escapeHtml(d.responsavel || "Sem nome")}<br><span style="font-weight:400;color:var(--ink-faint);font-size:12px;">${fmtDateBR(d.dataDesistencia)} · ${escapeHtml(d.crasNome || "—")}${d.tecnicoReferencia ? " · " + escapeHtml(d.tecnicoReferencia) : ""}</span></span>
+        <button class="btn btn-ghost btn-sm" data-remover-desistente="${d.id}" style="flex-shrink:0;">Excluir</button>
+      </div>`).join("");
+
+  root.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal">
+        <h3>Famílias desistentes</h3>
+        <p class="hint">Registro mínimo mantido quando a família desiste do acompanhamento — o PAF completo já foi excluído e não aparece em nenhuma lista, filtro ou gráfico.</p>
+        ${state.desistentes.length ? linhas : `<p class="hint">Nenhuma família desistente registrada.</p>`}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="desistentesCloseBtn">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("desistentesCloseBtn").onclick = () => root.innerHTML = "";
+  root.querySelectorAll("[data-remover-desistente]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.removerDesistente;
+      confirmModal("Excluir este registro?", "O registro de família desistente será removido definitivamente, de todos os dispositivos sincronizados.", () => {
+        excluirDesistente(id);
+        openDesistentesModal();
+      });
+    });
+  });
 }
 
 /* ---------------------------- Resumo mensal (famílias em acompanhamento) ---------------------------- */
@@ -895,7 +937,7 @@ function openSettingsModal() {
 function computeResumoGeral(pafsParam) {
   const pafs = pafsParam || state.pafs;
   const total = pafs.length;
-  const porStatus = { andamento: 0, encaminhado: 0, concluido: 0, cancelado: 0 };
+  const porStatus = { andamento: 0, encaminhado: 0, concluido: 0 };
   const porSexo = {}, porNacionalidade = {}, porFaixa = {}, porCras = {};
   const porVulnerabilidade = {}, porPrograma = {}, porBeneficio = {}, porEncArea = {}, porSituacaoSocial = {};
   const porHabitacao = {}, porEtnia = {}, porInteriorizacao = {};
@@ -1329,7 +1371,7 @@ function resumoGeralGeralHTML(r, anteriorTotal) {
       ${kpiCardHTML(r.porStatus.concluido || 0, "Concluídos", "encerramento")}
     </div>
     <div class="kpi-grid">
-      ${kpiCardHTML(r.porStatus.cancelado || 0, "Cancelados", "encerramento")}
+      ${kpiCardHTML(state.desistentes.length, "Famílias desistentes", "encerramento")}
       ${kpiCardHTML(r.totalMembros, "Pessoas acompanhadas", "familia")}
       ${kpiCardHTML(r.mediaMembros ?? "—", "Média por família", "familia")}
       ${kpiCardHTML(r.totalPCD, "Pessoas com deficiência", "familia")}
@@ -1343,7 +1385,7 @@ function resumoGeralGeralHTML(r, anteriorTotal) {
     <div class="resumo-secao">
       <h4>${sectionIconSvg("diagnostico", 16)} Situação dos PAFs e perfil do responsável familiar</h4>
       <div class="resumo-cols resumo-cols-donut">
-        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": r.porStatus.andamento || 0, "Encaminhado": r.porStatus.encaminhado || 0, "Concluído": r.porStatus.concluido || 0, "Cancelado": r.porStatus.cancelado || 0 }, { centro: "PAFs" })}</div>
+        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": r.porStatus.andamento || 0, "Encaminhado": r.porStatus.encaminhado || 0, "Concluído": r.porStatus.concluido || 0 }, { centro: "PAFs" })}</div>
         <div><strong>Sexo do responsável</strong>${donutChartSVG(r.porSexo, { centro: "famílias" })}</div>
       </div>
       <div class="resumo-cols" style="margin-top:16px;">
@@ -2152,6 +2194,7 @@ function initAuth() {
       state.db = null;
       state.mode = "local";
       state.pafs = [];
+      state.desistentes = [];
       state.view = "home";
       limparCacheLocalSensivel();
       showAuthScreen();
@@ -2185,8 +2228,10 @@ function subscribeCloud() {
   const col = state.db.collection(FIRESTORE_COLLECTION);
   state.unsub = col.onSnapshot(
     snap => {
-      state.pafs = snap.docs.map(d => d.data());
-      try { localStorage.setItem("paf_cache", JSON.stringify(state.pafs)); } catch (err) { console.error(err); }
+      const todos = snap.docs.map(d => d.data());
+      state.pafs = todos.filter(p => p.tipo !== "desistencia");
+      state.desistentes = todos.filter(p => p.tipo === "desistencia");
+      try { localStorage.setItem("paf_cache", JSON.stringify(todos)); } catch (err) { console.error(err); }
       setSyncPill("ok", "Sincronizado (nuvem)");
       if (state.view === "home") renderApp();
     },
@@ -2210,18 +2255,24 @@ function safeParseArray(raw) {
 }
 
 function loadLocalCacheOnly() {
-  state.pafs = safeParseArray(localStorage.getItem("paf_cache"));
+  const todos = safeParseArray(localStorage.getItem("paf_cache"));
+  state.pafs = todos.filter(p => p.tipo !== "desistencia");
+  state.desistentes = todos.filter(p => p.tipo === "desistencia");
   if (state.view === "home") renderApp();
 }
 
 function loadLocal() {
-  state.pafs = safeParseArray(localStorage.getItem("paf_records"));
+  const todos = safeParseArray(localStorage.getItem("paf_records"));
+  state.pafs = todos.filter(p => p.tipo !== "desistencia");
+  state.desistentes = todos.filter(p => p.tipo === "desistencia");
   renderApp();
 }
 
+// Persiste o array combinado (PAFs ativos + registros de desistência) na mesma
+// chave local, mantendo uma única fonte de dados em disco.
 function persistLocalArray() {
   try {
-    localStorage.setItem("paf_records", JSON.stringify(state.pafs));
+    localStorage.setItem("paf_records", JSON.stringify([...state.pafs, ...state.desistentes]));
     return true;
   } catch (err) {
     console.error(err);
@@ -2262,6 +2313,55 @@ function scheduleAutosave() {
   state.saveTimer = setTimeout(() => {
     if (state.current) savePAF(state.current, { silent: true });
   }, 700);
+}
+
+/* ---------------------------- Famílias desistentes ---------------------------- */
+
+// Quando a família desiste do acompanhamento, o PAF completo (todas as seções,
+// vulnerabilidades, membros etc.) é excluído e substituído por este registro
+// mínimo, mantido apenas para controle administrativo — nunca aparece nas listas,
+// filtros ou no painel de Gráficos junto aos PAFs ativos/arquivados.
+function criarStubDesistencia(paf) {
+  return {
+    id: paf.id,
+    tipo: "desistencia",
+    responsavel: paf.responsavel || "",
+    cpf: paf.cpf || "",
+    nis: paf.nis || "",
+    crasNome: paf.crasNome || "",
+    tecnicoReferencia: paf.tecnicoReferencia || "",
+    dataInicial: paf.dataInicial || "",
+    dataDesistencia: todayISO(),
+    createdAt: paf.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function registrarDesistencia(paf) {
+  const stub = criarStubDesistencia(paf);
+  if (state.mode === "cloud" && state.db) {
+    state.db.collection(FIRESTORE_COLLECTION).doc(stub.id).set(stub)
+      .then(() => toast("PAF excluído — família registrada como desistente."))
+      .catch(err => { console.error(err); toast("Não foi possível sincronizar a desistência."); });
+  } else {
+    state.pafs = state.pafs.filter(p => p.id !== stub.id);
+    const idx = state.desistentes.findIndex(d => d.id === stub.id);
+    if (idx === -1) state.desistentes.unshift(stub); else state.desistentes[idx] = stub;
+    persistLocalArray();
+    toast("PAF excluído — família registrada como desistente.");
+  }
+}
+
+function excluirDesistente(id) {
+  state.desistentes = state.desistentes.filter(d => d.id !== id);
+  if (state.mode === "cloud" && state.db) {
+    state.db.collection(FIRESTORE_COLLECTION).doc(id).delete()
+      .then(() => toast("Registro excluído."))
+      .catch(err => { console.error(err); toast("Não foi possível excluir na nuvem."); });
+  } else {
+    persistLocalArray();
+    toast("Registro excluído.");
+  }
 }
 
 /* ---------------------------- Navegação ---------------------------- */
@@ -2556,7 +2656,7 @@ function renderPrioridadesHTML() {
       </div>
       <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
     </div>
-    ${notaTecnica("Escala auxiliar de organização da fila técnica, não um diagnóstico automático. A pontuação soma as situações sociais e vulnerabilidades marcadas na ficha (peso maior para violência, trabalho infantil, uso abusivo de álcool/drogas, saúde mental e descumprimento de condicionalidades do PBF), indicadores do diagnóstico socioeconômico (área de risco, doença grave, gestação, abrigamento, criança fora da escola, PCD e pessoa idosa no núcleo familiar) e o tempo sem atendimento técnico registrado. Famílias do PBF/BPC em maior vulnerabilidade têm prioridade de inclusão no PAIF, com busca ativa da equipe (Protocolo CIT nº 7/2009); a decisão final sobre a ordem de atendimento e a lista de demanda reprimida é sempre do técnico de referência junto à gerência do CRAS (Protocolo do PAIF).")}
+    ${notaTecnica("Escala auxiliar de organização da fila técnica, não diagnóstico automático. Soma situações sociais e vulnerabilidades da ficha (peso maior para violência, trabalho infantil, uso abusivo de álcool/drogas, saúde mental e descumprimento de condicionalidades), indicadores do diagnóstico socioeconômico e o tempo sem atendimento. Famílias do PBF/BPC em maior vulnerabilidade têm prioridade de inclusão (Protocolo CIT nº 7/2009); a decisão final sobre a ordem de atendimento é do técnico de referência com a gerência do CRAS.")}
     <div class="search-row">
       <div class="filter-tabs">${chips}</div>
     </div>
@@ -2633,9 +2733,10 @@ function renderEditorHTML() {
           <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
           <span class="section-pos-tag">Seção ${activeIdx + 1} de ${SECTIONS.length}</span>
           <div class="status-picker" style="margin-left:auto">
-            ${["andamento", "encaminhado", "concluido", "cancelado"].map(s => `
+            ${["andamento", "encaminhado", "concluido"].map(s => `
               <button class="status-opt ${paf.situacaoPAF === s ? "selected " + s : ""}" data-set-status="${s}">${STATUS_LABELS[s]}</button>
             `).join("")}
+            <button class="status-opt status-opt-desistencia" data-set-status="desistiu" title="Exclui este PAF e mantém apenas um registro mínimo de família desistente">Família desistiu</button>
           </div>
         </div>
         <div class="section-content" data-section-cat="${state.activeSection}">
@@ -2890,10 +2991,10 @@ function renderSection(id, paf) {
     case "cabecalho": return `
       <div class="section-card">
         ${sectionHeader("01", "Cabeçalho", "Identificação do CRAS, do responsável familiar e do plano.")}
-        ${notaTecnica("O PAIF acompanha famílias de forma contínua, com caráter preventivo, protetivo e proativo — não se limita a resolver um \"caso\" pontual. Este PAF é o registro desse processo, com base na Lei Orgânica da Assistência Social (Lei nº 8.742/1993, alterada pela Lei nº 12.435/2011, que torna obrigatória a oferta do PAIF no CRAS), na Política Nacional de Assistência Social (PNAS/2004), na Norma Operacional Básica do SUAS (NOB-SUAS, Resolução CNAS nº 33/2012), nas Orientações Técnicas do PAIF (MDS) e na Tipificação Nacional de Serviços Socioassistenciais.")}
-        ${notaTecnica("A NOB-SUAS/2012 (art. 4º) define cinco seguranças que o SUAS deve afiançar a quem atende: acolhida, renda, convívio ou vivência familiar e comunitária, desenvolvimento de autonomia, e apoio e auxílio em situações de risco circunstancial. O acompanhamento registrado neste PAF é o principal instrumento do CRAS para efetivar essas seguranças junto à família. A mesma norma (art. 3º) fixa os princípios organizativos do SUAS — universalidade (direito de todos, sem comprovação vexatória), gratuidade, integralidade da proteção, intersetorialidade e equidade (priorizando quem está em situação de vulnerabilidade e risco) —, e (art. 6º) os princípios éticos da oferta socioassistencial: sigilo profissional e proteção à privacidade, defesa do protagonismo e da autonomia da família (com recusa a práticas clientelistas, vexatórias ou de benesse), garantia da laicidade, e combate a discriminações étnicas, de classe, de gênero, orientação sexual ou deficiência, entre outras.")}
-        ${notaTecnica("Este PAF corresponde ao acompanhamento familiar particularizado. O Protocolo do PAIF orienta que essa modalidade seja adotada quando o acompanhamento em grupo não for adequado à família: atenção imediata que a situação exige, dificuldade da família em se deslocar até o CRAS, necessidade de proteção a algum de seus membros, desconforto em participar de espaços coletivos, exigência de sigilo, ou incompatibilidade de horários com os grupos já formados — sem prejuízo de a família participar de outras ações coletivas do PAIF em paralelo. O mesmo documento situa a capacidade técnica de acompanhamento familiar entre 10 e no máximo 15 famílias simultâneas por técnico de nível superior do CRAS, e recomenda que, quando a demanda ultrapassar essa capacidade, as famílias que aguardam sejam organizadas em lista de demanda reprimida, com a distribuição definida pela gerência junto à equipe técnica, respeitando prioridades e complexidades.")}
-        ${notaTecnica("A equipe técnica do CRAS costuma reunir psicólogos/as e assistentes sociais, cada categoria orientada por seu próprio código de ética profissional. No caso do Serviço Social, o Código de Ética do/a Assistente Social (Resolução CFESS nº 273/1993) assegura ao/à usuário/a o direito de participar e decidir livremente sobre seus interesses — vedando ao/à profissional exercer sua autoridade para limitar ou cercear essa participação (art. 6º, \"a\") —, garante a inviolabilidade do sigilo profissional sobre o local de trabalho, os arquivos e a documentação (art. 2º, \"d\"), e exige a plena informação à família sobre as possibilidades e consequências das situações apresentadas, mesmo quando suas decisões forem contrárias aos valores pessoais do/a profissional (art. 5º, \"b\"). Esses princípios se somam aos já citados na NOB-SUAS/2012 e às Referências Técnicas do CFP/CREPOP para a atuação da psicologia no CRAS/SUAS, formando a base ética comum da equipe interdisciplinar responsável por este PAF.")}
+        ${notaTecnica("O PAIF acompanha famílias de forma contínua, preventiva e protetiva — não se limita a resolver um \"caso\" pontual. Este PAF registra esse processo, com base na LOAS (Lei nº 8.742/1993, alterada pela Lei nº 12.435/2011), na PNAS (2004), na NOB-SUAS (Resolução CNAS nº 33/2012) e na Tipificação Nacional de Serviços Socioassistenciais.")}
+        ${notaTecnica("A NOB-SUAS/2012 (art. 4º) define cinco seguranças que o SUAS deve afiançar: acolhida, renda, convívio familiar e comunitário, desenvolvimento de autonomia, e apoio em situações de risco circunstancial. Este PAF é o instrumento do CRAS para efetivá-las. A mesma norma fixa princípios organizativos (universalidade, gratuidade, integralidade, intersetorialidade, equidade) e éticos (sigilo profissional, autonomia da família, laicidade, combate à discriminação).")}
+        ${notaTecnica("Este PAF é o acompanhamento familiar particularizado, adotado quando o acompanhamento em grupo não é adequado (urgência, dificuldade de deslocamento, necessidade de proteção, exigência de sigilo, incompatibilidade de horários), sem impedir a família de participar de ações coletivas em paralelo. O Protocolo do PAIF recomenda de 10 a no máximo 15 famílias por técnico; acima disso, formar lista de demanda reprimida definida pela gerência com a equipe.")}
+        ${notaTecnica("A equipe do CRAS (psicólogos/as e assistentes sociais) segue seus próprios códigos de ética. O Código de Ética do/a Assistente Social (Resolução CFESS nº 273/1993) garante o direito da família de participar e decidir livremente sobre seus interesses, o sigilo profissional e a plena informação sobre as consequências das situações apresentadas. Esses princípios somam-se à NOB-SUAS/2012 e às Referências CFP/CREPOP, formando a base ética da equipe interdisciplinar responsável por este PAF.")}
         <div class="field-grid">
           <div class="f c6"><label>Nome do CRAS</label><input type="text" data-field="crasNome" value="${escapeHtml(paf.crasNome)}"></div>
           <div class="f c6"><label>Responsável Familiar</label><input type="text" data-field="responsavel" value="${escapeHtml(paf.responsavel)}"></div>
@@ -2967,7 +3068,7 @@ function renderSection(id, paf) {
     case "familia": return `
       <div class="section-card">
         ${sectionHeader("02", "Membros da Família em Acompanhamento", "")}
-        ${notaTecnica("O campo \"Parentesco\" deve refletir o arranjo familiar real da família atendida, sem pressupor o modelo nuclear tradicional (pai, mãe e filhos). As Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS chamam atenção para a diversidade de configurações familiares — famílias monoparentais, homoafetivas, chefiadas por mulheres, ou pessoas sem núcleo familiar de referência — como parte legítima do público do PAIF.")}
+        ${notaTecnica("O campo \"Parentesco\" deve refletir o arranjo familiar real, sem pressupor o modelo nuclear tradicional. As Referências Técnicas do CFP/CREPOP reconhecem a diversidade de configurações familiares — monoparentais, homoafetivas, chefiadas por mulheres etc. — como público legítimo do PAIF.")}
         <table class="dyn-table">
           <thead><tr><th style="width:15%">Nome</th><th style="width:11%">Nascimento</th><th style="width:6%">Sexo</th><th style="width:12%">Parentesco</th><th style="width:14%">Nacionalidade</th><th style="width:14%">Etnia indígena</th><th style="width:6%">PCD</th><th></th></tr></thead>
           <tbody>
@@ -2998,7 +3099,7 @@ function renderSection(id, paf) {
 
       <div class="section-card">
         <h2><span class="num">02a</span>Situação Migratória e de Abrigamento</h2>
-        ${notaTecnica("Boa Vista/RR é uma das principais portas de entrada da migração venezuelana no Brasil, e muitas famílias atendidas pelo CRAS vivem em abrigos federais da Operação Acolhida enquanto aguardam regularização documental ou interiorização para outros estados. O PAIF deve acolher essas famílias sem exigir comprovação migratória prévia como condição de atendimento — a situação documental orienta os encaminhamentos à rede de proteção ao migrante e ao refugiado, mas não restringe o acesso ao Serviço. Preencher esta seção apenas quando aplicável.")}
+        ${notaTecnica("Boa Vista/RR é uma das principais portas de entrada da migração venezuelana, com famílias em abrigos federais da Operação Acolhida. O PAIF deve acolhê-las sem exigir comprovação migratória prévia; a situação documental orienta encaminhamentos, mas não restringe o acesso ao Serviço. Preencher apenas quando aplicável.")}
         <div class="field-grid">
           <div class="f c4">
             <label>Data de chegada ao Brasil</label>
@@ -3038,8 +3139,8 @@ function renderSection(id, paf) {
       return `
       <div class="section-card">
         ${sectionHeader("03", "Diagnóstico", "Família inserida em acompanhamento familiar no PAIF para superação da(s) seguinte(s) vulnerabilidade(s):")}
-        ${notaTecnica("Vulnerabilidade, para a PNAS, vai além da renda: é uma leitura dinâmica das situações de desproteção social vividas pela família, moldadas por seus recursos e pelo território — e não um traço fixo ou definitivo de quem é atendido. As Referências Técnicas do CFP/CREPOP para o CRAS/SUAS reforçam que a vulnerabilidade não deve ser tratada como atributo individual da família nem usada para culpabilizá-la por sua condição de pobreza, mas compreendida à luz de condições sociais, econômicas e históricas mais amplas — sem prejuízo do reconhecimento das potencialidades e da capacidade de protagonismo de cada família no seu próprio processo. Vale cuidado também com o vocabulário usado no registro: termos como \"carente\" reduzem a família a uma simples falta e escondem o caráter relacional da pobreza; \"família desestruturada\" supõe um modelo único e ideal de família e tende a culpabilizá-la por dificuldades que têm origem em condições sociais, econômicas e históricas mais amplas. Prefira descrever a situação concreta vivida pela família (renda, moradia, acesso a serviços, vínculos) a rotulá-la com esses termos.")}
-        ${notaTecnica("Marcar \"Vivência de situações de discriminação\" registra um dado sobre a experiência da família no território, não uma característica dela. A NOB-SUAS/2012 (art. 3º, V) elenca a equidade — respeito às diversidades regionais, culturais, socioeconômicas, políticas e territoriais, priorizando quem está em situação de vulnerabilidade e risco — como princípio organizativo do SUAS, e (art. 6º, VI) determina o combate às discriminações etárias, étnicas, de classe social, de gênero, por orientação sexual ou por deficiência como princípio ético da oferta socioassistencial. Registrar a situação aqui subsidia encaminhamentos e ações do PAIF voltados à superação dessa vulnerabilidade específica — nunca deve servir para rotular ou justificar tratamento diferenciado da família dentro do próprio Serviço.")}
+        ${notaTecnica("Para a PNAS, vulnerabilidade é uma leitura dinâmica de desproteção social — não um traço fixo da família. As Referências CFP/CREPOP alertam contra culpabilizar a família por sua condição de pobreza e contra termos como \"carente\" ou \"família desestruturada\", que rotulam em vez de descrever. Prefira descrever a situação concreta vivida (renda, moradia, acesso a serviços, vínculos).")}
+        ${notaTecnica("Marcar \"Vivência de situações de discriminação\" registra a experiência da família no território, não uma característica dela. A NOB-SUAS/2012 traz a equidade (art. 3º) e o combate a discriminações (art. 6º) como princípios do SUAS. O registro subsidia encaminhamentos voltados à superação dessa vulnerabilidade — nunca deve rotular a família.")}
         ${chkList("vulnerabilidades", VULNERABILIDADES_FAMILIA, paf.vulnerabilidades)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="vulnerabilidadesOutros" value="${escapeHtml(paf.vulnerabilidadesOutros)}"></div>
       </div>
@@ -3079,7 +3180,7 @@ function renderSection(id, paf) {
 
       <div class="section-card">
         <h2><span class="num">03c</span>Condições de Trabalho e Renda</h2>
-        ${notaTecnica("A Trilha do PAIF para o contexto da Insegurança Alimentar e Nutricional (MDS/UNICEF) trata a fome como um fenômeno multidimensional, que não se resume à insuficiência de renda. Quando a família procura o CRAS pedindo uma cesta básica, a resposta imediata (busca ativa no CadÚnico, inserção em programas de transferência de renda, encaminhamento a equipamentos de segurança alimentar) deve funcionar como porta de entrada para o acompanhamento continuado pelo PAIF — e não se esgotar na entrega pontual do benefício eventual. Para situar a gravidade do que a família relata, a Escala Brasileira de Insegurança Alimentar (EBIA) distingue três níveis: leve (incerteza quanto ao acesso futuro aos alimentos ou comprometimento da qualidade), moderada (redução na quantidade de alimentos entre os adultos) e grave (redução de alimentos também entre as crianças, caracterizando fome). A Trilha é enfática, porém, que instrumentos como a EBIA servem ao diagnóstico e não devem ser exigidos como pré-requisito para conceder benefícios eventuais ou incluir a família em programas de transferência de renda — a identificação continua sendo feita pela escuta qualificada, pela consulta ao CadÚnico, pelo conhecimento do território e pela busca ativa, como em qualquer outra situação atendida pelo SUAS.")}
+        ${notaTecnica("A Trilha do PAIF sobre Insegurança Alimentar (MDS/UNICEF) trata a fome como fenômeno multidimensional. O pedido de cesta básica deve ser porta de entrada para o acompanhamento continuado (busca ativa no CadÚnico, transferência de renda), não se esgotar na entrega pontual. A EBIA distingue insegurança leve, moderada e grave, mas não deve ser exigida como pré-requisito para conceder benefícios eventuais.")}
         <div class="field-grid">
           <div class="f c6"><label>Renda total da família (sem programas sociais)</label><input type="text" data-field="rendaTotal" placeholder="R$" value="${escapeHtml(paf.rendaTotal)}"></div>
           <div class="f c6"><label>Renda familiar per capita (sem programas sociais)</label><input type="text" data-field="rendaPerCapita" placeholder="R$" value="${escapeHtml(paf.rendaPerCapita)}"></div>
@@ -3103,7 +3204,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         <h2><span class="num">03e</span><span class="section-icon-badge">${psicossocialIconSvg(17)}</span>Aspectos Psicossociais e Instrumentais Técnicos</h2>
         <p class="section-sub">Recursos técnicos utilizados para a leitura da dinâmica e dos vínculos familiares.</p>
-        ${notaTecnica("Genograma e ecomapa são instrumentais de leitura sistêmica da família e de sua rede de relações — recursos reconhecidos pelas Referências Técnicas do CFP/CREPOP para atuação no CRAS/SUAS —, e não instrumentos de diagnóstico clínico individual. Seu uso no PAIF apoia a compreensão dos vínculos, papéis e potencialidades da família e do território, sempre a serviço do caráter preventivo e protetivo do Serviço, e nunca como avaliação psicológica formal ou psicoterapia, que estão fora do escopo do PAIF.")}
+        ${notaTecnica("Genograma e ecomapa são instrumentos de leitura sistêmica da família e de sua rede — reconhecidos pelas Referências CFP/CREPOP —, não instrumentos de diagnóstico clínico individual. Apoiam a compreensão de vínculos e potencialidades, nunca substituindo avaliação psicológica ou psicoterapia, fora do escopo do PAIF.")}
         ${chkList("instrumentaisTecnicos", INSTRUMENTAIS_TECNICOS, paf.instrumentaisTecnicos || [], true)}
         <div class="f c12" style="margin-top:12px"><label>Aspectos relacionais observados (dinâmica, comunicação, papéis, potencialidades e vínculos da família)</label><textarea rows="3" data-field="aspectosPsicossociaisObs">${escapeHtml(paf.aspectosPsicossociaisObs)}</textarea></div>
       </div>
@@ -3111,7 +3212,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         <h2><span class="num">03f</span>Potencialidades da Família</h2>
         <p class="section-sub">Contraponto necessário ao levantamento de vulnerabilidades acima: recursos e capacidades da própria família que podem ser mobilizados no Plano.</p>
-        ${notaTecnica("O modelo metodológico de Plano de Acompanhamento Familiar pactuado pela Câmara Técnica da Comissão Intergestores Bipartite (CIB/MG, 2023) e adotado como referência técnica por Sedese-MG para o PAIF e o PAEFI inclui, ao lado do diagnóstico de vulnerabilidades, um levantamento estruturado de potencialidades da família. Isso concretiza o princípio, já presente no Caderno de Orientações Técnicas do PAIF (MDS), de que nenhuma família em vulnerabilidade está desprovida de tudo: identificar seus recursos, vínculos e capacidades é o que permite construir metas realistas e não apenas listar problemas.")}
+        ${notaTecnica("O modelo de Plano de Acompanhamento Familiar da CIB/MG (2023), referência para Sedese-MG, inclui, ao lado do diagnóstico de vulnerabilidades, um levantamento estruturado de potencialidades. Isso concretiza o princípio (Caderno de Orientações do PAIF/MDS) de que nenhuma família em vulnerabilidade está desprovida de tudo — identificar recursos permite metas realistas, não só listar problemas.")}
         <div class="matrix-row potencial-row" style="font-size: 11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
           <div>Potencial</div><div>Situação</div><div>Observações</div>
         </div>
@@ -3130,38 +3231,38 @@ function renderSection(id, paf) {
     case "grupo": return `
       <div class="section-card">
         ${sectionHeader("04", "Sobre o Grupo Familiar", "Vulnerabilidades e riscos sociais a serem superados, gerados pelas múltiplas expressões da questão social.")}
-        ${notaTecnica("O trabalho do PAIF é, antes de tudo, territorial e comunitário: as Referências Técnicas do CFP/CREPOP para o CRAS/SUAS situam o fortalecimento de vínculos familiares e comunitários — e não apenas o atendimento individual — como eixo central da atuação da equipe técnica, incluindo a psicóloga(o), junto a essa família. A matricialidade sociofamiliar, eixo estruturante da PNAS, não exige atender todos os membros da família sempre juntos: significa não perder de vista o contexto familiar e comunitário do sujeito atendido, mesmo quando o acompanhamento é individual, e reconhecer que a responsabilidade por superar as vulnerabilidades não recai só sobre a família. Já a territorialização vai além de localizar o serviço perto da população: trata o território como espaço vivo, de disputas e potencialidades, e não apenas como um lugar geográfico. A NOB-SUAS/2012 (art. 5º) eleva a matricialidade sociofamiliar e a territorialização à condição de diretrizes estruturantes da gestão do SUAS — não são apenas orientações técnicas, mas regras que organizam como o Sistema deve funcionar em todo o país.")}
+        ${notaTecnica("O trabalho do PAIF é territorial e comunitário: as Referências CFP/CREPOP situam o fortalecimento de vínculos como eixo central. A matricialidade sociofamiliar (PNAS) não exige reunir sempre a família toda — significa não perder de vista o contexto familiar mesmo em atendimento individual. Território é espaço vivo, não só localização. A NOB-SUAS/2012 (art. 5º) eleva ambos a diretrizes estruturantes do SUAS.")}
         ${paf.situacoesSociais.map((row, i) => `
           <div class="matrix-row">
             <div class="situ-label">${escapeHtml(row.situacao)}</div>
             ${situacaoMembrosField(paf, i, row)}
             <label class="chk"><input type="checkbox" data-field-check="situacoesSociais.${i}.superada" ${row.superada ? "checked" : ""}><span>Superada</span></label>
           </div>`).join("")}
-        ${notaTecnica("Ao marcar \"Em contextos de violência\" para alguma mulher da família, a Trilha do PAIF para a Prevenção da Violência Doméstica e Familiar contra as Mulheres (MDS/UNICEF) orienta que a equipe acolha o relato sem exigir comprovação — verificar os fatos é atribuição do sistema de justiça, não do PAIF. O papel do Serviço aqui é preventivo e complementar ao do PAEFI: mesmo quando a situação exigir encaminhamento à rede especializada, o CRAS deve continuar sendo um espaço de referência e acolhida para essa família, sem interromper sua participação nas demais atividades do PAIF.")}
+        ${notaTecnica("Ao marcar \"Em contextos de violência\", a Trilha do PAIF sobre Violência Doméstica (MDS/UNICEF) orienta acolher o relato sem exigir comprovação — verificar fatos é atribuição da justiça, não do PAIF. O papel do Serviço é preventivo e complementar ao PAEFI: mesmo com encaminhamento à rede especializada, o CRAS segue como referência para a família.")}
       </div>
       <div class="section-card">
         <h2><span class="num">04a</span>Trabalho Social Coletivo do PAIF</h2>
         <p class="section-sub">Ações realizadas pela própria equipe do CRAS com a família e no território — diferente dos encaminhamentos a outros serviços/órgãos (seção 05).</p>
-        ${notaTecnica("O Caderno de Orientações — PAIF e SCFV: Articulação necessária na Proteção Social Básica (MDS/SNAS, 2015) alerta que \"Oficina com Famílias\" (PAIF) e \"Grupo\" (SCFV) não são sinônimos, embora ambos sejam chamados de \"grupo\" no dia a dia do CRAS. A Oficina com Famílias é conduzida por técnico de nível superior, reúne de 7 a 15 participantes (preferencialmente responsáveis familiares) por 60 a 120 minutos, pode ser aberta ou fechada, e discute questões e vulnerabilidades comuns às famílias do território — nunca é oficina de trabalhos manuais, terapia ou prática psicoterápica. Já o Grupo do SCFV reúne até 30 usuários por ciclo de vida, sob condução do orientador social, com encontros regulares (intervalo máximo de 15 dias). O documento também reforça a laicidade do serviço: orações, cânticos ou outras práticas religiosas não devem fundamentar o trabalho social do PAIF, ainda que propostas pelos próprios usuários.")}
+        ${notaTecnica("O Caderno PAIF e SCFV (MDS/SNAS, 2015) distingue \"Oficina com Famílias\" (PAIF) de \"Grupo\" (SCFV). A Oficina é conduzida por técnico de nível superior, com 7 a 15 participantes por 60–120 min, discutindo vulnerabilidades comuns — nunca terapia ou trabalhos manuais. O Grupo do SCFV reúne até 30 usuários por ciclo de vida. O documento reforça a laicidade: práticas religiosas não devem fundamentar o trabalho do PAIF.")}
         ${chkList("atividadesColetivas", ATIVIDADES_COLETIVAS_PAIF, paf.atividadesColetivas || [], true)}
         <div class="f" style="margin-top:12px"><label>Outras</label><input type="text" data-field="atividadesColetivasOutras" value="${escapeHtml(paf.atividadesColetivasOutras)}"></div>
       </div>
       <div class="section-card">
         <h2><span class="num">04b</span>Serviços da Rede Socioassistencial</h2>
-        ${notaTecnica("A Tipificação Nacional de Serviços Socioassistenciais lista a articulação em rede do PAIF: serviços socioassistenciais de proteção básica e especial; serviços setoriais de educação, saúde, trabalho, cultura, esporte e segurança pública; conselhos de políticas públicas e de defesa de direitos; instituições de ensino e pesquisa; serviços de enfrentamento à pobreza; programas de inclusão produtiva; e redes sociais locais (associações de moradores, OSCs). Registrar aqui em quais dessas frentes a família já está inserida ajuda a visualizar lacunas de proteção a serem trabalhadas.")}
+        ${notaTecnica("A Tipificação Nacional lista a rede de articulação do PAIF: serviços socioassistenciais, políticas setoriais (saúde, educação, trabalho etc.), conselhos, instituições de ensino, programas de inclusão produtiva e redes sociais locais. Registrar aqui a inserção da família ajuda a visualizar lacunas de proteção.")}
         <div class="field-grid">
           <div class="f c4"><label>Proteção Social Básica</label>${chkList("servBasica", SERVICOS_BASICA, paf.servBasica)}</div>
           <div class="f c4"><label>Média Complexidade</label>${chkList("servMedia", SERVICOS_MEDIA, paf.servMedia)}</div>
           <div class="f c4"><label>Alta Complexidade</label>${chkList("servAlta", SERVICOS_ALTA, paf.servAlta)}</div>
         </div>
-        ${notaTecnica("Marcar \"SCFV\" aqui registra que um ou mais integrantes da família participam do Serviço de Convivência e Fortalecimento de Vínculos — isso nunca substitui o acompanhamento da família pelo PAIF. As Perguntas Frequentes: Serviço de Convivência e Fortalecimento de Vínculos (MDS/SNAS, edição revista e atualizada em junho de 2022) esclarecem que SCFV e PAIF têm papéis complementares, não concorrentes: o PAIF trabalha o núcleo familiar como um todo, enquanto o SCFV atende cada integrante conforme seu ciclo de vida (infância, adolescência, juventude etc.), e o usuário do SCFV — sobretudo quando em situação de prioridade — deve ser, junto com sua família, também acompanhado pelo PAIF. O documento recomenda que o encaminhamento ao SCFV seja feito pelo técnico de referência do CRAS com atuação no Serviço, que atua como articulador entre SCFV, PAIF e PAEFI; quando o ingresso ocorre por procura espontânea do usuário no Centro de Convivência, cabe à equipe do SCFV informar o CRAS da inserção, para que a família passe a receber o atendimento do PAIF. É esse fluxo de referência e contrarreferência entre as equipes — e não apenas a marcação da caixa — que efetiva a articulação entre os dois serviços.")}
+        ${notaTecnica("Marcar \"SCFV\" registra participação no Serviço de Convivência — nunca substitui o acompanhamento pelo PAIF. As Perguntas Frequentes sobre o SCFV (MDS/SNAS, 2022) esclarecem que os serviços são complementares: o PAIF trabalha o núcleo familiar, o SCFV atende por ciclo de vida. O encaminhamento deve partir do técnico de referência do CRAS, e a inserção espontânea no SCFV deve ser informada ao CRAS para ativar o PAIF.")}
       </div>`;
 
     case "encaminhamentos": return `
       <div class="section-card">
         ${sectionHeader("05", "Encaminhamentos", "Registre e imprima formulários de encaminhamento (modelo SUAS) para outros órgãos/serviços, com canhoto de protocolo e espaço para contra-referência.")}
-        ${notaTecnica("Sempre que possível, registre também o retorno (contra-referência) do órgão para o qual a família foi encaminhada — isso evita que o acompanhamento perca o fio da meada quando a família passa por vários serviços.")}
-        ${notaTecnica("O Protocolo do PAIF, com base no Caderno de Orientações Técnicas do CRAS (2009), distingue referência de contrarreferência: a referência é o trânsito do CRAS (menor complexidade) para outro serviço socioassistencial ou política setorial do território; a contrarreferência é o caminho inverso, quando a Proteção Social Especial (ex.: CREAS) ou outro serviço devolve a família à proteção básica. O documento reforça que encaminhar não se resume a informar — o encaminhamento deve ser formalizado por documento entregue ao usuário e/ou enviado à unidade de destino, com contatos prévios e posteriores da equipe técnica para garantir sua efetivação e o retorno da informação. Os encaminhamentos do PAIF dividem-se em dois tipos: para a rede socioassistencial do SUAS e para a rede setorial de políticas públicas (saúde, educação, habitação etc.).")}
+        ${notaTecnica("Sempre que possível, registre o retorno (contra-referência) do órgão para o qual a família foi encaminhada, para não perder o fio do acompanhamento.")}
+        ${notaTecnica("O Protocolo do PAIF distingue referência (CRAS para outro serviço) de contrarreferência (retorno à proteção básica). O encaminhamento deve ser formalizado por documento entregue ao usuário e/ou enviado ao destino, com contatos da equipe para garantir efetivação e retorno. Divide-se em rede socioassistencial e rede setorial de políticas públicas.")}
         <table class="dyn-table">
           <thead><tr><th style="width:11%">Data</th><th style="width:18%">Área</th><th style="width:16%">Órgão/Unidade</th><th style="width:22%">Objetivo/Motivo</th><th style="width:14%">Profissional</th><th style="width:11%">Telefone</th><th></th></tr></thead>
           <tbody>
@@ -3196,9 +3297,9 @@ function renderSection(id, paf) {
     case "programas": return `
       <div class="section-card">
         ${sectionHeader("06", "Programas, Projetos, Serviços e Benefícios Socioassistenciais", "")}
-        ${notaTecnica("A Trilha do PAIF para o Contexto das Condicionalidades do Programa Bolsa Família (MDS/UNICEF) orienta que o não cumprimento das condicionalidades de saúde e educação não deve ser lido como culpa ou punição da família, e sim como um sinal de possíveis desproteções sociais a serem investigadas. O Protocolo de Gestão Integrada de Serviços, Benefícios e Transferências de Renda no âmbito do SUAS (Resolução CIT nº 7/2009) reforça essa leitura ao determinar que famílias do PBF, do BPC e do PETI em maior vulnerabilidade — entre elas as em descumprimento de condicionalidades — têm prioridade de inclusão no acompanhamento do PAIF, com busca ativa proativa da equipe, e não apenas uma resposta ao aviso de bloqueio do benefício.")}
-        ${notaTecnica("O Decreto nº 6.307/2007 e o Caderno de Orientações Técnicas sobre Benefícios Eventuais no SUAS (MDS) tratam a cesta básica, o auxílio natalidade, o auxílio funeral e o aluguel social como provisões suplementares e provisórias diante de nascimento, morte, calamidade pública ou vulnerabilidade temporária — e não como favor discricionário da equipe técnica. Entre os princípios que orientam sua concessão estão a afirmação do benefício eventual como direito relativo à cidadania, a ampla divulgação dos critérios de acesso e a vedação de qualquer comprovação vexatória de pobreza para concedê-lo.")}
-        ${notaTecnica("O Benefício de Prestação Continuada (BPC), previsto no art. 20 da Lei Orgânica da Assistência Social (Lei nº 8.742/1993, com as alterações da Lei nº 14.176/2021) e regulamentado pelo Decreto nº 6.214/2007, garante 1 (um) salário mínimo mensal à pessoa idosa com 65 anos ou mais ou à pessoa com deficiência com impedimento de longo prazo — mínimo de 2 anos, de natureza física, mental, intelectual ou sensorial — que, em interação com barreiras, tenha obstruída sua participação plena na sociedade. Em ambos os casos exige-se renda familiar per capita de até 1/4 do salário mínimo, limite que o regulamento pode ampliar para até 1/2 quando há gastos comprovados com saúde, medicamentos ou cuidados não cobertos pelo SUS/Suas (art. 20-B). A concessão depende de avaliação médica e social feita por peritos e assistentes sociais do INSS, e o benefício é revisto a cada 2 anos — não é vitalício nem se confunde com aposentadoria, e não pode ser acumulado com outros benefícios da seguridade social, ressalvadas a assistência médica, a pensão especial indenizatória e transferências de renda como o Bolsa Família. Se a pessoa com deficiência passa a exercer atividade remunerada, o BPC é suspenso — não cancelado —, com direito ao auxílio-inclusão (50% do valor do BPC, cumulável com a remuneração) e retomada do benefício integral em caso de desemprego. Registrar aqui as famílias que já recebem o BPC, ou que atendem aos critérios mas ainda não foram beneficiadas, orienta a busca ativa e o encaminhamento ao INSS/Cadastro Único.")}
+        ${notaTecnica("A Trilha sobre Condicionalidades do Bolsa Família (MDS/UNICEF) orienta que o não cumprimento não deve ser lido como culpa, mas como sinal de possível desproteção a investigar. O Protocolo CIT nº 7/2009 reforça: famílias do PBF/BPC/PETI em maior vulnerabilidade, inclusive em descumprimento, têm prioridade de inclusão no PAIF, com busca ativa da equipe.")}
+        ${notaTecnica("O Decreto nº 6.307/2007 e o Caderno de Benefícios Eventuais (MDS) tratam cesta básica, auxílio natalidade, auxílio funeral e aluguel social como direito de cidadania diante de vulnerabilidade temporária — não favor discricionário. É vedada comprovação vexatória de pobreza para concedê-los.")}
+        ${notaTecnica("O BPC (art. 20 da LOAS, Lei nº 8.742/1993, alterada pela Lei nº 14.176/2021; Decreto nº 6.214/2007) garante 1 salário mínimo a idosos com 65+ anos ou pessoa com deficiência com impedimento de longo prazo (2+ anos), com renda per capita até 1/4 do salário mínimo (ampliável a 1/2 com gastos de saúde comprovados). Avaliação por peritos/assistentes sociais do INSS; revisão a cada 2 anos; não é vitalício nem acumulável com outros benefícios (com exceções previstas). Atividade remunerada suspende — não cancela — o BPC, com direito ao auxílio-inclusão. Registrar famílias beneficiárias ou elegíveis orienta busca ativa e encaminhamento ao INSS/CadÚnico.")}
         <div class="field-grid">
           <div class="f c6">
             <label>a) Participa de programas, projetos sociais ou de geração de renda?</label>
@@ -3260,7 +3361,7 @@ function renderSection(id, paf) {
 
       <div class="section-card">
         ${sectionHeader("08", "Registro de Atendimentos", "Cada visita, contato ou encaminhamento realizado com a família, em ordem cronológica.")}
-        ${notaTecnica("As Orientações Técnicas do PAIF distinguem \"atendimento\" (resposta pontual a uma demanda) de \"acompanhamento\" (processo continuado, com objetivos e prazos pactuados — como este PAF). Ações particularizadas, em especial, devem ser usadas com critério: sempre associadas aos objetivos do Serviço, e nunca como simples \"resolução de caso\".")}
+        ${notaTecnica("As Orientações Técnicas do PAIF distinguem \"atendimento\" (resposta pontual) de \"acompanhamento\" (processo continuado, como este PAF). Ações particularizadas devem estar sempre associadas aos objetivos do Serviço, nunca como simples \"resolução de caso\".")}
         <div class="timeline">
           ${(paf.atendimentos || []).length === 0 ? `<p class="hint" style="margin:6px 0 14px;">Nenhum atendimento registrado ainda. Clique em "Adicionar atendimento" para começar o histórico.</p>` : ""}
           ${(paf.atendimentos || []).map((a, i) => {
@@ -3311,7 +3412,7 @@ function renderSection(id, paf) {
     case "estrategias": return `
       <div class="section-card">
         ${sectionHeader("09", "Estratégias a serem adotadas para superação das vulnerabilidades", "")}
-        ${notaTecnica("O fluxograma de atendimento do PAIF (Caderno de Orientações — PAIF e SCFV, MDS/SNAS, 2015; e protocolos municipais de fluxo do PAIF) situa este PAF na etapa de Acompanhamento Familiar: Acolhida → Estudo Social (seção 03, Diagnóstico) → decisão entre Atendimento pontual (inserção em ações do PAIF, sem Plano) e Acompanhamento continuado (com Plano de Acompanhamento Familiar) → mediações periódicas com a família (seção 08, Registro de Atendimentos) → avaliação do Plano no prazo pactuado (seção 10). Quando os objetivos são alcançados, o acompanhamento se encerra (seção 11); quando não são, o Plano deve ser adequado — revisando estratégias e eixos aqui, sem necessariamente encerrar o processo — e as mediações continuam.")}
+        ${notaTecnica("O fluxograma do PAIF (Caderno PAIF e SCFV, MDS/SNAS, 2015) situa este PAF na etapa de Acompanhamento Familiar: Acolhida → Estudo Social → decisão entre atendimento pontual e acompanhamento continuado → mediações periódicas → avaliação no prazo pactuado. Se os objetivos não forem alcançados, o Plano deve ser adequado, sem necessariamente encerrar o processo.")}
         ${chkList("estrategias", ESTRATEGIAS, paf.estrategias, true)}
         <div class="f" style="margin-top:12px"><label>Outras</label><input type="text" data-field="estrategiasOutras" value="${escapeHtml(paf.estrategiasOutras)}"></div>
       </div>
@@ -3324,11 +3425,11 @@ function renderSection(id, paf) {
     case "plano": return `
       <div class="section-card">
         ${sectionHeader("10", "Elaboração do Plano", "")}
-        ${notaTecnica("Marque os objetivos do PAIF (conforme a Tipificação Nacional de Serviços Socioassistenciais) que este Plano pretende trabalhar com a família — isso ajuda a manter o acompanhamento alinhado à finalidade do Serviço, e não apenas à resolução de uma demanda pontual. As Referências Técnicas do CFP/CREPOP destacam que o Plano deve ter caráter não tutelar: a família participa ativamente da definição de suas metas, e o trabalho técnico busca fortalecer sua autonomia e protagonismo, e não apenas prover respostas assistencialistas às suas demandas. O SUAS busca superar a antiga lógica de \"polícia das famílias\" — palestras e oficinas educativas desarticuladas dos serviços, oferecidas como condição ou favor — e também a ideia de que a assistência social é \"ajuda\": trata-se de direito do cidadão e dever do Estado. Evite, portanto, redigir metas e estratégias em tom de condição, favor ou disciplinamento de comportamento.")}
+        ${notaTecnica("Marque os objetivos do PAIF (Tipificação Nacional) que este Plano pretende trabalhar, mantendo o acompanhamento alinhado à finalidade do Serviço. As Referências CFP/CREPOP destacam o caráter não tutelar do Plano: a família participa da definição de metas, fortalecendo autonomia — não é \"ajuda\" nem disciplinamento de comportamento.")}
         <label style="font-size: 11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
         ${chkList("objetivosPaif", OBJETIVOS_PAIF, paf.objetivosPaif || [], true)}
         <div class="f" style="margin:12px 0 20px"><label>Outros objetivos</label><input type="text" data-field="objetivosPaifOutros" value="${escapeHtml(paf.objetivosPaifOutros)}"></div>
-        ${notaTecnica("A Política Nacional de Assistência Social (PNAS/2004) e a Norma Operacional Básica do SUAS (NOB-SUAS/2012) organizam a proteção socioassistencial em torno de seguranças a serem afiançadas aos usuários. Indicar aqui qual(is) delas este Plano busca garantir para a família ajuda a explicitar a finalidade protetiva do acompanhamento, para além da resposta a uma demanda pontual.")}
+        ${notaTecnica("A PNAS (2004) e a NOB-SUAS (2012) organizam a proteção em torno de seguranças a afiançar aos usuários. Indicar aqui quais o Plano busca garantir explicita a finalidade protetiva do acompanhamento.")}
         <label style="font-size: 11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Seguranças socioassistenciais afiançadas por este Plano</label>
         ${segurancasChkList(paf.segurancasSocioassistenciais || [])}
         <div class="f" style="margin:12px 0 20px"><label>Outras</label><input type="text" data-field="segurancasSocioassistenciaisOutras" value="${escapeHtml(paf.segurancasSocioassistenciaisOutras)}"></div>
@@ -3349,9 +3450,9 @@ function renderSection(id, paf) {
     case "encerramento": return `
       <div class="section-card">
         ${sectionHeader("11", "Encerramento do Acompanhamento Familiar", "")}
-        ${notaTecnica("O PAIF não tem caráter terapêutico ou psicoterápico — demandas de saúde mental devem ser encaminhadas à rede intersetorial. Quando há indício de violação de direitos, o encaminhamento é ao CREAS/PAEFI, que assume o acompanhamento até a situação ser superada.")}
-        ${notaTecnica("A Tipificação Nacional situa o impacto social esperado do PAIF em quatro frentes: redução da ocorrência de vulnerabilidade social, prevenção de riscos sociais (seu agravamento ou reincidência), aumento do acesso a serviços socioassistenciais e setoriais, e melhoria da qualidade de vida da família. Vale usar esses quatro eixos como critério para avaliar, no encerramento, se o Plano cumpriu sua finalidade — e não apenas se a demanda inicial foi resolvida.")}
-        ${notaTecnica("O Protocolo do PAIF detalha os procedimentos de cada forma de desligamento. Em \"Localização desconhecida\", o desligamento só deve ocorrer após sucessivas tentativas de localização (inclusive com apoio da rede de serviços do território), todas registradas no prontuário; em casos de família com crianças ou adolescentes, a equipe deve avaliar a necessidade de informar aos órgãos competentes. Em \"Mudança de domicílio\", vale diferenciar mudança para outro município/estado (mesma avaliação sobre informar órgãos competentes quando há crianças/adolescentes) de mudança para outro território dentro do mesmo município, caso em que a família deve ser desligada deste CRAS e um formulário de encaminhamento enviado ao CRAS do território de destino. \"Encaminhamento para o CREAS\" aplica-se quando a vulnerabilidade e o risco social ultrapassam a oferta do PAIF, exigindo atendimento especializado da Proteção Social Especial. E \"Objetivos do PAIF alcançados\" pressupõe uma avaliação conjunta entre técnico e família — quando os objetivos não forem alcançados, o Protocolo orienta propor a continuidade do acompanhamento com adequação deste Plano, em vez de simplesmente encerrá-lo.")}
+        ${notaTecnica("O PAIF não tem caráter terapêutico — demandas de saúde mental vão à rede intersetorial. Indício de violação de direitos é encaminhado ao CREAS/PAEFI.")}
+        ${notaTecnica("A Tipificação Nacional situa o impacto esperado do PAIF em quatro frentes: redução de vulnerabilidade, prevenção de riscos, aumento do acesso a serviços e melhoria da qualidade de vida. Use esses eixos para avaliar, no encerramento, se o Plano cumpriu sua finalidade.")}
+        ${notaTecnica("O Protocolo do PAIF detalha o desligamento. Em \"Localização desconhecida\": só após tentativas registradas, avaliando informar órgãos competentes se há crianças/adolescentes. Em \"Mudança de domicílio\": diferenciar mudança de município (mesma avaliação) de mudança de território no mesmo município (encaminhamento ao CRAS de destino). \"Encaminhamento ao CREAS\" quando o risco ultrapassa a oferta do PAIF. \"Objetivos alcançados\" exige avaliação conjunta técnico-família; se não alcançados, adequar o Plano em vez de encerrá-lo.")}
         <div class="radio-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
           ${ENCERRAMENTO_MOTIVOS.map(m => `<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="encerramentoMotivo" data-field="encerramentoMotivo" value="${m.v}" ${paf.encerramentoMotivo === m.v ? "checked" : ""}> (${m.v}) ${m.label}</label>`).join("")}
         </div>
@@ -3437,12 +3538,15 @@ function attachEditorHandlers() {
   document.querySelectorAll("[data-set-status]").forEach(btn => {
     btn.addEventListener("click", () => {
       const novoStatus = btn.dataset.setStatus;
-      if (novoStatus === "cancelado") {
-        confirmModal("Cancelar este PAF?", "Cancelar este PAF vai excluí-lo definitivamente (de todos os dispositivos, se a nuvem estiver ativa). Essa ação não pode ser desfeita.", () => {
-          const id = state.current.id;
-          deletePAFRecord(id);
-          goHome();
-        });
+      if (novoStatus === "desistiu") {
+        confirmModal(
+          "Registrar desistência da família?",
+          "O PAF completo (todas as seções preenchidas) será excluído definitivamente, de todos os dispositivos sincronizados, e substituído por um registro mínimo de família desistente, mantido só para controle administrativo. Essa ação não pode ser desfeita.",
+          () => {
+            registrarDesistencia(state.current);
+            goHome();
+          }
+        );
         return;
       }
       if (novoStatus === state.current.situacaoPAF) return;
