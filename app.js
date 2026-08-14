@@ -66,6 +66,41 @@ const SITUACOES_SOCIAIS = [
   "Outras situações"
 ];
 
+// Pesos usados na Escala de Prioridades de Atendimento (view "prioridades"): cada situação
+// social marcada (e não superada) soma pontos conforme o risco/urgência que costuma indicar,
+// na linha do que o Protocolo CIT nº 7/2009 e as Orientações Técnicas do PAIF tratam como
+// motivadores de prioridade e busca ativa. Itens sem peso definido aqui somam 1 ponto (padrão).
+const SITUACOES_SOCIAIS_PESO = {
+  "Em contextos de violência": 6,
+  "Situação de Trabalho infantil": 5,
+  "Uso abusivo de álcool e outras drogas": 4,
+  "Questões relacionadas a saúde mental": 4,
+  "Criança/adolescente fora da escola": 4,
+  "Beneficiária do PBF, em não cumprimento de condicionalidades": 3,
+  "Membro da família em privação de liberdade": 3,
+  "Família migrante/refugiada em situação de abrigamento (Operação Acolhida)": 3,
+  "Egresso de sistema penitenciário": 2,
+  "Criança/adolescente com baixa frequência escolar": 2,
+  "Vivência de situações de discriminação relacionada com a cor, origem, religião, local de moradia, sexo, orientação sexual": 2,
+  "Membro com problemas de saúde com doença limitadora de atividades cotidianas": 2,
+  "Maternidade/Paternidade na adolescência": 2,
+  "Ausência de documentação civil": 2
+};
+
+// Idem para as vulnerabilidades da família (seção 03) — os grupos que o Protocolo CIT nº
+// 7/2009 aponta como prioritários para inclusão no PAIF (trabalho infantil, acolhimento
+// institucional, descumprimento de condicionalidades) recebem peso maior.
+const VULNERABILIDADES_PESO = {
+  "Famílias com crianças ou adolescentes em situação de trabalho infantil": 5,
+  "Famílias com crianças ou adolescentes em Serviço de Acolhimento Institucional": 4,
+  "Pessoas com deficiência e/ou pessoas idosas que vivenciam situações de vulnerabilidade e risco social": 3,
+  "Famílias beneficiárias do Programa Bolsa Família, em não cumprimento de condicionalidades": 3,
+  "Famílias que atendem aos critérios de elegibilidade do Programa Bolsa Família e do BPC, mas que ainda não foram beneficiadas": 2,
+  "Famílias em situação de vulnerabilidade em decorrência de dificuldades vivenciadas por algum de seus membros": 2
+};
+
+const PRIORIDADE_LABELS = { alta: "Prioridade alta", media: "Prioridade média", baixa: "Prioridade regular" };
+
 const SERVICOS_BASICA = ["PAIF", "SCFV", "Serviço de Proteção Social Básica no Domicílio para Pessoas com Deficiência e Idosas"];
 const SERVICOS_MEDIA = ["PAEFI", "Serviço Especializado em Abordagem Social",
   "Serviço de Proteção Social a Adolescentes em Cumprimento de Medida Socioeducativa (Liberdade Assistida e PSC)",
@@ -719,6 +754,61 @@ function faixaEtaria(idade) {
   if (idade < 45) return "30 a 44 anos";
   if (idade < 60) return "45 a 59 anos";
   return "60 anos ou mais";
+}
+
+function diasDesde(dataISO) {
+  if (!dataISO) return null;
+  const d = new Date(String(dataISO).slice(0, 10) + "T00:00:00");
+  if (isNaN(d.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+}
+
+/* ---------------------------- Escala de Prioridades de Atendimento ----------------------------
+   Pontuação auxiliar (não substitui o julgamento técnico) para ordenar os PAFs em andamento na
+   fila de atendimento, a partir de indicadores de risco/vulnerabilidade já preenchidos na ficha
+   e do tempo sem atendimento técnico registrado. Ver nota técnica exibida na própria tela. */
+function computePrioridade(paf) {
+  const motivos = [];
+  let score = 0;
+  const add = (pts, label) => { if (pts > 0) { score += pts; motivos.push({ label, pts }); } };
+
+  (paf.situacoesSociais || []).forEach(row => {
+    if (row.membros && !row.superada) add(SITUACOES_SOCIAIS_PESO[row.situacao] || 1, row.situacao);
+  });
+  (paf.vulnerabilidades || []).forEach(v => add(VULNERABILIDADES_PESO[v] || 1, v));
+
+  if (paf.habitacaoAreaRisco === "Sim") add(3, "Domicílio em área de risco");
+  if (paf.saudeDoencaGrave === "Sim") add(3, "Doença grave na família");
+  if (paf.saudeAlcool === "Sim") add(3, "Uso abusivo de álcool");
+  if (paf.saudeDrogas === "Sim") add(4, "Uso abusivo de outras drogas");
+  if (paf.saudeGestante === "Sim") add(2, "Gestante na família");
+  if (paf.habitacaoAbrigoNome) add(2, "Família em situação de abrigamento");
+
+  const foraEscola = [paf.eduForaEscola06, paf.eduForaEscola614, paf.eduForaEscola1517]
+    .map(v => parseInt(v, 10) || 0).reduce((a, b) => a + b, 0);
+  if (foraEscola > 0) add(3, "Criança(s)/adolescente(s) fora da escola");
+
+  const pcdCount = (paf.membros || []).filter(m => m.nome && m.pcd).length;
+  if (pcdCount) add(Math.min(pcdCount, 3), "Pessoa(s) com deficiência no núcleo familiar");
+  const idosoCount = (paf.membros || []).filter(m => m.nome && (calcularIdade(m.nascimento) || 0) >= 60).length;
+  if (idosoCount) add(Math.min(idosoCount, 2), "Pessoa(s) idosa(s) no núcleo familiar");
+
+  const datasAtend = (paf.atendimentos || []).map(a => a.data).filter(Boolean).sort();
+  const ultimoAtendimento = datasAtend.length ? datasAtend[datasAtend.length - 1] : null;
+  let diasSemAtendimento = null;
+  if (ultimoAtendimento) {
+    diasSemAtendimento = diasDesde(ultimoAtendimento);
+    if (diasSemAtendimento >= 90) add(4, "Mais de 90 dias sem atendimento técnico registrado");
+    else if (diasSemAtendimento >= 60) add(3, "Mais de 60 dias sem atendimento técnico registrado");
+    else if (diasSemAtendimento >= 30) add(1, "Mais de 30 dias sem atendimento técnico registrado");
+  } else {
+    diasSemAtendimento = diasDesde(paf.dataInicial);
+    if (diasSemAtendimento != null && diasSemAtendimento >= 30) add(2, "Nenhum atendimento técnico registrado desde o início do PAF");
+  }
+
+  motivos.sort((a, b) => b.pts - a.pts);
+  const nivel = score >= 14 ? "alta" : score >= 7 ? "media" : "baixa";
+  return { score, nivel, motivos, diasSemAtendimento };
 }
 
 /* ---------------------------- Modal e Toast ---------------------------- */
@@ -2227,16 +2317,23 @@ function renderApp() {
   if (!main) return;
   main.innerHTML = state.view === "home" ? renderHomeHTML()
     : state.view === "dashboard" ? renderDashboardHTML()
+    : state.view === "prioridades" ? renderPrioridadesHTML()
     : renderEditorHTML();
   attachGlobalHandlers();
   if (state.view === "home") attachHomeHandlers();
   else if (state.view === "dashboard") attachDashboardHandlers();
+  else if (state.view === "prioridades") attachPrioridadesHandlers();
   else attachEditorHandlers();
   updateTopbarTabs();
 }
 
 function goDashboard() {
   state.view = "dashboard";
+  renderApp();
+}
+
+function goPrioridades() {
+  state.view = "prioridades";
   renderApp();
 }
 
@@ -2341,6 +2438,7 @@ function renderHomeHTML() {
       </div>
       <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
       <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" id="prioridadesBtn">${uiIconSvg("chartBars", 15)} Escala de prioridades</button>
         <button class="btn btn-ghost" id="resumoMensalBtn">${uiIconSvg("chartBars", 15)} Ver gráficos</button>
         <button class="btn btn-primary" id="newPafBtn">${uiIconSvg("plus", 15)} Novo PAF</button>
       </div>
@@ -2359,6 +2457,7 @@ function attachHomeHandlers() {
   document.getElementById("newPafBtn")?.addEventListener("click", newPAF);
   document.getElementById("emptyNewBtn")?.addEventListener("click", newPAF);
   document.getElementById("resumoMensalBtn")?.addEventListener("click", goDashboard);
+  document.getElementById("prioridadesBtn")?.addEventListener("click", goPrioridades);
   const search = document.getElementById("searchInput");
   search?.addEventListener("input", e => { state.search = e.target.value; renderApp(); focusSearchEnd(); });
 
@@ -2395,6 +2494,83 @@ function attachHomeHandlers() {
 function focusSearchEnd() {
   const el = document.getElementById("searchInput");
   if (el) { el.focus(); el.selectionStart = el.selectionEnd = el.value.length; }
+}
+
+/* ---------------------------- Render: PRIORIDADES ---------------------------- */
+
+function renderPrioridadesHTML() {
+  const ativos = state.pafs.filter(p => p.situacaoPAF === "andamento");
+  const withScore = ativos.map(p => ({ paf: p, pr: computePrioridade(p) }))
+    .sort((a, b) => b.pr.score - a.pr.score);
+
+  const counts = { alta: 0, media: 0, baixa: 0 };
+  withScore.forEach(x => counts[x.pr.nivel]++);
+
+  const filtro = state.prioridadeFiltro || "todas";
+  const filtered = filtro === "todas" ? withScore : withScore.filter(x => x.pr.nivel === filtro);
+
+  const chips = ["todas", "alta", "media", "baixa"].map(f => {
+    const label = f === "todas" ? `Todas (${withScore.length})` : `${PRIORIDADE_LABELS[f]} (${counts[f]})`;
+    return `<button class="filter-chip prioridade-chip-${f} ${filtro === f ? "active" : ""}" data-prioridade-filtro="${f}">${label}</button>`;
+  }).join("");
+
+  const rows = filtered.map(({ paf: p, pr }) => {
+    const protocolo = protocoloNumero(p);
+    const inicial = escapeHtml((p.responsavel || "?").trim().charAt(0).toUpperCase() || "?");
+    const motivosChips = pr.motivos.slice(0, 4).map(m => `<span class="motivo-chip">${escapeHtml(m.label)}</span>`).join("");
+    const diasTxt = pr.diasSemAtendimento == null ? ""
+      : pr.diasSemAtendimento === 0 ? "Atendimento registrado hoje"
+      : `${pr.diasSemAtendimento} dia(s) sem atendimento`;
+    return `
+    <div class="priority-row priority-${pr.nivel}" data-open="${p.id}">
+      <div class="priority-badge priority-badge-${pr.nivel}">${PRIORIDADE_LABELS[pr.nivel]}</div>
+      <div class="record-index record-index-${p.situacaoPAF}">${inicial}</div>
+      <div class="record-main">
+        <div class="record-name">${escapeHtml(p.responsavel) || "Sem nome do responsável"}</div>
+        <div class="record-protocolo">Prontuário Nº ${protocolo} · ${escapeHtml(p.crasNome) || "—"}</div>
+        <div class="priority-motivos">${motivosChips || '<span class="motivo-chip motivo-chip-vazio">Sem indicadores de risco registrados na ficha</span>'}</div>
+      </div>
+      <div class="priority-meta">
+        <span class="priority-score" title="Pontuação da escala de prioridades">${pr.score} pts</span>
+        <span class="priority-dias">${diasTxt}</span>
+      </div>
+      <div class="record-actions">
+        <button class="btn btn-ghost btn-sm" data-open="${p.id}">Abrir</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  const empty = `
+    <div class="empty-state">
+      <div class="empty-illustration">${protecaoIllustration(52)}</div>
+      <p>${withScore.length === 0 ? "Nenhum PAF em andamento para priorizar no momento." : "Nenhum registro nesse nível de prioridade."}</p>
+    </div>`;
+
+  return `
+  <div class="home-wrap">
+    <div class="home-head">
+      <div class="home-head-text">
+        <p class="home-eyebrow">Triagem técnica · CRAS</p>
+        <h1>Escala de Prioridades de Atendimento</h1>
+        <p>Ordena os PAFs em andamento a partir dos indicadores de risco e vulnerabilidade já registrados em cada ficha</p>
+      </div>
+      <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
+    </div>
+    ${notaTecnica("Escala auxiliar de organização da fila técnica, não um diagnóstico automático. A pontuação soma as situações sociais e vulnerabilidades marcadas na ficha (peso maior para violência, trabalho infantil, uso abusivo de álcool/drogas, saúde mental e descumprimento de condicionalidades do PBF), indicadores do diagnóstico socioeconômico (área de risco, doença grave, gestação, abrigamento, criança fora da escola, PCD e pessoa idosa no núcleo familiar) e o tempo sem atendimento técnico registrado. Famílias do PBF/BPC em maior vulnerabilidade têm prioridade de inclusão no PAIF, com busca ativa da equipe (Protocolo CIT nº 7/2009); a decisão final sobre a ordem de atendimento e a lista de demanda reprimida é sempre do técnico de referência junto à gerência do CRAS (Protocolo do PAIF).")}
+    <div class="search-row">
+      <div class="filter-tabs">${chips}</div>
+    </div>
+    ${filtered.length ? `<div class="records-list priority-list">${rows}</div>` : empty}
+  </div>`;
+}
+
+function attachPrioridadesHandlers() {
+  document.querySelectorAll("[data-prioridade-filtro]").forEach(btn => {
+    btn.addEventListener("click", () => { state.prioridadeFiltro = btn.dataset.prioridadeFiltro; renderApp(); });
+  });
+  document.querySelectorAll("[data-open]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); openPAF(el.dataset.open); });
+  });
 }
 
 /* ---------------------------- Render: EDITOR ---------------------------- */
@@ -2716,7 +2892,7 @@ function renderSection(id, paf) {
         ${sectionHeader("01", "Cabeçalho", "Identificação do CRAS, do responsável familiar e do plano.")}
         ${notaTecnica("O PAIF acompanha famílias de forma contínua, com caráter preventivo, protetivo e proativo — não se limita a resolver um \"caso\" pontual. Este PAF é o registro desse processo, com base na Lei Orgânica da Assistência Social (Lei nº 8.742/1993, alterada pela Lei nº 12.435/2011, que torna obrigatória a oferta do PAIF no CRAS), na Política Nacional de Assistência Social (PNAS/2004), na Norma Operacional Básica do SUAS (NOB-SUAS, Resolução CNAS nº 33/2012), nas Orientações Técnicas do PAIF (MDS) e na Tipificação Nacional de Serviços Socioassistenciais.")}
         ${notaTecnica("A NOB-SUAS/2012 (art. 4º) define cinco seguranças que o SUAS deve afiançar a quem atende: acolhida, renda, convívio ou vivência familiar e comunitária, desenvolvimento de autonomia, e apoio e auxílio em situações de risco circunstancial. O acompanhamento registrado neste PAF é o principal instrumento do CRAS para efetivar essas seguranças junto à família. A mesma norma (art. 3º) fixa os princípios organizativos do SUAS — universalidade (direito de todos, sem comprovação vexatória), gratuidade, integralidade da proteção, intersetorialidade e equidade (priorizando quem está em situação de vulnerabilidade e risco) —, e (art. 6º) os princípios éticos da oferta socioassistencial: sigilo profissional e proteção à privacidade, defesa do protagonismo e da autonomia da família (com recusa a práticas clientelistas, vexatórias ou de benesse), garantia da laicidade, e combate a discriminações étnicas, de classe, de gênero, orientação sexual ou deficiência, entre outras.")}
-        ${notaTecnica("Este PAF corresponde ao acompanhamento familiar particularizado. O Protocolo do PAIF de Jundiaí/SP (2024) orienta que essa modalidade seja adotada quando o acompanhamento em grupo não for adequado à família: atenção imediata que a situação exige, dificuldade da família em se deslocar até o CRAS, necessidade de proteção a algum de seus membros, desconforto em participar de espaços coletivos, exigência de sigilo, ou incompatibilidade de horários com os grupos já formados — sem prejuízo de a família participar de outras ações coletivas do PAIF em paralelo. O mesmo documento situa a capacidade técnica de acompanhamento familiar entre 10 e no máximo 15 famílias simultâneas por técnico de nível superior do CRAS, e recomenda que, quando a demanda ultrapassar essa capacidade, as famílias que aguardam sejam organizadas em lista de demanda reprimida, com a distribuição definida pela gerência junto à equipe técnica, respeitando prioridades e complexidades.")}
+        ${notaTecnica("Este PAF corresponde ao acompanhamento familiar particularizado. O Protocolo do PAIF orienta que essa modalidade seja adotada quando o acompanhamento em grupo não for adequado à família: atenção imediata que a situação exige, dificuldade da família em se deslocar até o CRAS, necessidade de proteção a algum de seus membros, desconforto em participar de espaços coletivos, exigência de sigilo, ou incompatibilidade de horários com os grupos já formados — sem prejuízo de a família participar de outras ações coletivas do PAIF em paralelo. O mesmo documento situa a capacidade técnica de acompanhamento familiar entre 10 e no máximo 15 famílias simultâneas por técnico de nível superior do CRAS, e recomenda que, quando a demanda ultrapassar essa capacidade, as famílias que aguardam sejam organizadas em lista de demanda reprimida, com a distribuição definida pela gerência junto à equipe técnica, respeitando prioridades e complexidades.")}
         ${notaTecnica("A equipe técnica do CRAS costuma reunir psicólogos/as e assistentes sociais, cada categoria orientada por seu próprio código de ética profissional. No caso do Serviço Social, o Código de Ética do/a Assistente Social (Resolução CFESS nº 273/1993) assegura ao/à usuário/a o direito de participar e decidir livremente sobre seus interesses — vedando ao/à profissional exercer sua autoridade para limitar ou cercear essa participação (art. 6º, \"a\") —, garante a inviolabilidade do sigilo profissional sobre o local de trabalho, os arquivos e a documentação (art. 2º, \"d\"), e exige a plena informação à família sobre as possibilidades e consequências das situações apresentadas, mesmo quando suas decisões forem contrárias aos valores pessoais do/a profissional (art. 5º, \"b\"). Esses princípios se somam aos já citados na NOB-SUAS/2012 e às Referências Técnicas do CFP/CREPOP para a atuação da psicologia no CRAS/SUAS, formando a base ética comum da equipe interdisciplinar responsável por este PAF.")}
         <div class="field-grid">
           <div class="f c6"><label>Nome do CRAS</label><input type="text" data-field="crasNome" value="${escapeHtml(paf.crasNome)}"></div>
@@ -2985,7 +3161,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         ${sectionHeader("05", "Encaminhamentos", "Registre e imprima formulários de encaminhamento (modelo SUAS) para outros órgãos/serviços, com canhoto de protocolo e espaço para contra-referência.")}
         ${notaTecnica("Sempre que possível, registre também o retorno (contra-referência) do órgão para o qual a família foi encaminhada — isso evita que o acompanhamento perca o fio da meada quando a família passa por vários serviços.")}
-        ${notaTecnica("O Protocolo do PAIF de Jundiaí/SP (2024), com base no Caderno de Orientações Técnicas do CRAS (2009), distingue referência de contrarreferência: a referência é o trânsito do CRAS (menor complexidade) para outro serviço socioassistencial ou política setorial do território; a contrarreferência é o caminho inverso, quando a Proteção Social Especial (ex.: CREAS) ou outro serviço devolve a família à proteção básica. O documento reforça que encaminhar não se resume a informar — o encaminhamento deve ser formalizado por documento entregue ao usuário e/ou enviado à unidade de destino, com contatos prévios e posteriores da equipe técnica para garantir sua efetivação e o retorno da informação. Os encaminhamentos do PAIF dividem-se em dois tipos: para a rede socioassistencial do SUAS e para a rede setorial de políticas públicas (saúde, educação, habitação etc.).")}
+        ${notaTecnica("O Protocolo do PAIF, com base no Caderno de Orientações Técnicas do CRAS (2009), distingue referência de contrarreferência: a referência é o trânsito do CRAS (menor complexidade) para outro serviço socioassistencial ou política setorial do território; a contrarreferência é o caminho inverso, quando a Proteção Social Especial (ex.: CREAS) ou outro serviço devolve a família à proteção básica. O documento reforça que encaminhar não se resume a informar — o encaminhamento deve ser formalizado por documento entregue ao usuário e/ou enviado à unidade de destino, com contatos prévios e posteriores da equipe técnica para garantir sua efetivação e o retorno da informação. Os encaminhamentos do PAIF dividem-se em dois tipos: para a rede socioassistencial do SUAS e para a rede setorial de políticas públicas (saúde, educação, habitação etc.).")}
         <table class="dyn-table">
           <thead><tr><th style="width:11%">Data</th><th style="width:18%">Área</th><th style="width:16%">Órgão/Unidade</th><th style="width:22%">Objetivo/Motivo</th><th style="width:14%">Profissional</th><th style="width:11%">Telefone</th><th></th></tr></thead>
           <tbody>
@@ -3175,7 +3351,7 @@ function renderSection(id, paf) {
         ${sectionHeader("11", "Encerramento do Acompanhamento Familiar", "")}
         ${notaTecnica("O PAIF não tem caráter terapêutico ou psicoterápico — demandas de saúde mental devem ser encaminhadas à rede intersetorial. Quando há indício de violação de direitos, o encaminhamento é ao CREAS/PAEFI, que assume o acompanhamento até a situação ser superada.")}
         ${notaTecnica("A Tipificação Nacional situa o impacto social esperado do PAIF em quatro frentes: redução da ocorrência de vulnerabilidade social, prevenção de riscos sociais (seu agravamento ou reincidência), aumento do acesso a serviços socioassistenciais e setoriais, e melhoria da qualidade de vida da família. Vale usar esses quatro eixos como critério para avaliar, no encerramento, se o Plano cumpriu sua finalidade — e não apenas se a demanda inicial foi resolvida.")}
-        ${notaTecnica("O Protocolo do PAIF de Jundiaí/SP (2024) detalha os procedimentos de cada forma de desligamento. Em \"Localização desconhecida\", o desligamento só deve ocorrer após sucessivas tentativas de localização (inclusive com apoio da rede de serviços do território), todas registradas no prontuário; em casos de família com crianças ou adolescentes, a equipe deve avaliar a necessidade de informar aos órgãos competentes. Em \"Mudança de domicílio\", vale diferenciar mudança para outro município/estado (mesma avaliação sobre informar órgãos competentes quando há crianças/adolescentes) de mudança para outro território dentro do mesmo município, caso em que a família deve ser desligada deste CRAS e um formulário de encaminhamento enviado ao CRAS do território de destino. \"Encaminhamento para o CREAS\" aplica-se quando a vulnerabilidade e o risco social ultrapassam a oferta do PAIF, exigindo atendimento especializado da Proteção Social Especial. E \"Objetivos do PAIF alcançados\" pressupõe uma avaliação conjunta entre técnico e família — quando os objetivos não forem alcançados, o Protocolo orienta propor a continuidade do acompanhamento com adequação deste Plano, em vez de simplesmente encerrá-lo.")}
+        ${notaTecnica("O Protocolo do PAIF detalha os procedimentos de cada forma de desligamento. Em \"Localização desconhecida\", o desligamento só deve ocorrer após sucessivas tentativas de localização (inclusive com apoio da rede de serviços do território), todas registradas no prontuário; em casos de família com crianças ou adolescentes, a equipe deve avaliar a necessidade de informar aos órgãos competentes. Em \"Mudança de domicílio\", vale diferenciar mudança para outro município/estado (mesma avaliação sobre informar órgãos competentes quando há crianças/adolescentes) de mudança para outro território dentro do mesmo município, caso em que a família deve ser desligada deste CRAS e um formulário de encaminhamento enviado ao CRAS do território de destino. \"Encaminhamento para o CREAS\" aplica-se quando a vulnerabilidade e o risco social ultrapassam a oferta do PAIF, exigindo atendimento especializado da Proteção Social Especial. E \"Objetivos do PAIF alcançados\" pressupõe uma avaliação conjunta entre técnico e família — quando os objetivos não forem alcançados, o Protocolo orienta propor a continuidade do acompanhamento com adequação deste Plano, em vez de simplesmente encerrá-lo.")}
         <div class="radio-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
           ${ENCERRAMENTO_MOTIVOS.map(m => `<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="encerramentoMotivo" data-field="encerramentoMotivo" value="${m.v}" ${paf.encerramentoMotivo === m.v ? "checked" : ""}> (${m.v}) ${m.label}</label>`).join("")}
         </div>
@@ -3461,6 +3637,7 @@ function attachGlobalHandlers() {
   document.querySelectorAll(".topbar-tab").forEach(btn => {
     btn.onclick = () => {
       if (btn.dataset.view === "dashboard") goDashboard();
+      else if (btn.dataset.view === "prioridades") goPrioridades();
       else goHome();
     };
   });
