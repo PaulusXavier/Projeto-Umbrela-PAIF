@@ -368,6 +368,31 @@ function pilarIconSvg(id, size) {
   return `<svg class="pilar-icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PILAR_ICONS[id] || ""}</svg>`;
 }
 
+// Avatar do responsável familiar: ícone de homem, mulher ou pessoa idosa (mesmo
+// vocabulário de traço fino dos demais ícones), calculado a partir do sexo e da
+// idade do responsável já preenchidos na ficha — idade igual ou acima de 60 anos
+// tem prioridade sobre o sexo, já que a Tipificação trata a pessoa idosa como
+// perfil próprio de atenção. Sem essas informações, cai na inicial do nome.
+const AVATAR_ICONS = {
+  homem: `<circle cx="12" cy="8" r="3.3"/><path d="M5.4 19.6c1-3.9 3.4-6 6.6-6s5.6 2.1 6.6 6"/>`,
+  mulher: `<circle cx="12" cy="7.6" r="3.1"/><path d="M12 10.7v2.1M9.5 12.6 12 14.8l2.5-2.2"/><path d="M6 19.6c.9-3.7 3.2-5.7 6-5.7s5.1 2 6 5.7"/>`,
+  idoso: `<circle cx="9.8" cy="7.8" r="3"/><path d="M4 19.6c.9-3.5 3-5.4 5.8-5.4 1 0 1.9.2 2.7.6"/><path d="M17.3 9.8c-1 .25-1.7 1.15-1.7 2.15v1.05L13.4 19.6"/><path d="M15.6 13h2.6"/>`
+};
+function avatarIconSvg(tipo, size) {
+  const s = size || 20;
+  return `<svg class="avatar-icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${AVATAR_ICONS[tipo] || ""}</svg>`;
+}
+function avatarConteudoHTML(p, size) {
+  const idade = calcularIdade(p.responsavelNascimento);
+  const sexo = p.responsavelSexo;
+  let tipo = null;
+  if (idade != null && idade >= 60) tipo = "idoso";
+  else if (sexo === "M") tipo = "homem";
+  else if (sexo === "F") tipo = "mulher";
+  if (tipo) return avatarIconSvg(tipo, size);
+  return escapeHtml((p.responsavel || "?").trim().charAt(0).toUpperCase() || "?");
+}
+
 // Ícone dos Aspectos Psicossociais e Instrumentais Técnicos (genograma/ecomapa):
 // três núcleos entrelaçados por linhas de geração, no mesmo vocabulário de traço
 // fino dos demais ícones do app — referência visual à leitura sistêmica dos
@@ -1150,13 +1175,18 @@ function donutChartSVG(obj, opts) {
       <span class="donut-legend-value">${v} <em>(${Math.round(v / total * 100)}%)</em></span>
     </div>`).join("");
 
+  // legendaLinear: dispõe os itens em uma única linha horizontal (em vez da
+  // lista empilhada padrão) — útil para legendas curtas, como a de situação
+  // do PAF, onde o alinhamento em linha fica mais limpo e ocupa menos altura.
+  const legendaClass = opts.legendaLinear ? "donut-legend donut-legend-linear" : "donut-legend";
+
   return `<div class="donut-wrap">
     <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="donut-svg">
       ${arcos}
       <text x="${cx}" y="${cy - 3}" text-anchor="middle" class="donut-total-num">${total}</text>
       <text x="${cx}" y="${cy + 13}" text-anchor="middle" class="donut-total-label">${escapeHtml(opts.centro || "total")}</text>
     </svg>
-    <div class="donut-legend">${legenda}</div>
+    <div class="${legendaClass}">${legenda}</div>
   </div>`;
 }
 
@@ -1385,7 +1415,7 @@ function resumoGeralGeralHTML(r, anteriorTotal) {
     <div class="resumo-secao">
       <h4>${sectionIconSvg("diagnostico", 16)} Situação dos PAFs e perfil do responsável familiar</h4>
       <div class="resumo-cols resumo-cols-donut">
-        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": r.porStatus.andamento || 0, "Encaminhado": r.porStatus.encaminhado || 0, "Concluído": r.porStatus.concluido || 0 }, { centro: "PAFs" })}</div>
+        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": r.porStatus.andamento || 0, "Encaminhado": r.porStatus.encaminhado || 0, "Concluído": r.porStatus.concluido || 0 }, { centro: "PAFs", legendaLinear: true })}</div>
         <div><strong>Sexo do responsável</strong>${donutChartSVG(r.porSexo, { centro: "famílias" })}</div>
       </div>
       <div class="resumo-cols" style="margin-top:16px;">
@@ -2488,12 +2518,12 @@ function renderHomeHTML() {
     const membrosCount = (p.membros || []).filter(m => m.nome).length;
     const atendCount = (p.atendimentos || []).length;
     const protocolo = protocoloNumero(p);
-    const inicial = escapeHtml((p.responsavel || "?").trim().charAt(0).toUpperCase() || "?");
+    const avatarConteudo = avatarConteudoHTML(p, 20);
     const progresso = pafProgresso(p);
     const atualizadoEm = fmtDateBR((p.updatedAt || "").slice(0, 10));
     return `
     <div class="record-row status-${p.situacaoPAF}" data-open="${p.id}">
-      <div class="record-index record-index-${p.situacaoPAF}">${inicial}</div>
+      <div class="record-index record-index-${p.situacaoPAF}">${avatarConteudo}</div>
       <div class="record-main">
         <div class="record-name">${escapeHtml(p.responsavel) || "Sem nome do responsável"}</div>
         <div class="record-protocolo">Prontuário Nº ${protocolo}</div>
@@ -2628,7 +2658,7 @@ function renderPrioridadesHTML() {
 
   const rows = filtered.map(({ paf: p, pr }) => {
     const protocolo = protocoloNumero(p);
-    const inicial = escapeHtml((p.responsavel || "?").trim().charAt(0).toUpperCase() || "?");
+    const avatarConteudo = avatarConteudoHTML(p, 20);
     const motivosChips = pr.motivos.slice(0, 4).map(m => `<span class="motivo-chip">${escapeHtml(m.label)}</span>`).join("");
     const diasTxt = pr.diasSemAtendimento == null ? ""
       : pr.diasSemAtendimento === 0 ? "Atendimento registrado hoje"
@@ -2636,7 +2666,7 @@ function renderPrioridadesHTML() {
     return `
     <div class="priority-row priority-${pr.nivel}" data-open="${p.id}">
       <div class="priority-badge priority-badge-${pr.nivel}">${PRIORIDADE_LABELS[pr.nivel]}</div>
-      <div class="record-index record-index-${p.situacaoPAF}">${inicial}</div>
+      <div class="record-index record-index-${p.situacaoPAF}">${avatarConteudo}</div>
       <div class="record-main">
         <div class="record-name">${escapeHtml(p.responsavel) || "Sem nome do responsável"}</div>
         <div class="record-protocolo">Prontuário Nº ${protocolo} · ${escapeHtml(p.crasNome) || "—"}</div>
@@ -2971,7 +3001,7 @@ function graficosFamiliaHTML(paf) {
 
   return `
   <div class="section-card prontuario-header">
-    <div class="prontuario-avatar">${escapeHtml((paf.responsavel || "?").trim().charAt(0).toUpperCase() || "?")}</div>
+    <div class="prontuario-avatar">${avatarConteudoHTML(paf, 27)}</div>
     <div class="prontuario-info">
       <h2 class="prontuario-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</h2>
       <div class="prontuario-tags">
@@ -3350,7 +3380,7 @@ function renderSection(id, paf) {
       const meses = mesesEmAcompanhamento(paf.dataInicial);
       return `
       <div class="section-card prontuario-header">
-        <div class="prontuario-avatar">${escapeHtml((paf.responsavel || "?").trim().charAt(0).toUpperCase() || "?")}</div>
+        <div class="prontuario-avatar">${avatarConteudoHTML(paf, 27)}</div>
         <div class="prontuario-info">
           <h2 class="prontuario-nome">${escapeHtml(paf.responsavel) || "Responsável não informado"}</h2>
           <div class="prontuario-tags">
