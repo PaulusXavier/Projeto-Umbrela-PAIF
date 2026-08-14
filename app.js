@@ -111,8 +111,8 @@ const SERVICOS_ALTA = ["Acolhimento Institucional", "Acolhimento em República",
 
 const PROGRAMAS_QUAIS = ["Programa Família que Acolhe (FQA)",
   "Projeto ArtCanto", "Programa Dedo Verde", "Programa Rumo Certo", "Projeto Cabelos de Prata", "Conviver",
-  "Colo de Mãe"];
-const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte", "Em Pecúnia (dinheiro, cartão, cheque, depósito bancário)", "Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família"];
+  "Colo de Mãe", "Projeto Crescer"];
+const BENEFICIOS_QUAIS = ["Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte", "Em Pecúnia (dinheiro, cartão, cheque, depósito bancário)", "Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família", "Carteira da Pessoa Idosa", "Programa Minha Casa Minha Vida"];
 
 // Sugestões extras para os campos de texto livre "Outros"/"Outro" (datalist).
 // O que já aparece nos checkboxes acima é removido automaticamente na hora de montar a lista,
@@ -122,7 +122,7 @@ const PROGRAMAS_OUTROS_SUGESTOES = ["Pé-de-Meia", "Programa Criança Feliz", "P
   "Pronatec", "Programa Bolsa Verde"];
 const BENEFICIOS_OUTROS_SUGESTOES = ["Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família",
   "Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte",
-  "Vale-gás", "Auxílio-doença", "Passe livre para pessoa com deficiência"];
+  "Vale-gás", "Auxílio-doença", "Passe livre para pessoa com deficiência", "Carteira da Pessoa Idosa", "Programa Minha Casa Minha Vida"];
 
 // Remove da lista de sugestões qualquer item que já esteja nos checkboxes (evita repetir a mesma opção duas vezes).
 function outrosSugestoes(sugestoes, jaListados) {
@@ -3342,6 +3342,9 @@ function renderSection(id, paf) {
         ${notaTecnica("A Trilha sobre Condicionalidades do Bolsa Família (MDS/UNICEF) orienta que o não cumprimento não deve ser lido como culpa, mas como sinal de possível desproteção a investigar. O Protocolo CIT nº 7/2009 reforça: famílias do PBF/BPC/PETI em maior vulnerabilidade, inclusive em descumprimento, têm prioridade de inclusão no PAIF, com busca ativa da equipe.")}
         ${notaTecnica("O Decreto nº 6.307/2007 e o Caderno de Benefícios Eventuais (MDS) tratam cesta básica, auxílio natalidade, auxílio funeral e aluguel social como direito de cidadania diante de vulnerabilidade temporária — não favor discricionário. É vedada comprovação vexatória de pobreza para concedê-los.")}
         ${notaTecnica("O BPC (art. 20 da LOAS, Lei nº 8.742/1993, alterada pela Lei nº 14.176/2021; Decreto nº 6.214/2007) garante 1 salário mínimo a idosos com 65+ anos ou pessoa com deficiência com impedimento de longo prazo (2+ anos), com renda per capita até 1/4 do salário mínimo (ampliável a 1/2 com gastos de saúde comprovados). Avaliação por peritos/assistentes sociais do INSS; revisão a cada 2 anos; não é vitalício nem acumulável com outros benefícios (com exceções previstas). Atividade remunerada suspende — não cancela — o BPC, com direito ao auxílio-inclusão. Registrar famílias beneficiárias ou elegíveis orienta busca ativa e encaminhamento ao INSS/CadÚnico.")}
+        ${notaTecnica("A Carteira da Pessoa Idosa (60 anos ou mais) comprova renda para transporte interestadual gratuito (2 vagas por veículo) ou desconto mínimo de 50% na passagem, para quem tem renda individual de até 2 salários mínimos. Exige CadÚnico ativo e atualizado; pode ser emitida pelo município ou individualmente pela conta GOV.BR. Quem já comprova renda por outro meio não precisa da carteira para acessar o benefício.")}
+        ${notaTecnica("O Programa Minha Casa Minha Vida (Lei nº 14.620/2023) é dividido em quatro faixas de renda bruta familiar mensal, com subsídio decrescente da Faixa 1 (até R$ 2.850, com subsídio de até 95% do imóvel) até a Faixa 4 (até R$ 12.000, sem subsídio). A Faixa 1 exige CadÚnico, residência mínima de 10 anos no município e uma inscrição por núcleo familiar. Registrar aqui a participação orienta o encaminhamento da família para o cadastro habitacional.")}
+        ${notaTecnica("Os programas e projetos próprios da PMBV/SEMADS (ArtCanto, Dedo Verde, Rumo Certo e Projeto Crescer) atendem crianças, adolescentes e jovens em vulnerabilidade social, geralmente exigindo CadÚnico, renda familiar per capita de até meio salário mínimo e matrícula na rede pública de ensino; a maioria oferece bolsa, fardamento, lanche, vale-transporte e Cartão do Bem. O Projeto Crescer volta-se a jovens de 15 a 21 anos em maior risco pessoal e social (uso/abuso de substâncias, conflito com a lei, evasão escolar e do mercado de trabalho), com oficinas de geração de renda.")}
         <div class="field-grid">
           <div class="f c6">
             <label>a) Participa de programas, projetos sociais ou de geração de renda?</label>
