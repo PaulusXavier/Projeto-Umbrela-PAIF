@@ -740,6 +740,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .status-opt.selected.encaminhado { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
 .status-opt.selected.concluido { border-color: var(--ink-faint); color: var(--ink); background: var(--paper-soft); }
 .status-opt.selected.cancelado { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+.status-opt-desistencia { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); margin-left: 4px; }
+.status-opt-desistencia:hover { background: var(--danger); color: #fff; }
 
 /* dynamic table rows: membros da família / metas / situações */
 .dyn-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
