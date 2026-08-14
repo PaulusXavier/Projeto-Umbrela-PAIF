@@ -79,7 +79,14 @@ os registros só para si (não compartilha com os outros).
   antes de mostrar qualquer registro. As contas são criadas pelo administrador
   no console do Firebase (passo 1a). O botão "Sair", no topo, encerra a sessão.
 - **Tela inicial**: lista todos os PAFs cadastrados, com busca por responsável/CPF/CRAS
-  e filtro por situação (Em andamento, Encaminhado, Concluído, Cancelado).
+  e filtro por situação (Ativos = Em andamento; Arquivados = Encaminhado/Concluído).
+- **Família desistiu**: no lugar do antigo "Cancelado", o botão de status agora chama-se
+  "Família desistiu". Ao usá-lo, o PAF completo (todas as seções preenchidas) é excluído
+  definitivamente — de todos os dispositivos, se a nuvem estiver ativa — e substituído por
+  um registro mínimo (nome do responsável, CPF/NIS, CRAS, técnico de referência e data da
+  desistência), guardado só para controle administrativo em **Configurações > Famílias
+  desistentes**. Esses registros nunca aparecem na lista de PAFs, nos filtros, na busca ou
+  no painel de Gráficos, e podem ser excluídos individualmente na mesma tela.
 - **+ Novo PAF**: abre um formulário dividido em seções (aba lateral), replicando o
   documento original: Cabeçalho, Membros da Família, Diagnóstico, Situações e Serviços,
   Encaminhamentos, Programas e Benefícios, Rede do Território, Metas e Evolução,
