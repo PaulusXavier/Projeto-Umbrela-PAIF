@@ -747,9 +747,13 @@ main { flex: 1; display: flex; min-height: 0; }
 @media (max-width: 640px) { .check-list.grid2 { grid-template-columns: 1fr; } }
 .chk {
   display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: var(--ink);
-  padding: 7px 10px; border-radius: 7px; border: 1px solid transparent;
+  padding: 7px 10px; border-radius: 7px; border: 1px solid transparent; transition: background .12s, border-color .12s;
 }
 .chk:hover { background: var(--paper-soft); }
+.chk:has(input:checked) {
+  background: var(--cat-soft, var(--accent-soft)); border-color: var(--cat, var(--accent));
+}
+.chk:has(input:checked) { font-weight: 600; }
 .chk input { margin-top: 2.5px; accent-color: var(--accent); flex-shrink:0; }
 .chk-pilar { align-items: center; }
 .chk-pilar-icon {
@@ -927,10 +931,10 @@ main { flex: 1; display: flex; min-height: 0; }
 
 .nota-tecnica {
   display: flex; gap: 10px; background: var(--paper-soft); border: 1px solid var(--line);
-  border-left: 3px solid var(--ink-faint); border-radius: 8px; padding: 11px 13px; margin: 0 0 16px;
+  border-left: 3px solid var(--cat, var(--ink-faint)); border-radius: 8px; padding: 11px 13px; margin: 0 0 16px;
 }
 .nota-tecnica .marca {
-  font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; color: var(--ink-faint);
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; color: var(--cat-dark, var(--ink-faint));
   text-transform: uppercase; flex-shrink: 0; padding-top: 2px; white-space: nowrap;
   display: flex; align-items: center; gap: 5px;
 }
