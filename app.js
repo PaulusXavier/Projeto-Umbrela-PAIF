@@ -2778,7 +2778,7 @@ function renderEditorHTML() {
             ${["andamento", "encaminhado", "concluido"].map(s => `
               <button class="status-opt ${paf.situacaoPAF === s ? "selected " + s : ""}" data-set-status="${s}">${STATUS_LABELS[s]}</button>
             `).join("")}
-            <button class="status-opt status-opt-desistencia" data-set-status="desistiu" title="Exclui este PAF e mantém apenas um registro mínimo de família desistente">Família desistiu</button>
+            <button class="status-opt status-opt-desistencia" data-set-status="desistiu" title="Exclui este PAF e mantém apenas um registro mínimo de família desistente">Desistência</button>
           </div>
         </div>
         <div class="section-content" data-section-cat="${state.activeSection}">
