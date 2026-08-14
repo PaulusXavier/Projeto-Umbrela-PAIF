@@ -393,7 +393,7 @@ function pilaresPaifStripHTML() {
   return `
   <div class="home-pilares">
     ${itens.map(it => `
-      <div class="pilar-item">
+      <div class="pilar-item pilar-item-${it.id}">
         <span class="pilar-icon-badge">${pilarIconSvg(it.id, 19)}</span>
         <div class="pilar-texto">
           <strong>${it.titulo}</strong>
@@ -2465,11 +2465,23 @@ function renderHomeHTML() {
   // uma leitura imediata do volume de PAFs por situação antes de rolar a lista.
   const statsGeral = state.pafs.length ? computeResumoGeral(state.pafs) : null;
   const kpiStripHTML = statsGeral ? `
-    <div class="kpi-grid home-kpi-strip">
-      ${kpiCardHTML(statsGeral.total, "Total de PAFs", "cabecalho")}
-      ${kpiCardHTML(statsGeral.porStatus.andamento || 0, "Em andamento", "diagnostico")}
-      ${kpiCardHTML(statsGeral.porStatus.encaminhado || 0, "Encaminhados", "encaminhamentos")}
-      ${kpiCardHTML(statsGeral.porStatus.concluido || 0, "Concluídos", "encerramento")}
+    <div class="home-stats-grid">
+      <div class="stat-card stat-total">
+        <span class="stat-icon">${sectionIconSvg("cabecalho", 19)}</span>
+        <div class="stat-text"><span class="stat-value">${statsGeral.total}</span><span class="stat-label">Total de PAFs</span></div>
+      </div>
+      <div class="stat-card stat-andamento">
+        <span class="stat-icon">${sectionIconSvg("diagnostico", 19)}</span>
+        <div class="stat-text"><span class="stat-value">${statsGeral.porStatus.andamento || 0}</span><span class="stat-label">Em andamento</span></div>
+      </div>
+      <div class="stat-card stat-encaminhado">
+        <span class="stat-icon">${sectionIconSvg("encaminhamentos", 19)}</span>
+        <div class="stat-text"><span class="stat-value">${statsGeral.porStatus.encaminhado || 0}</span><span class="stat-label">Encaminhados</span></div>
+      </div>
+      <div class="stat-card stat-concluido">
+        <span class="stat-icon">${sectionIconSvg("encerramento", 19)}</span>
+        <div class="stat-text"><span class="stat-value">${statsGeral.porStatus.concluido || 0}</span><span class="stat-label">Concluídos</span></div>
+      </div>
     </div>` : "";
 
   const rows = list.map(p => {
