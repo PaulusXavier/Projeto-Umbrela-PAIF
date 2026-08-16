@@ -4,11 +4,30 @@
    ========================================================================= */
 
 /* ---------------------------- Registro do Service Worker (Offline/PWA) ---------------------------- */
+// Mantém o app sempre atualizado: verifica periodicamente se há uma versão nova
+// publicada e, ao encontrar uma, recarrega a página sozinho para exibi-la.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('Service Worker registrado:', reg.scope))
+      .then(reg => {
+        console.log('Service Worker registrado:', reg.scope);
+
+        // Checa por atualizações a cada hora e sempre que a aba volta a ficar visível.
+        setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        });
+      })
       .catch(err => console.error('Erro ao registrar Service Worker:', err));
+
+    // Quando o novo Service Worker assume o controle, avisa e recarrega automaticamente.
+    let jaRecarregando = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (jaRecarregando) return;
+      jaRecarregando = true;
+      try { toast("Atualizando para a versão mais recente…"); } catch (err) {}
+      setTimeout(() => window.location.reload(), 900);
+    });
   });
 }
 
