@@ -164,7 +164,8 @@ const REDE_APOIO = [
   // Comunidade e sociedade civil
   "OSC's e/ou associação de bairro", "Igrejas e instituições religiosas", "Conselhos Municipais de Direitos",
   // Migração e Refúgio
-  "Abrigo/Operação Acolhida", "ACNUR - Alto Comissariado das Nações Unidas para Refugiados",
+  "Abrigo/Operação Acolhida", "AVSI Brasil (gestão de abrigos - Operação Acolhida)",
+  "ACNUR - Alto Comissariado das Nações Unidas para Refugiados",
   "OIM - Organização Internacional para as Migrações", "Pastoral do Migrante/Cáritas Arquidiocesana",
   "Polícia Federal (regularização migratória)",
   // Povos Indígenas
@@ -3210,7 +3211,7 @@ function renderSection(id, paf) {
         <h2><span class="num">03a</span>Condições Habitacionais</h2>
         <div class="field-grid">
           <div class="f c3"><label>Tipo de residência</label><select data-field="habitacaoTipo"><option value="">—</option>${HABITACAO_TIPO.map(v => `<option value="${v}" ${paf.habitacaoTipo === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
-          <div class="f c3"><label>Nome do abrigo (se aplicável)</label><input type="text" data-field="habitacaoAbrigoNome" placeholder="Preencher se a família mora em abrigo" value="${escapeHtml(paf.habitacaoAbrigoNome)}"></div>
+          <div class="f c3"><label>Nome do abrigo (se aplicável)</label><input type="text" data-field="habitacaoAbrigoNome" list="abrigosOperacaoAcolhidaList" placeholder="Preencher se a família mora em abrigo" value="${escapeHtml(paf.habitacaoAbrigoNome)}"></div>
           <div class="f c5"><label>Material das paredes externas</label><select data-field="habitacaoParedes"><option value="">—</option>${HABITACAO_PAREDES.map(v => `<option value="${v}" ${paf.habitacaoParedes === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
           <div class="f c4"><label>Acesso a energia elétrica</label><select data-field="habitacaoEnergia"><option value="">—</option>${HABITACAO_ENERGIA.map(v => `<option value="${v}" ${paf.habitacaoEnergia === v ? "selected" : ""}>${v}</option>`).join("")}</select></div>
           <div class="f c3">
