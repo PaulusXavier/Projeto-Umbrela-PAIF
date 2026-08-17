@@ -30,7 +30,7 @@ self.addEventListener('activate', (event) => {
 
 function isCoreRequest(url) {
   if (url.origin !== self.location.origin) return false;
-  if (url.pathname === '/' || url.pathname.endsWith('/index.html')) return true;
+  if (url.pathname.endsWith('/') || url.pathname.endsWith('/index.html')) return true;
   return CORE_ASSETS.some((asset) => asset !== './' && url.pathname.endsWith(asset.replace('./', '/')));
 }
 
