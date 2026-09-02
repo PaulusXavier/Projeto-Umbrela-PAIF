@@ -1053,10 +1053,11 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 
 .stat-bars { display: flex; flex-direction: column; gap: 5px; }
-.stat-bar-row { display: grid; grid-template-columns: 1fr 90px 70px; align-items: center; gap: 8px; }
+.stat-bar-row { display: grid; grid-template-columns: 1fr 90px 70px; align-items: center; gap: 8px; border-radius: 4px; padding: 1px 3px; transition: background .15s ease; cursor: default; }
+.stat-bar-row:hover { background: var(--accent-soft); }
 .stat-bar-label { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-bar-track { height: 7px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; }
-.stat-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+.stat-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-dark, var(--accent))); border-radius: 4px; transition: width .4s ease; }
 .stat-bar-value { font-size: 11.5px; text-align: right; white-space: nowrap; }
 .stat-bar-value em { color: var(--ink-faint); font-style: normal; }
 
@@ -1075,11 +1076,14 @@ main { flex: 1; display: flex; min-height: 0; }
 
 /* ---- Gráficos: rosquinha (donut), barra de evolução mensal e legendas ---- */
 .donut-wrap { display: flex; align-items: center; gap: 14px; }
-.donut-svg { flex-shrink: 0; }
+.donut-svg { flex-shrink: 0; overflow: visible; }
 .donut-total-num { font-family: var(--font-display); font-size: 19px; font-weight: 700; fill: var(--ink); }
 .donut-total-label { font-size: 8px; fill: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.donut-arc { transition: opacity .15s ease, filter .15s ease; cursor: default; transform-origin: center; }
+.donut-arc:hover, .donut-arc:focus-visible { opacity: .82; filter: brightness(1.08) drop-shadow(0 1px 2px rgba(0,0,0,.15)); outline: none; }
 .donut-legend { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; min-width: 0; flex: 1; }
-.donut-legend-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.donut-legend-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; border-radius: 4px; padding: 1px 3px; transition: background .15s ease; }
+.donut-legend-item:hover { background: var(--accent-soft); }
 .donut-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .donut-legend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .donut-legend-value { margin-left: auto; color: var(--ink-soft); }
@@ -1099,12 +1103,16 @@ main { flex: 1; display: flex; min-height: 0; }
   background: var(--paper-soft); border: 1px solid var(--line); border-radius: 10px;
   padding: 16px 18px 10px; margin-bottom: 10px;
 }
-.chart-legend-inline { display: flex; gap: 16px; font-size: 11.5px; margin-bottom: 8px; color: var(--ink-soft); }
+.chart-legend-inline { display: flex; gap: 16px; font-size: 11.5px; margin-bottom: 8px; color: var(--ink-soft); flex-wrap: wrap; }
 .chart-legend-inline span { display: flex; align-items: center; gap: 5px; }
 .chart-legend-inline i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
 .evolucao-chart { display: block; }
 .chart-bar-num { font-size: 9.5px; fill: var(--ink); }
 .chart-bar-mes { font-size: 9.5px; fill: var(--ink-faint); }
+.chart-bar-saldo { font-size: 9px; font-weight: 700; }
+.chart-bar-saldo.saldo-pos { fill: var(--accent-dark); }
+.chart-bar-saldo.saldo-neg { fill: var(--danger); }
+.chart-bar-saldo.saldo-zero { fill: var(--ink-faint); }
 
 /* Histograma (faixa etária) e gráfico de Pareto (vulnerabilidades/situações sociais) */
 .histograma-chart, .pareto-chart { display: block; max-width: 100%; }
@@ -1114,6 +1122,14 @@ main { flex: 1; display: flex; min-height: 0; }
 .hist-bar-pct { font-size: 9px; fill: var(--ink-faint); }
 .pareto-bar-label { font-size: 9.5px; fill: var(--ink-soft); }
 .pareto-pct-num { font-size: 9px; fill: #8a6423; font-weight: 700; }
+
+/* Interatividade: destaque leve ao passar o mouse/focar (tooltip nativo via <title>) */
+.hist-bar, .pareto-bar, .evo-bar { transition: opacity .15s ease, filter .15s ease; cursor: default; }
+.hist-bar:hover, .hist-bar:focus-visible,
+.pareto-bar:hover, .pareto-bar:focus-visible,
+.evo-bar:hover, .evo-bar:focus-visible { opacity: .85; filter: brightness(1.12); outline: none; }
+.pareto-ponto { transition: r .15s ease; cursor: default; }
+.pareto-ponto:hover, .pareto-ponto:focus-visible { r: 4.4; outline: none; }
 
 @media (max-width: 680px) {
   .resumo-cols, .resumo-cols-donut2 { grid-template-columns: 1fr; max-width: none; }
