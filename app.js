@@ -143,6 +143,33 @@ const BENEFICIOS_OUTROS_SUGESTOES = ["Programa Bolsa Família", "BPC - Benefíci
   "Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte",
   "Vale-gás", "Auxílio-doença", "Passe livre para pessoa com deficiência", "Carteira da Pessoa Idosa", "Programa Minha Casa Minha Vida"];
 
+// Modalidades de Benefício Eventual conforme art. 22 da LOAS (Lei nº 8.742/1993) e
+// Decreto nº 6.307/2007: provisões suplementares e provisórias por nascimento, morte,
+// vulnerabilidade temporária e calamidade pública (ver Caderno "Orientações Técnicas
+// sobre Benefícios Eventuais no âmbito do SUAS", SNAS/MDS).
+const BENEFICIO_EVENTUAL_TIPOS = [
+  "Auxílio Natalidade",
+  "Auxílio Funeral",
+  "Vulnerabilidade Temporária",
+  "Calamidade Pública / Emergência"
+];
+// Situações que caracterizam vulnerabilidade temporária (art. 9º do Decreto nº 6.307/2007):
+// riscos, perdas e danos à integridade pessoal e familiar decorrentes de eventos como os abaixo.
+const BENEFICIO_EVENTUAL_SITUACOES_VULNERAB = [
+  "Nascimento", "Morte", "Situações de vulnerabilidade temporária (perda de renda, doença, acidente)",
+  "Desastre, calamidade pública ou emergência", "Ausência de documentação civil básica",
+  "Falta de acesso a condições de alimentação", "Insegurança alimentar", "Situação de risco/desabrigo",
+  "Outra situação de risco pessoal e/ou social"
+];
+const BENEFICIO_EVENTUAL_FORMAS = [
+  "Pecúnia (dinheiro, cartão, depósito bancário)",
+  "Bens de consumo (cesta básica, enxoval, kit de higiene, urna funerária etc.)",
+  "Passagem/transporte",
+  "Documentação civil",
+  "Outra forma"
+];
+const BENEFICIO_EVENTUAL_SITUACAO_REQ = ["Em análise", "Deferido", "Indeferido"];
+
 // Remove da lista de sugestões qualquer item que já esteja nos checkboxes (evita repetir a mesma opção duas vezes).
 function outrosSugestoes(sugestoes, jaListados) {
   const jaListadosLower = jaListados.map(o => o.toLowerCase().trim());
@@ -301,6 +328,7 @@ const SECTIONS = [
   { id: "grupo", label: "Situações, Trabalho Coletivo e Serviços" },
   { id: "encaminhamentos", label: "Encaminhamentos" },
   { id: "programas", label: "Programas e Benefícios" },
+  { id: "beneficioEventual", label: "Benefício Eventual" },
   { id: "rede", label: "Rede do Território" },
   { id: "metas", label: "Metas e Evolução" },
   { id: "estrategias", label: "Estratégias e Eixos" },
@@ -322,6 +350,7 @@ const SECTION_ICONS = {
   grupo: `<path d="M4 15c0-3 1.6-5 4-5s3.3 1.4 4 2.6c.7-1.2 1.6-2.6 4-2.6s4 2 4 5"/><path d="M4 15v2.2M20 15v2.2"/><path d="M9.5 9.5a3 2.2 0 1 0 5 0"/>`,
   encaminhamentos: `<path d="M4 12h11"/><path d="m11 7 5 5-5 5"/><path d="M19 5v14"/>`,
   programas: `<rect x="4" y="9.5" width="16" height="9.5" rx="1.4"/><path d="M4 13.5h16"/><path d="M12 9.5V19"/><path d="M9 9.5c0-2 1.3-4.5 3-4.5s3 2.5 3 4.5"/>`,
+  beneficioEventual: `<path d="M12 4v3.2M4 20c1.3-3.8 3.7-6.6 8-6.6s6.7 2.8 8 6.6"/><rect x="7.3" y="7.2" width="9.4" height="6.6" rx="1.3"/><path d="M7.3 10h9.4"/>`,
   rede: `<circle cx="12" cy="5.3" r="1.9"/><circle cx="5.3" cy="17.5" r="1.9"/><circle cx="18.7" cy="17.5" r="1.9"/><path d="M12 7.2v5M12 12.2 6.6 16M12 12.2l5.4 3.8"/>`,
   metas: `<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3.6"/><path d="m16.5 7.5 3-3"/>`,
   estrategias: `<circle cx="12" cy="12" r="7.4"/><path d="m14.8 9.2-1.6 4.4-4.4 1.6 1.6-4.4z"/>`,
@@ -681,6 +710,7 @@ function emptyPAF() {
     recebeBeneficio: "",
     beneficioQuais: [],
     beneficioOutro: "",
+    beneficiosEventuaisForm: [],
     redeApoio: [],
     redeApoioOutros: "",
     metas: METAS_FIXAS.map(m => ({ meta: m, prazo: "", resultados: "" })),
@@ -1113,9 +1143,11 @@ function computeResumoGeral(pafsParam) {
   const porHabitacao = {}, porEtnia = {}, porInteriorizacao = {};
   const porTecnico = {}, porServicoRede = {}, porAtividadeColetiva = {};
   const porParticipaProgramas = {}, porRecebeBeneficio = {};
+  const porBeneficioEventualTipo = {};
   let totalMembros = 0, totalPCD = 0, totalEncaminhamentos = 0;
   let totalAbrigados = 0, totalIndigena = 0, totalMigracaoInformada = 0;
   let totalSituacoesAtivas = 0, totalSituacoesSuperadas = 0;
+  let totalBeneficiosEventuais = 0;
   const idades = [], meses = [];
 
   pafs.forEach(p => {
@@ -1152,6 +1184,12 @@ function computeResumoGeral(pafsParam) {
     if (p.recebeBeneficio === "Sim") {
       (p.beneficioQuais || []).forEach(b => { porBeneficio[b] = (porBeneficio[b] || 0) + 1; });
     }
+
+    (p.beneficiosEventuaisForm || []).forEach(b => {
+      totalBeneficiosEventuais++;
+      const t = (b.tipo || "").trim() || "Não informado";
+      porBeneficioEventualTipo[t] = (porBeneficioEventualTipo[t] || 0) + 1;
+    });
 
     (p.encaminhamentosForm || []).forEach(e => {
       totalEncaminhamentos++;
@@ -1205,7 +1243,7 @@ function computeResumoGeral(pafsParam) {
   return {
     total, porStatus, porSexo, porNacionalidade, porFaixa, porCras,
     porVulnerabilidade, porSituacaoSocial, porPrograma, porBeneficio, porEncArea,
-    porParticipaProgramas, porRecebeBeneficio,
+    porParticipaProgramas, porRecebeBeneficio, porBeneficioEventualTipo, totalBeneficiosEventuais,
     porHabitacao, porEtnia, porInteriorizacao,
     porTecnico, porServicoRede, porAtividadeColetiva,
     totalMembros, totalPCD, totalEncaminhamentos,
@@ -1274,12 +1312,15 @@ function barrasHTML(obj, opts) {
   if (!lista.length) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
   const total = entradas.reduce((a, [, v]) => a + v, 0) || 1;
   const max = Math.max(...entradas.map(([, v]) => v), 1);
-  return `<div class="stat-bars">` + lista.map(([k, v]) => `
-    <div class="stat-bar-row">
+  return `<div class="stat-bars">` + lista.map(([k, v]) => {
+    const pct = Math.round(v / total * 100);
+    return `
+    <div class="stat-bar-row" title="${escapeHtml(k)}: ${v} (${pct}%)">
       <span class="stat-bar-label">${escapeHtml(k)}</span>
       <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${Math.round(v / max * 100)}%"></div></div>
-      <span class="stat-bar-value">${v} <em>(${Math.round(v / total * 100)}%)</em></span>
-    </div>`).join("") + `</div>`;
+      <span class="stat-bar-value">${v} <em>(${pct}%)</em></span>
+    </div>`;
+  }).join("") + `</div>`;
 }
 
 const RESUMO_PALETA = ["#2E7D6B", "#1F5C4E", "#B98A34", "#A63D33", "#52667C", "#8B6BAE", "#3D8FA0", "#C97B4A"];
@@ -1307,14 +1348,16 @@ function donutChartSVG(obj, opts) {
   let acumulado = 0;
   const arcos = entradas.map(([k, v], i) => {
     const fracao = v / total;
-    const traco = Math.max(fracao * circunferencia - 1.2, 0);
-    const svg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${RESUMO_PALETA[i % RESUMO_PALETA.length]}" stroke-width="${stroke}" stroke-dasharray="${traco} ${circunferencia - traco}" stroke-dashoffset="${-acumulado}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    const pct = Math.round(fracao * 100);
+    const gap = entradas.length > 1 ? 1.6 : 0;
+    const traco = Math.max(fracao * circunferencia - gap, 0);
+    const svg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${RESUMO_PALETA[i % RESUMO_PALETA.length]}" stroke-width="${stroke}" stroke-linecap="${entradas.length > 1 ? "round" : "butt"}" stroke-dasharray="${traco} ${circunferencia - traco}" stroke-dashoffset="${-acumulado}" transform="rotate(-90 ${cx} ${cy})" class="donut-arc" tabindex="0"><title>${escapeHtml(k)}: ${v} (${pct}%)</title></circle>`;
     acumulado += fracao * circunferencia;
     return svg;
   }).join("");
 
   const legenda = entradas.map(([k, v], i) => `
-    <div class="donut-legend-item">
+    <div class="donut-legend-item" title="${escapeHtml(k)}: ${v} (${Math.round(v / total * 100)}%)">
       <span class="donut-legend-dot" style="background:${RESUMO_PALETA[i % RESUMO_PALETA.length]}"></span>
       <span class="donut-legend-label">${escapeHtml(k)}</span>
       <span class="donut-legend-value">${v} <em>(${Math.round(v / total * 100)}%)</em></span>
@@ -1326,7 +1369,8 @@ function donutChartSVG(obj, opts) {
   const legendaClass = opts.legendaLinear ? "donut-legend donut-legend-linear" : "donut-legend";
 
   return `<div class="donut-wrap">
-    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="donut-svg">
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="donut-svg" role="img" aria-label="Gráfico de rosca: ${escapeHtml(opts.centro || "total")}, total ${total}">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line,#e4e9ec)" stroke-width="${stroke}" opacity=".35"></circle>
       ${arcos}
       <text x="${cx}" y="${cy - 3}" text-anchor="middle" class="donut-total-num">${total}</text>
       <text x="${cx}" y="${cy + 13}" text-anchor="middle" class="donut-total-label">${escapeHtml(opts.centro || "total")}</text>
@@ -1387,11 +1431,12 @@ function histogramaSVG(obj, opts) {
     const h = Math.round((v / maxEixo) * chartH);
     const y = padTop + chartH - h;
     const naoInformada = k === "Não informada";
+    const pct = Math.round(v / total * 100);
     return `
-      <rect x="${x0}" y="${y}" width="${colW}" height="${h}" fill="var(--accent, #2E7D6B)" opacity="${naoInformada ? .4 : 1}"></rect>
+      <rect x="${x0}" y="${y}" width="${colW}" height="${h}" fill="var(--accent, #2E7D6B)" opacity="${naoInformada ? .4 : 1}" rx="2" class="hist-bar" tabindex="0"><title>${escapeHtml(rotulos[k] || k)}: ${v} (${pct}%)</title></rect>
       ${v ? `<text x="${x0 + colW / 2}" y="${y - 4}" text-anchor="middle" class="hist-bar-num">${v}</text>` : ""}
       <text x="${x0 + colW / 2}" y="${padTop + chartH + 16}" text-anchor="middle" class="hist-bar-label">${escapeHtml(rotulos[k] || k)}</text>
-      <text x="${x0 + colW / 2}" y="${padTop + chartH + 29}" text-anchor="middle" class="hist-bar-pct">${Math.round(v / total * 100)}%</text>`;
+      <text x="${x0 + colW / 2}" y="${padTop + chartH + 29}" text-anchor="middle" class="hist-bar-pct">${pct}%</text>`;
   }).join("");
 
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="histograma-chart" role="img" aria-label="Histograma">
@@ -1440,29 +1485,34 @@ function paretoChartSVG(obj, opts) {
     acumulado += v;
     const pct = Math.round((acumulado / totalGeral) * 100);
     const yLinha = padTop + chartH - (pct / 100) * chartH;
-    pontos.push([x0 + colW / 2, yLinha, pct]);
+    pontos.push([x0 + colW / 2, yLinha, pct, k]);
     const rotulo = k.length > 22 ? k.slice(0, 20) + "…" : k;
+    const pctBarra = Math.round((v / totalGeral) * 100);
     return `
-      <rect x="${x0 + 3}" y="${y}" width="${colW - 6}" height="${h}" fill="var(--accent, #2E7D6B)" rx="2"></rect>
+      <rect x="${x0 + 3}" y="${y}" width="${colW - 6}" height="${h}" fill="var(--accent, #2E7D6B)" rx="2" class="pareto-bar" tabindex="0"><title>${escapeHtml(k)}: ${v} ocorrências (${pctBarra}%)</title></rect>
       <text x="${x0 + colW / 2}" y="${y - 4}" text-anchor="middle" class="hist-bar-num">${v}</text>
       <text x="${x0 + colW / 2}" y="${padTop + chartH + 14}" text-anchor="end" class="pareto-bar-label" transform="rotate(-38 ${x0 + colW / 2} ${padTop + chartH + 14})">${escapeHtml(rotulo)}</text>`;
   }).join("");
 
   const linhaPontos = pontos.map(([x, y]) => `${x},${y}`).join(" ");
-  const marcadores = pontos.map(([x, y, pct]) => `
-    <circle cx="${x}" cy="${y}" r="2.6" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1"></circle>
+  const marcadores = pontos.map(([x, y, pct, k]) => `
+    <circle cx="${x}" cy="${y}" r="3.2" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1.2" class="pareto-ponto" tabindex="0"><title>Acumulado até "${escapeHtml(k)}": ${pct}%</title></circle>
     <text x="${x}" y="${y - 7}" text-anchor="middle" class="pareto-pct-num">${pct}%</text>`).join("");
+
+  const y80 = padTop + chartH - 0.8 * chartH;
 
   return `
     <div class="chart-legend-inline">
       <span><i style="background:var(--accent, #2E7D6B)"></i> Ocorrências</span>
       <span><i style="background:var(--gold, #B98A34)"></i> % acumulado</span>
+      <span><i style="background:none;border-top:2px dashed #B0959C;height:0;"></i> Corte 80%</span>
     </div>
     <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="pareto-chart" role="img" aria-label="Gráfico de Pareto">
       ${grades}
+      <line x1="${padLeft}" y1="${y80}" x2="${width - padRight}" y2="${y80}" stroke="#B0959C" stroke-width="1" stroke-dasharray="4 3" opacity=".8"><title>Linha de referência: 80% acumulado</title></line>
       <line x1="${padLeft}" y1="${padTop + chartH}" x2="${padLeft}" y2="${padTop}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
       ${barras}
-      <polyline points="${linhaPontos}" fill="none" stroke="var(--gold, #B98A34)" stroke-width="1.6"></polyline>
+      <polyline points="${linhaPontos}" fill="none" stroke="var(--gold, #B98A34)" stroke-width="1.6" stroke-linejoin="round"></polyline>
       ${marcadores}
     </svg>
     ${entradasBrutas.length > top ? `<p class="hint" style="margin-top:4px;">Mostrando as ${top} mais frequentes de ${entradasBrutas.length} categorias registradas.</p>` : ""}`;
@@ -1504,13 +1554,16 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
     const hExc = Math.round((v.exc / maxEixo) * chartH);
     const yInc = padTop + (chartH - hInc);
     const yExc = padTop + (chartH - hExc);
+    const saldo = v.inc - v.exc;
+    const mesLabel = labelYmCurto(v.ym);
     return `
       <g>
-        <rect x="${x0 + colW / 2 - barW - 2}" y="${yInc}" width="${barW}" height="${hInc}" fill="var(--accent, #2E7D6B)" rx="2"></rect>
-        <rect x="${x0 + colW / 2 + 2}" y="${yExc}" width="${barW}" height="${hExc}" fill="var(--danger, #B5473F)" rx="2"></rect>
+        <rect x="${x0 + colW / 2 - barW - 2}" y="${yInc}" width="${barW}" height="${hInc}" fill="var(--accent, #2E7D6B)" rx="2" class="evo-bar" tabindex="0"><title>${mesLabel}: ${v.inc} incluída${v.inc === 1 ? "" : "s"}</title></rect>
+        <rect x="${x0 + colW / 2 + 2}" y="${yExc}" width="${barW}" height="${hExc}" fill="var(--danger, #B5473F)" rx="2" class="evo-bar" tabindex="0"><title>${mesLabel}: ${v.exc} excluída${v.exc === 1 ? "" : "s"}</title></rect>
         ${v.inc ? `<text x="${x0 + colW / 2 - barW / 2 - 2}" y="${yInc - 3}" text-anchor="middle" class="chart-bar-num">${v.inc}</text>` : ""}
         ${v.exc ? `<text x="${x0 + colW / 2 + barW / 2 + 2}" y="${yExc - 3}" text-anchor="middle" class="chart-bar-num">${v.exc}</text>` : ""}
-        <text x="${x0 + colW / 2}" y="${padTop + chartH + 16}" text-anchor="middle" class="chart-bar-mes">${labelYmCurto(v.ym)}</text>
+        <text x="${x0 + colW / 2}" y="${padTop + chartH + 16}" text-anchor="middle" class="chart-bar-mes">${mesLabel}</text>
+        <text x="${x0 + colW / 2}" y="${padTop + chartH + 27}" text-anchor="middle" class="chart-bar-saldo ${saldo > 0 ? "saldo-pos" : saldo < 0 ? "saldo-neg" : "saldo-zero"}">${saldo > 0 ? "+" : ""}${saldo}</text>
       </g>`;
   }).join("");
 
@@ -1518,8 +1571,9 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
     <div class="chart-legend-inline">
       <span><i style="background:var(--accent, #2E7D6B)"></i> Incluídas</span>
       <span><i style="background:var(--danger, #B5473F)"></i> Excluídas</span>
+      <span><i style="background:none;"></i> Saldo do mês</span>
     </div>
-    <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="evolucao-chart">
+    <svg viewBox="0 0 ${width} ${height + 12}" width="100%" height="${height + 12}" preserveAspectRatio="xMinYMin meet" class="evolucao-chart" role="img" aria-label="Evolução mensal de famílias incluídas e excluídas">
       ${grades}
       <line x1="${padSide}" y1="${padTop}" x2="${padSide}" y2="${padTop + chartH}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
       ${barras}
@@ -1619,6 +1673,11 @@ function resumoGeralVulnerabilidadesHTML(r) {
         <div><strong>Benefícios mais frequentes</strong>${barrasHTML(r.porBeneficio, { top: 8 })}</div>
         <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea, { top: 8 })}</div>
       </div>
+      ${r.totalBeneficiosEventuais ? `
+      <div class="resumo-cols resumo-cols-donut" style="margin-top:16px;">
+        <div><strong>Benefícios eventuais concedidos (${r.totalBeneficiosEventuais})</strong>${donutChartSVG(r.porBeneficioEventualTipo, { centro: "registros" })}</div>
+      </div>
+      <p class="hint" style="margin-top:6px;">Auxílio natalidade, auxílio funeral, vulnerabilidade temporária e calamidade pública — art. 22 da LOAS e Decreto nº 6.307/2007.</p>` : ""}
     </div>`;
 }
 
@@ -2952,6 +3011,7 @@ function tabCompleteness(paf) {
     grupo: paf.situacoesSociais.some(s => s.membros) || (paf.atividadesColetivas || []).length || paf.servBasica.length || paf.servMedia.length || paf.servAlta.length,
     encaminhamentos: (paf.encaminhamentosForm || []).length > 0,
     programas: !!paf.participaProgramas,
+    beneficioEventual: (paf.beneficiosEventuaisForm || []).length > 0,
     rede: paf.redeApoio.length > 0,
     metas: paf.metas.some(m => m.prazo || m.resultados) || (paf.atendimentos || []).length > 0,
     estrategias: paf.estrategias.length > 0,
@@ -3596,9 +3656,74 @@ function renderSection(id, paf) {
         </div>
       </div>`;
 
+    case "beneficioEventual": return `
+      <div class="section-card">
+        ${sectionHeader("07", "Concessão de Benefício Eventual", "Registro dos benefícios eventuais requeridos e/ou concedidos à família — provisões suplementares e provisórias, distintas dos programas continuados registrados na seção anterior.")}
+        ${notaTecnica("Benefícios eventuais são provisões <b>suplementares e provisórias</b> prestadas a cidadãos e famílias em virtude de nascimento, morte, situações de vulnerabilidade temporária e de calamidade pública (art. 22 da LOAS, Lei nº 8.742/1993, e Decreto nº 6.307/2007). Integram organicamente as garantias do SUAS e constituem direito do usuário — não favor discricionário da equipe técnica — sendo vedada a exigência de comprovação vexatória de pobreza. Ver Caderno \"Benefícios Eventuais no SUAS\" (SNAS/MDS): <a href=\"https://www.mds.gov.br/webarquivos/publicacao/assistencia_social/Cadernos/PB022-0519_SNAS_Benefi%CC%81cios%20Eventuais.pdf\" target=\"_blank\" rel=\"noopener\">PB022-0519_SNAS_Benefícios Eventuais.pdf</a>.")}
+        ${notaTecnica("A concessão e o valor dos auxílios por natalidade e por morte são regulados pelo Conselho Municipal de Assistência Social (CMAS), com critérios e prazos definidos pelo CNAS; vulnerabilidade temporária e calamidade pública seguem a regulamentação municipal específica (lei local). Registre aqui apenas o que já está previsto na regulamentação de Boa Vista — este formulário não substitui o processo administrativo de requerimento junto ao órgão gestor.")}
+        <div style="overflow-x:auto;">
+        <table class="dyn-table">
+          <thead><tr>
+            <th style="width:10%">Data do requerimento</th>
+            <th style="width:14%">Modalidade</th>
+            <th style="width:18%">Situação/motivo</th>
+            <th style="width:13%">Forma de concessão</th>
+            <th style="width:9%">Valor/quantidade</th>
+            <th style="width:10%">Situação</th>
+            <th style="width:10%">Data da concessão</th>
+            <th style="width:12%">Parecer técnico</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${(paf.beneficiosEventuaisForm || []).map((b, i) => `
+              <tr>
+                <td><input type="date" data-field="beneficiosEventuaisForm.${i}.data" value="${escapeHtml(b.data)}"></td>
+                <td>
+                  <select data-field="beneficiosEventuaisForm.${i}.tipo">
+                    <option value="">—</option>
+                    ${BENEFICIO_EVENTUAL_TIPOS.map(t => `<option value="${escapeHtml(t)}" ${b.tipo === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}
+                  </select>
+                </td>
+                <td>
+                  <select data-field="beneficiosEventuaisForm.${i}.situacaoMotivadora">
+                    <option value="">—</option>
+                    ${BENEFICIO_EVENTUAL_SITUACOES_VULNERAB.map(s => `<option value="${escapeHtml(s)}" ${b.situacaoMotivadora === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}
+                  </select>
+                  <input type="text" style="margin-top:4px;" placeholder="Detalhes da situação (opcional)" data-field="beneficiosEventuaisForm.${i}.situacaoDetalhe" value="${escapeHtml(b.situacaoDetalhe)}">
+                </td>
+                <td>
+                  <select data-field="beneficiosEventuaisForm.${i}.formaConcessao">
+                    <option value="">—</option>
+                    ${BENEFICIO_EVENTUAL_FORMAS.map(f => `<option value="${escapeHtml(f)}" ${b.formaConcessao === f ? "selected" : ""}>${escapeHtml(f)}</option>`).join("")}
+                  </select>
+                </td>
+                <td><input type="text" placeholder="Ex.: R$ 200 / 1 cesta" data-field="beneficiosEventuaisForm.${i}.valor" value="${escapeHtml(b.valor)}"></td>
+                <td>
+                  <select data-field="beneficiosEventuaisForm.${i}.situacaoRequerimento">
+                    ${BENEFICIO_EVENTUAL_SITUACAO_REQ.map(s => `<option value="${escapeHtml(s)}" ${(b.situacaoRequerimento || "Em análise") === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}
+                  </select>
+                </td>
+                <td><input type="date" data-field="beneficiosEventuaisForm.${i}.dataConcessao" value="${escapeHtml(b.dataConcessao)}"></td>
+                <td><textarea rows="1" placeholder="Justificativa, motivo do indeferimento etc." data-field="beneficiosEventuaisForm.${i}.parecerTecnico">${escapeHtml(b.parecerTecnico)}</textarea></td>
+                <td style="white-space:nowrap;">
+                  <button class="row-del" data-action="remove-beneficio-eventual" data-idx="${i}" title="Remover" aria-label="Remover benefício eventual">${uiIconSvg("close", 12)}</button>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="9" style="padding-top:0;">
+                  <input type="text" data-field="beneficiosEventuaisForm.${i}.profissionalResponsavel" placeholder="Profissional responsável pelo registro" value="${escapeHtml(b.profissionalResponsavel)}">
+                </td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+        </div>
+        <button class="add-row-btn" data-action="add-beneficio-eventual">+ Adicionar benefício eventual</button>
+        ${(paf.beneficiosEventuaisForm || []).length === 0 ? `<p class="hint" style="margin-top:8px;">Nenhum benefício eventual registrado ainda para esta família.</p>` : ""}
+      </div>`;
+
     case "rede": return `
       <div class="section-card">
-        ${sectionHeader("07", "Recursos que o Território Possui (Articulação da Rede)", "Rede de Apoio Institucional (recursos institucionais).")}
+        ${sectionHeader("08", "Recursos que o Território Possui (Articulação da Rede)", "Rede de Apoio Institucional (recursos institucionais).")}
         ${chkList("redeApoio", REDE_APOIO, paf.redeApoio, true)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="redeApoioOutros" value="${escapeHtml(paf.redeApoioOutros)}"></div>
       </div>`;
@@ -3632,7 +3757,7 @@ function renderSection(id, paf) {
       </div>
 
       <div class="section-card">
-        ${sectionHeader("08", "Registro de Atendimentos", "Cada visita, contato ou encaminhamento realizado com a família, em ordem cronológica.")}
+        ${sectionHeader("09", "Registro de Atendimentos", "Cada visita, contato ou encaminhamento realizado com a família, em ordem cronológica.")}
         ${notaTecnica("As Orientações Técnicas do PAIF distinguem \"atendimento\" (resposta pontual) de \"acompanhamento\" (processo continuado, como este PAF). Ações particularizadas devem estar sempre associadas aos objetivos do Serviço, nunca como simples \"resolução de caso\".")}
         <div class="timeline">
           ${(paf.atendimentos || []).length === 0 ? `<p class="hint" style="margin:6px 0 14px;">Nenhum atendimento registrado ainda. Clique em "Adicionar atendimento" para começar o histórico.</p>` : ""}
@@ -3683,7 +3808,7 @@ function renderSection(id, paf) {
 
     case "estrategias": return `
       <div class="section-card">
-        ${sectionHeader("09", "Estratégias a serem adotadas para superação das vulnerabilidades", "")}
+        ${sectionHeader("10", "Estratégias a serem adotadas para superação das vulnerabilidades", "")}
         ${notaTecnica("O fluxograma do PAIF (Caderno PAIF e SCFV, MDS/SNAS, 2015) situa este PAF na etapa de Acompanhamento Familiar: Acolhida → Estudo Social → decisão entre atendimento pontual e acompanhamento continuado → mediações periódicas → avaliação no prazo pactuado. Se os objetivos não forem alcançados, o Plano deve ser adequado, sem necessariamente encerrar o processo.")}
         ${chkList("estrategias", ESTRATEGIAS, paf.estrategias, true)}
         <div class="f" style="margin-top:12px"><label>Outras</label><input type="text" data-field="estrategiasOutras" value="${escapeHtml(paf.estrategiasOutras)}"></div>
@@ -3696,7 +3821,7 @@ function renderSection(id, paf) {
 
     case "plano": return `
       <div class="section-card">
-        ${sectionHeader("10", "Elaboração do Plano", "")}
+        ${sectionHeader("11", "Elaboração do Plano", "")}
         ${notaTecnica("Marque os objetivos do PAIF (Tipificação Nacional) que este Plano pretende trabalhar, mantendo o acompanhamento alinhado à finalidade do Serviço. As Referências CFP/CREPOP destacam o caráter não tutelar do Plano: a família participa da definição de metas, fortalecendo autonomia — não é \"ajuda\" nem disciplinamento de comportamento.")}
         <label style="font-size: 11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
         ${chkList("objetivosPaif", OBJETIVOS_PAIF, paf.objetivosPaif || [], true)}
@@ -3721,7 +3846,7 @@ function renderSection(id, paf) {
 
     case "encerramento": return `
       <div class="section-card">
-        ${sectionHeader("11", "Encerramento do Acompanhamento Familiar", "")}
+        ${sectionHeader("12", "Encerramento do Acompanhamento Familiar", "")}
         ${notaTecnica("O PAIF não tem caráter terapêutico — demandas de saúde mental vão à rede intersetorial. Indício de violação de direitos é encaminhado ao CREAS/PAEFI.")}
         ${notaTecnica("A Tipificação Nacional situa o impacto esperado do PAIF em quatro frentes: redução de vulnerabilidade, prevenção de riscos, aumento do acesso a serviços e melhoria da qualidade de vida. Use esses eixos para avaliar, no encerramento, se o Plano cumpriu sua finalidade.")}
         ${notaTecnica("O Protocolo do PAIF detalha o desligamento. Em \"Localização desconhecida\": só após tentativas registradas, avaliando informar órgãos competentes se há crianças/adolescentes. Em \"Mudança de domicílio\": diferenciar mudança de município (mesma avaliação) de mudança de território no mesmo município (encaminhamento ao CRAS de destino). \"Encaminhamento ao CREAS\" quando o risco ultrapassa a oferta do PAIF. \"Objetivos alcançados\" exige avaliação conjunta técnico-família; se não alcançados, adequar o Plano em vez de encerrá-lo.")}
@@ -3760,7 +3885,7 @@ function renderSection(id, paf) {
 
       return `
       <div class="section-card">
-        ${sectionHeader("12", "Anexos", "Anexe fotos, documentos digitalizados ou PDFs relacionados ao acompanhamento desta família.")}
+        ${sectionHeader("13", "Anexos", "Anexe fotos, documentos digitalizados ou PDFs relacionados ao acompanhamento desta família.")}
         <label class="anexo-dropzone" for="anexoInput">
           <span class="anexo-dropzone-icon">＋</span>
           <span>Clique para escolher imagens ou PDFs</span>
@@ -3774,7 +3899,7 @@ function renderSection(id, paf) {
 
     case "observacoes": return `
       <div class="section-card">
-        ${sectionHeader("13", "Observações Gerais", "Anotações complementares técnicas sobre o acompanhamento da família.")}
+        ${sectionHeader("14", "Observações Gerais", "Anotações complementares técnicas sobre o acompanhamento da família.")}
         <div class="f">
           <textarea data-field="observacoes" rows="8" placeholder="Digite aqui observações adicionais...">${escapeHtml(paf.observacoes)}</textarea>
         </div>
@@ -3939,6 +4064,32 @@ function attachEditorHandlers() {
       const idx = parseInt(btn.dataset.idx, 10);
       const enc = (state.current.encaminhamentosForm || [])[idx];
       if (enc) imprimirEncaminhamento(state.current, enc);
+    });
+  });
+
+  // Ações da tabela de Benefício Eventual (auxílio natalidade, funeral, vulnerabilidade
+  // temporária, calamidade pública — art. 22 da LOAS e Decreto nº 6.307/2007)
+  container.querySelectorAll("[data-action='add-beneficio-eventual']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!state.current.beneficiosEventuaisForm) state.current.beneficiosEventuaisForm = [];
+      state.current.beneficiosEventuaisForm.push({
+        data: todayISO(), tipo: "", situacaoMotivadora: "", situacaoDetalhe: "",
+        formaConcessao: "", valor: "", situacaoRequerimento: "Em análise",
+        dataConcessao: "", parecerTecnico: "", profissionalResponsavel: state.current.tecnicoReferencia || ""
+      });
+      savePAF(state.current, { silent: true });
+      renderApp();
+    });
+  });
+
+  container.querySelectorAll("[data-action='remove-beneficio-eventual']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      confirmModal("Remover este registro de benefício eventual?", "Este registro será apagado.", () => {
+        state.current.beneficiosEventuaisForm.splice(idx, 1);
+        savePAF(state.current, { silent: true });
+        renderApp();
+      });
     });
   });
 
@@ -4539,6 +4690,13 @@ function exportPDF(paf) {
       <div class="tags-wrap">${(paf.beneficioQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
       ${paf.beneficioOutro ? `<p style="margin:4px 0;"><strong>Outro benefício:</strong> ${escapeHtml(paf.beneficioOutro)}</p>` : ""}
 
+      ${(paf.beneficiosEventuaisForm || []).length ? `
+      <h2>Benefícios Eventuais (Art. 22 LOAS / Decreto nº 6.307/2007)</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Modalidade</th><th>Situação/motivo</th><th>Forma</th><th>Valor</th><th>Situação</th><th>Concedido em</th></tr></thead>
+        <tbody>${paf.beneficiosEventuaisForm.map(b => `<tr><td>${fmtDateBR(b.data)}</td><td>${escapeHtml(b.tipo)}</td><td>${escapeHtml(b.situacaoMotivadora)}${b.situacaoDetalhe ? " — " + escapeHtml(b.situacaoDetalhe) : ""}</td><td>${escapeHtml(b.formaConcessao)}</td><td>${escapeHtml(b.valor)}</td><td>${escapeHtml(b.situacaoRequerimento) || "—"}</td><td>${fmtDateBR(b.dataConcessao) || "—"}</td></tr>`).join("")}</tbody>
+      </table>` : ""}
+
       <h2>Recursos do Território (Rede de Apoio)</h2>
       <div class="tags-wrap">${(paf.redeApoio || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
       ${paf.redeApoioOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.redeApoioOutros)}</p>` : ""}
@@ -4873,6 +5031,13 @@ function exportWord(paf) {
       ${rowsWithZebra(paf.encaminhamentosForm, e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td class="anotacao">${escapeHtml(e.objetivo)}</td><td class="anotacao">${escapeHtml(e.contraReferencia) || "—"}</td></tr>`)}
     </table>` : "";
 
+  const beneficiosEventuaisWordHTML = (paf.beneficiosEventuaisForm || []).length ? `
+    ${secao("04b1", "Benefícios Eventuais (Art. 22 LOAS / Decreto nº 6.307/2007)")}
+    <table class="dados">
+      <tr><th>Data</th><th>Modalidade</th><th>Situação/motivo</th><th>Forma</th><th>Valor</th><th>Situação</th><th>Concedido em</th></tr>
+      ${rowsWithZebra(paf.beneficiosEventuaisForm, b => `<tr><td>${fmtDateBR(b.data)}</td><td>${escapeHtml(b.tipo)}</td><td class="anotacao">${escapeHtml(b.situacaoMotivadora)}${b.situacaoDetalhe ? " — " + escapeHtml(b.situacaoDetalhe) : ""}</td><td>${escapeHtml(b.formaConcessao)}</td><td>${escapeHtml(b.valor)}</td><td>${escapeHtml(b.situacaoRequerimento) || "—"}</td><td>${fmtDateBR(b.dataConcessao) || "—"}</td></tr>`)}
+    </table>` : "";
+
   const anexosWordHTML = (() => {
     if (!(paf.anexos || []).length) return "";
     const imgs = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
@@ -5031,6 +5196,8 @@ function exportWord(paf) {
         ["Participa de programas/projetos sociais", escapeHtml(paf.participaProgramas) + " — " + ((paf.programasQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado") + (paf.programasOutros ? " · Outros: " + escapeHtml(paf.programasOutros) : "")],
         ["Recebe outro benefício assistencial", escapeHtml(paf.recebeBeneficio) + " — " + ((paf.beneficioQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado") + (paf.beneficioOutro ? " · Outro: " + escapeHtml(paf.beneficioOutro) : "")]
       ])}
+
+      ${beneficiosEventuaisWordHTML}
 
       ${secao("04c", "Recursos do Território (Rede de Apoio)")}
       <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};">${(paf.redeApoio || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:normal;">Nenhum selecionado</span>`}${paf.redeApoioOutros ? "<br><b>Outros:</b> " + escapeHtml(paf.redeApoioOutros) : ""}</p>
