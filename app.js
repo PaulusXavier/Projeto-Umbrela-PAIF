@@ -793,6 +793,93 @@ function idadeTexto(iso) {
   if (idade == null) return "";
   return idade + (idade === 1 ? " ano" : " anos");
 }
+
+/* ---------------------------- Indicadores tipo RMA/Censo SUAS (mês de referência) ---------------------------- */
+
+// Linha de extrema pobreza usada como corte para o indicador B.1 do Registro Mensal de
+// Atendimentos (RMA) — mesmo critério de renda per capita mensal do Bolsa Família/CadÚnico
+// em 2026. Ajustar aqui caso o valor oficial mude.
+const LINHA_EXTREMA_POBREZA = 218;
+
+// Converte um valor monetário digitado livremente (ex.: "R$ 1.200,50", "300", "R$300")
+// em número, para comparação com a linha de extrema pobreza. Retorna null se ilegível.
+function parseValorMonetario(txt) {
+  if (!txt) return null;
+  let limpo = String(txt).trim().replace(/[^\d.,]/g, "");
+  if (!limpo) return null;
+  if (limpo.includes(",")) limpo = limpo.replace(/\./g, "").replace(",", ".");
+  const n = parseFloat(limpo);
+  return isNaN(n) ? null : n;
+}
+
+// A partir daqui, cada função responde por um indicador de perfil da família (B.1 a B.6
+// do RMA), combinando o campo de renda per capita, as vulnerabilidades marcadas (seção 03),
+// as situações sociais do diagnóstico e os benefícios recebidos — para não depender de um
+// único campo isolado do formulário.
+function familiaEmExtremaPobreza(p) {
+  const v = parseValorMonetario(p.rendaPerCapita);
+  return v != null && v <= LINHA_EXTREMA_POBREZA;
+}
+function familiaBeneficiariaPBF(p) {
+  return (p.vulnerabilidades || []).some(v => v.startsWith("Famílias beneficiárias do Programa Bolsa Família"))
+    || (p.beneficioQuais || []).includes("Programa Bolsa Família");
+}
+function familiaDescumprePBF(p) {
+  return (p.vulnerabilidades || []).includes("Famílias beneficiárias do Programa Bolsa Família, em não cumprimento de condicionalidades")
+    || (p.situacoesSociais || []).some(s => s.situacao === "Beneficiária do PBF, em não cumprimento de condicionalidades" && s.membros);
+}
+function familiaBeneficiariaBPC(p) {
+  return (p.vulnerabilidades || []).includes("Famílias com membros beneficiários do Benefício de Prestação Continuada - BPC")
+    || (p.situacoesSociais || []).some(s => s.situacao === "Beneficiária(s) do BPC" && s.membros)
+    || (p.beneficioQuais || []).includes("BPC - Benefício de Prestação Continuada");
+}
+function familiaTrabalhoInfantil(p) {
+  return (p.vulnerabilidades || []).includes("Famílias com crianças ou adolescentes em situação de trabalho infantil")
+    || (p.situacoesSociais || []).some(s => s.situacao === "Situação de Trabalho infantil" && s.membros);
+}
+function familiaEmAcolhimento(p) {
+  return (p.vulnerabilidades || []).includes("Famílias com crianças ou adolescentes em Serviço de Acolhimento Institucional")
+    || (p.servAlta || []).some(s => s.includes("Acolhimento"));
+}
+
+// Monta os indicadores A.1/A.2 (volume) e B.1-B.6 (perfil das famílias novas) do mês de
+// referência = mês corrente, no mesmo padrão do Registro Mensal de Atendimentos (RMA/Censo
+// SUAS). "novas" = famílias com data de início no mês corrente (mesmo critério já usado na
+// Evolução mensal). "totalEmAcompanhamento" = famílias iniciadas até o fim do mês e ainda
+// não encerradas antes dele (ou seja, em acompanhamento em algum momento do mês).
+function computeRmaMensal(pafsParam) {
+  const pafs = pafsParam || state.pafs;
+  const hoje = new Date();
+  const ymAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  const fimMesISO = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+  const novas = pafs.filter(p => {
+    const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+    return base && base.slice(0, 7) === ymAtual;
+  });
+
+  const totalEmAcompanhamento = pafs.filter(p => {
+    const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+    if (!base || base > fimMesISO) return false;
+    const saida = p.encerramentoData;
+    if (saida && saida.slice(0, 7) < ymAtual) return false;
+    return true;
+  }).length;
+
+  return {
+    ymAtual,
+    totalEmAcompanhamento,
+    novas,
+    b: {
+      extremaPobreza: novas.filter(familiaEmExtremaPobreza).length,
+      pbf: novas.filter(familiaBeneficiariaPBF).length,
+      pbfDescumprimento: novas.filter(familiaDescumprePBF).length,
+      bpc: novas.filter(familiaBeneficiariaBPC).length,
+      trabalhoInfantil: novas.filter(familiaTrabalhoInfantil).length,
+      acolhimento: novas.filter(familiaEmAcolhimento).length
+    }
+  };
+}
 function faixaEtaria(idade) {
   if (idade == null) return "Não informada";
   if (idade < 18) return "0 a 17 anos";
