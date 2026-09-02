@@ -2047,33 +2047,6 @@ function attachDashboardHandlers() {
   }
 }
 
-function openResumoModal() {
-  const root = document.getElementById("modalRoot");
-  if (!root) return;
-  const geral = computeResumoGeral();
-  const grupos = computeResumoMensal();
-  root.innerHTML = `
-    <div class="modal-backdrop">
-      <div class="modal modal-lg">
-        <h3>Resumo estatístico do acompanhamento</h3>
-        <p class="muted" style="margin-top:-8px;">Visão geral de todas as famílias cadastradas, com perfil dos responsáveis, vulnerabilidades, programas e evolução mensal.</p>
-        <div class="resumo-scroll">
-          ${resumoGeralHTML(geral)}
-          <div class="resumo-secao">
-            <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
-            ${resumoMensalTabelaHTML(grupos)}
-          </div>
-        </div>
-        <div class="modal-actions" style="justify-content:space-between;">
-          <button class="btn btn-ghost" id="resumoCloseBtn">Fechar</button>
-          <button class="btn btn-primary" id="resumoImprimirBtn">${uiIconSvg("printer", 15)} Imprimir / Baixar PDF</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById("resumoCloseBtn").onclick = () => root.innerHTML = "";
-  document.getElementById("resumoImprimirBtn").onclick = () => imprimirResumoMensal(geral, grupos, { pafs: state.pafs });
-}
-
 function imprimirResumoMensal(geral, grupos, contexto) {
   contexto = contexto || {};
   const filtros = contexto.filtros || [];
@@ -2284,7 +2257,8 @@ function imprimirResumoMensal(geral, grupos, contexto) {
 
     </head>
     <body>
-      <div class="page-header-fixed">
+      <table class="print-shell">
+      <thead class="page-header-fixed"><tr><td>
         <div class="ph-row">
           <div class="brasao-mini">
             <svg viewBox="0 0 48 48" width="16" height="16"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
@@ -2295,13 +2269,14 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           </div>
           <div class="ph-right">Emitido em ${fmtDateBR(todayISO())}</div>
         </div>
-      </div>
-      <div class="page-footer-fixed">
+      </td></tr></thead>
+      <tfoot class="page-footer-fixed"><tr><td>
         <div class="pf-row">
           <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR · (95) 98402-6627 · crascentenariosemges@gmail.com</span>
           <span class="pf-selo">Documento de uso interno · CRAS/SEMADS</span>
         </div>
-      </div>
+      </td></tr></tfoot>
+      <tbody><tr><td>
 
       <div class="orgao-header">
         <div class="brasao-selo" aria-hidden="true">
@@ -2366,6 +2341,9 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         Documento gerado eletronicamente pelo sistema de gestão do PAF/PAIF do CRAS Cristiana Vicente Nunes em ${fmtDateBR(todayISO())}, para uso exclusivo da equipe técnica do SUAS — sujeito a sigilo profissional.<br>
         Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </div>
+
+      </td></tr></tbody>
+      </table>
 
       <script>window.onload = () => setTimeout(() => window.print(), 200);<\/script>
     </body>
@@ -4564,24 +4542,29 @@ function exportPDF(paf) {
     <body>
       <div class="watermark">CONFIDENCIAL</div>
 
-      <div class="page-header-fixed">
-        <div class="brasao-mini">
-          <svg viewBox="0 0 48 48" width="16" height="16"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+      <table class="print-shell">
+      <thead class="page-header-fixed"><tr><td>
+        <div class="ph-row">
+          <div class="brasao-mini">
+            <svg viewBox="0 0 48 48" width="16" height="16"><circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M24 12 L28 22 L38 22 L30 28 L33 38 L24 32 L15 38 L18 28 L10 22 L20 22 Z" fill="currentColor"/></svg>
+          </div>
+          <div>
+            <span class="ph-org">Prefeitura Municipal de Boa Vista · SEMADS</span>
+            <span class="ph-sub">CRAS Cristiana Vicente Nunes — Prontuário do Plano de Acompanhamento Familiar (PAF/PAIF)</span>
+          </div>
+          <div class="ph-right">
+            <b>Ficha nº ${protocoloNumero(paf)}</b>
+            <span>${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
+          </div>
         </div>
-        <div>
-          <span class="ph-org">Prefeitura Municipal de Boa Vista · SEMADS</span>
-          <span class="ph-sub">CRAS Cristiana Vicente Nunes — Prontuário do Plano de Acompanhamento Familiar (PAF/PAIF)</span>
+      </td></tr></thead>
+      <tfoot class="page-footer-fixed"><tr><td>
+        <div class="pf-row">
+          <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR · (95) 98402-6627 · crascentenariosemges@gmail.com</span>
+          <span class="pf-selo">Documento de uso interno · CRAS/SEMADS</span>
         </div>
-        <div class="ph-right">
-          <b>Ficha nº ${protocoloNumero(paf)}</b>
-          <span>${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
-        </div>
-      </div>
-
-      <div class="page-footer-fixed">
-        <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR · (95) 98402-6627 · crascentenariosemges@gmail.com</span>
-        <span class="pf-selo">Documento de uso interno · CRAS/SEMADS</span>
-      </div>
+      </td></tr></tfoot>
+      <tbody><tr><td>
 
       <div class="capa-header">
         <div class="capa-selo">P</div>
@@ -4766,6 +4749,9 @@ function exportPDF(paf) {
       </div>
 
       ${anexosPdfPaginasHTML}
+
+      </td></tr></tbody>
+      </table>
 
       <script>
         (function () {
