@@ -1578,6 +1578,64 @@ function resumoMensalTabelaHTML(dados) {
     <p class="hint" style="margin-top:6px;">Incluídas: famílias com data de início nesse mês. Excluídas: famílias com data de encerramento nesse mês (passe o mouse sobre o número para ver os motivos). Acumulado: saldo líquido de famílias em acompanhamento.</p>`;
 }
 
+// Ordem de exibição das situações do PAF na relação por família (mesma ordem usada nos KPIs do resumo geral).
+const STATUS_ORDEM_TABELA = ["andamento", "encaminhado", "concluido", "cancelado"];
+
+// Relação por família (uma linha por PAF) para a folha impressa do Resumo Estatístico —
+// permite conferir/preencher o registro mensal família a família, sem precisar abrir
+// cada prontuário individualmente. Respeita o mesmo conjunto de PAFs (filtros de
+// período/CRAS/técnico) já usado nos gráficos agregados.
+function resumoFamiliasTabelaHTML(pafsParam) {
+  const pafs = pafsParam || state.pafs;
+  if (!pafs.length) return `<p class="muted">Nenhuma família no período/filtro selecionado.</p>`;
+
+  const linhas = [...pafs].sort((a, b) => {
+    const oa = STATUS_ORDEM_TABELA.indexOf(a.situacaoPAF);
+    const ob = STATUS_ORDEM_TABELA.indexOf(b.situacaoPAF);
+    if (oa !== ob) return (oa === -1 ? 99 : oa) - (ob === -1 ? 99 : ob);
+    return (a.responsavel || "").localeCompare(b.responsavel || "", "pt-BR");
+  });
+
+  return `
+    <table class="resumo-tabela resumo-tabela-familias">
+      <thead>
+        <tr>
+          <th>Nº</th>
+          <th style="text-align:left;">Família / Responsável</th>
+          <th style="text-align:left;">Técnico de Referência</th>
+          <th>Início</th>
+          <th>Situação</th>
+          <th>Membros</th>
+          <th>Atend.</th>
+          <th>Últ. atend.</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${linhas.map(p => {
+          const protocolo = protocoloNumero(p);
+          const nome = escapeHtml(p.responsavel) || "Sem nome do responsável";
+          const apelido = (p.apelido || "").trim();
+          const membrosCount = (p.membros || []).filter(m => m.nome).length;
+          const atendimentos = p.atendimentos || [];
+          const datasAtend = atendimentos.map(a => a.data).filter(Boolean).sort();
+          const ultimoAtend = datasAtend.length ? fmtDateBR(datasAtend[datasAtend.length - 1]) : "—";
+          return `<tr>
+            <td>${protocolo}</td>
+            <td style="text-align:left;">${nome}${apelido ? `<br><span class="fam-apelido">(${escapeHtml(apelido)})</span>` : ""}</td>
+            <td style="text-align:left;">${escapeHtml(p.tecnicoReferencia) || "—"}</td>
+            <td>${fmtDateBR(p.dataInicial) || "—"}</td>
+            <td>${STATUS_LABELS[p.situacaoPAF] || "—"}</td>
+            <td>${membrosCount || "—"}</td>
+            <td>${atendimentos.length}</td>
+            <td>${ultimoAtend}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+      <tfoot><tr><th colspan="5">Total de famílias</th><th>${pafs.length}</th><th colspan="2"></th></tr></tfoot>
+    </table>
+    <p class="hint" style="margin-top:6px;">Relação de todas as famílias incluídas no período/filtro selecionado acima (uma linha por PAF), para conferência ao preencher o registro mensal. Membros: integrantes com nome cadastrado. Atend.: total de atendimentos registrados no prontuário. Últ. atend.: data do atendimento mais recente registrado.</p>`;
+}
+
 /* ---------------------------- Aba "Gráficos" (painel de indicadores em tela cheia) ---------------------------- */
 
 const DASH_PERIODOS = [
@@ -1760,7 +1818,8 @@ function attachDashboardHandlers() {
     imprimirResumoMensal(computeResumoGeral(pafsFiltrados), computeResumoMensal(pafsFiltrados), {
       filtros: dashboardFiltrosLabels(),
       anteriorTotal: dashboardPeriodoAnteriorTotal(),
-      totalGeral: state.pafs.length
+      totalGeral: state.pafs.length,
+      pafs: pafsFiltrados
     });
   });
   document.querySelectorAll("[data-dash-periodo]").forEach(btn => {
@@ -1818,13 +1877,14 @@ function openResumoModal() {
       </div>
     </div>`;
   document.getElementById("resumoCloseBtn").onclick = () => root.innerHTML = "";
-  document.getElementById("resumoImprimirBtn").onclick = () => imprimirResumoMensal(geral, grupos);
+  document.getElementById("resumoImprimirBtn").onclick = () => imprimirResumoMensal(geral, grupos, { pafs: state.pafs });
 }
 
 function imprimirResumoMensal(geral, grupos, contexto) {
   contexto = contexto || {};
   const filtros = contexto.filtros || [];
   const temFiltro = filtros.length > 0;
+  const pafsRelacao = contexto.pafs || state.pafs;
   const printWin = window.open("", "_blank");
   if (!printWin) {
     toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
@@ -1989,6 +2049,11 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         .resumo-tabela tbody td, .resumo-tabela tfoot td { font-weight: normal; }
         .resumo-tabela tfoot th { background: #FBF6EA; color: #7A5A1E; font-weight: bold; }
 
+        .resumo-tabela-familias { font-size: 10px; }
+        .resumo-tabela-familias th, .resumo-tabela-familias td { padding: 4px 6px; }
+        .resumo-tabela-familias tbody tr { page-break-inside: avoid; }
+        .fam-apelido { color: #5b7186; font-weight: normal; font-size: 9px; font-style: italic; }
+
         .donut-wrap { display: flex; align-items: center; gap: 12px; }
         .donut-svg { flex-shrink: 0; }
         .donut-total-num { font-size: 17px; font-weight: 700; fill: #1F3A5F; font-family: 'Times New Roman', Times, serif; }
@@ -2086,6 +2151,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           <li>Equipe de referência e rede acionada</li>
           <li>Metas e evolução do Plano</li>
           <li>Evolução mensal (entradas e saídas)</li>
+          <li>Relação das famílias em acompanhamento (dados individuais)</li>
         </ul>
       </div>
 
@@ -2093,6 +2159,10 @@ function imprimirResumoMensal(geral, grupos, contexto) {
       <div class="resumo-secao">
         <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
         ${resumoMensalTabelaHTML(grupos)}
+      </div>
+      <div class="resumo-secao">
+        <h4>Relação das famílias em acompanhamento (dados individuais)</h4>
+        ${resumoFamiliasTabelaHTML(pafsRelacao)}
       </div>
       ${assinaturaHTML()}
 
