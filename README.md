@@ -131,6 +131,14 @@ os registros só para si (não compartilha com os outros).
   identidade visual do prontuário individual (faixa institucional, título com
   "ficha"/contagem em destaque, cabeçalho e rodapé repetidos em cada página impressa),
   deixando as três folhas exportadas com aparência consistente.
+- **Indicadores tipo RMA/Censo SUAS no Resumo mensal**: além da evolução mensal, o
+  relatório agora traz o volume de famílias em acompanhamento no mês de referência
+  (A.1. Total em acompanhamento; A.2. Novas famílias inseridas) e o perfil das novas
+  famílias do mês (B.1 a B.6: extrema pobreza, Bolsa Família, descumprimento de
+  condicionalidades, BPC, trabalho infantil e Serviço de Acolhimento), calculados
+  automaticamente a partir das fichas — para apoiar o preenchimento do RMA. A relação
+  de famílias (dados individuais) do mesmo relatório passou a trazer também
+  nacionalidade, sexo, estado civil e idade do responsável familiar (RF) de cada PAF.
 - **Anexos**: na aba "Anexos" do formulário é possível anexar fotos e documentos PDF
   a cada PAF. Imagens são comprimidas automaticamente ao anexar. Ao **Baixar PDF**,
   as fotos aparecem no corpo do relatório e cada PDF anexado é incluído logo em
