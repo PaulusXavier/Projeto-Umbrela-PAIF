@@ -880,6 +880,44 @@ function computeRmaMensal(pafsParam) {
     }
   };
 }
+// Renderiza os indicadores A.1/A.2 (volume) e B.1-B.6 (perfil das novas famílias) no
+// mesmo padrão do formulário oficial do Registro Mensal de Atendimentos (RMA/Censo SUAS),
+// para apoiar o preenchimento do RMA a partir dos PAFs já cadastrados no sistema.
+function rmaMensalHTML(dados) {
+  const d = dados || computeRmaMensal();
+  const b = d.b;
+  const totalNovas = d.novas.length;
+  const BLINHAS = [
+    ["B.1", "Famílias em situação de extrema pobreza", b.extremaPobreza],
+    ["B.2", "Famílias beneficiárias do Programa Bolsa Família", b.pbf],
+    ["B.3", "Famílias em descumprimento de condicionalidades do PBF", b.pbfDescumprimento],
+    ["B.4", "Famílias com membros beneficiários do BPC", b.bpc],
+    ["B.5", "Famílias com crianças ou adolescentes em situação de trabalho infantil", b.trabalhoInfantil],
+    ["B.6", "Famílias com crianças ou adolescentes em Serviço de Acolhimento", b.acolhimento]
+  ];
+  return `
+    <div class="resumo-secao">
+      <h4>${sectionIconSvg("familia", 16)} Volume de famílias em acompanhamento pelo PAIF no mês de referência (${labelYm(d.ymAtual)})</h4>
+      <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
+        ${kpiCardHTML(d.totalEmAcompanhamento, "A.1. Total de famílias em acompanhamento pelo PAIF", "familia")}
+        ${kpiCardHTML(totalNovas, "A.2. Novas famílias inseridas no acompanhamento do PAIF durante o mês de referência", "familia")}
+      </div>
+      <p class="hint" style="margin-top:2px;">A.1: famílias com acompanhamento iniciado até o fim do mês de referência e ainda não encerrado antes dele. A.2: dentre essas, as famílias com data de início do acompanhamento dentro do mês de referência.</p>
+    </div>
+
+    <div class="resumo-secao">
+      <h4>${sectionIconSvg("diagnostico", 16)} Perfil das novas famílias inseridas em acompanhamento no PAIF no mês de referência</h4>
+      <table class="resumo-tabela">
+        <thead><tr><th style="text-align:left;">Indicador</th><th>Total</th></tr></thead>
+        <tbody>
+          ${BLINHAS.map(([cod, desc, val]) => `<tr><td style="text-align:left;">${cod}. ${escapeHtml(desc)}</td><td>${val}</td></tr>`).join("")}
+        </tbody>
+        <tfoot><tr><th style="text-align:left;">Total de novas famílias no mês (A.2)</th><th>${totalNovas}</th></tr></tfoot>
+      </table>
+      <p class="hint" style="margin-top:6px;">Uma mesma família nova pode aparecer em mais de um indicador (B.1 a B.6) quando corresponder a mais de uma situação; por isso a soma das linhas pode superar o total de novas famílias. Calculado a partir da renda per capita, das vulnerabilidades, das situações sociais e dos benefícios registrados na ficha de cada família nova do mês.</p>
+    </div>`;
+}
+
 function faixaEtaria(idade) {
   if (idade == null) return "Não informada";
   if (idade < 18) return "0 a 17 anos";
@@ -1688,7 +1726,11 @@ function resumoFamiliasTabelaHTML(pafsParam) {
       <thead>
         <tr>
           <th>Nº</th>
-          <th style="text-align:left;">Família / Responsável</th>
+          <th style="text-align:left;">Família / Responsável (RF)</th>
+          <th>Nacionalidade do RF</th>
+          <th>Sexo do RF</th>
+          <th>Estado civil do RF</th>
+          <th>Idade do RF</th>
           <th style="text-align:left;">Técnico de Referência</th>
           <th>Início</th>
           <th>Situação</th>
@@ -1706,9 +1748,15 @@ function resumoFamiliasTabelaHTML(pafsParam) {
           const atendimentos = p.atendimentos || [];
           const datasAtend = atendimentos.map(a => a.data).filter(Boolean).sort();
           const ultimoAtend = datasAtend.length ? fmtDateBR(datasAtend[datasAtend.length - 1]) : "—";
+          const sexoRF = p.responsavelSexo === "F" ? "Feminino" : p.responsavelSexo === "M" ? "Masculino" : "—";
+          const idadeRF = calcularIdade(p.responsavelNascimento);
           return `<tr>
             <td>${protocolo}</td>
             <td style="text-align:left;">${nome}${apelido ? `<br><span class="fam-apelido">(${escapeHtml(apelido)})</span>` : ""}</td>
+            <td>${escapeHtml(p.responsavelNacionalidade) || "—"}</td>
+            <td>${sexoRF}</td>
+            <td>${escapeHtml(p.responsavelEstadoCivil) || "—"}</td>
+            <td>${idadeRF != null ? idadeRF : "—"}</td>
             <td style="text-align:left;">${escapeHtml(p.tecnicoReferencia) || "—"}</td>
             <td>${fmtDateBR(p.dataInicial) || "—"}</td>
             <td>${STATUS_LABELS[p.situacaoPAF] || "—"}</td>
@@ -1718,9 +1766,9 @@ function resumoFamiliasTabelaHTML(pafsParam) {
           </tr>`;
         }).join("")}
       </tbody>
-      <tfoot><tr><th colspan="5">Total de famílias</th><th>${pafs.length}</th><th colspan="2"></th></tr></tfoot>
+      <tfoot><tr><th colspan="9">Total de famílias</th><th>${pafs.length}</th><th colspan="2"></th></tr></tfoot>
     </table>
-    <p class="hint" style="margin-top:6px;">Relação de todas as famílias incluídas no período/filtro selecionado acima (uma linha por PAF), para conferência ao preencher o registro mensal. Membros: integrantes com nome cadastrado. Atend.: total de atendimentos registrados no prontuário. Últ. atend.: data do atendimento mais recente registrado.</p>`;
+    <p class="hint" style="margin-top:6px;">Relação de todas as famílias incluídas no período/filtro selecionado acima (uma linha por PAF), para conferência ao preencher o registro mensal. RF: responsável familiar. Membros: integrantes com nome cadastrado. Atend.: total de atendimentos registrados no prontuário. Últ. atend.: data do atendimento mais recente registrado.</p>`;
 }
 
 /* ---------------------------- Aba "Gráficos" (painel de indicadores em tela cheia) ---------------------------- */
@@ -2238,6 +2286,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           <li>Equipe de referência e rede acionada</li>
           <li>Metas e evolução do Plano</li>
           <li>Evolução mensal (entradas e saídas)</li>
+          <li>Volume e perfil das famílias no mês de referência (RMA)</li>
           <li>Relação das famílias em acompanhamento (dados individuais)</li>
         </ul>
       </div>
@@ -2247,6 +2296,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
         ${resumoMensalTabelaHTML(grupos)}
       </div>
+      ${rmaMensalHTML(computeRmaMensal(pafsRelacao))}
       <div class="resumo-secao">
         <h4>Relação das famílias em acompanhamento (dados individuais)</h4>
         ${resumoFamiliasTabelaHTML(pafsRelacao)}
