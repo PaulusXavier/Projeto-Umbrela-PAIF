@@ -736,6 +736,12 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 .f textarea { resize: vertical; min-height: 64px; }
 
+/* Aviso não bloqueante de CPF com dígito verificador inválido — só a borda
+   muda de cor; o campo continua editável e o formulário não é travado, pois
+   o CPF não é obrigatório para todas as famílias (ex.: passaporte). */
+.f input.input-invalido { border-color: #C0392B; background: #FFF6F5; }
+.f input.input-invalido:focus { box-shadow: 0 0 0 3px rgba(192, 57, 43, .18); }
+
 /* Em telas de toque, um campo com menos de 16px faz o Safari/Chrome do celular
    dar zoom automático ao focar — no meio de uma visita domiciliar isso obriga a
    voltar o zoom manualmente a cada campo. Sobe a fonte só onde há teclado (não
