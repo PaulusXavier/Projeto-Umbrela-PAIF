@@ -569,6 +569,16 @@ async function adicionarAnexos(fileList) {
         continue;
       }
 
+      // Verifica a SOMA dos anexos já salvos neste PAF, não só o arquivo
+      // atual — cada documento do Firestore tem limite de 1 MB, então vários
+      // anexos "válidos" individualmente ainda podem estourar esse limite
+      // juntos e fazer o salvamento falhar silenciosamente.
+      const totalAtual = totalAnexosBytes(state.current);
+      if (totalAtual + tamanho > anexoMaxBytes()) {
+        toast(`Anexar "${file.name}" (${fmtBytes(tamanho)}) faria os anexos deste PAF somarem ${fmtBytes(totalAtual + tamanho)}, acima do limite de ${fmtBytes(anexoMaxBytes())} por PAF. Remova algum anexo antes de adicionar este.`);
+        continue;
+      }
+
       if (!state.current.anexos) state.current.anexos = [];
       state.current.anexos.push({
         id: uid(),
@@ -781,6 +791,40 @@ function escapeHtml(str) {
   return String(str == null ? "" : str)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+
+// Formata o CPF como "000.000.000-00" enquanto o usuário digita.
+function mascaraCPF(v) {
+  return String(v || "").replace(/\D/g, "").slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+// Confere o dígito verificador do CPF. Retorna true também para string vazia
+// (o campo não é obrigatório — famílias recém-chegadas podem só ter
+// passaporte/protocolo de refúgio) e para CPFs ainda incompletos, para não
+// mostrar aviso enquanto a pessoa ainda está digitando.
+function cpfValido(cpf) {
+  const limpo = String(cpf || "").replace(/\D/g, "");
+  if (!limpo) return true;
+  if (limpo.length < 11) return true;
+  if (limpo.length !== 11 || /^(\d)\1{10}$/.test(limpo)) return false;
+  const calcDigito = (tamanhoBase) => {
+    let soma = 0;
+    for (let i = 0; i < tamanhoBase; i++) soma += parseInt(limpo[i], 10) * (tamanhoBase + 1 - i);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+  return calcDigito(9) === parseInt(limpo[9], 10) && calcDigito(10) === parseInt(limpo[10], 10);
+}
+
+// Procura outro PAF ativo com o mesmo CPF (ignorando o próprio registro em
+// edição), para avisar sobre possível cadastro duplicado da mesma família.
+function encontrarCpfDuplicado(cpf, idAtual) {
+  const limpo = String(cpf || "").replace(/\D/g, "");
+  if (limpo.length !== 11) return null;
+  return state.pafs.find(p => p.id !== idAtual && String(p.cpf || "").replace(/\D/g, "") === limpo) || null;
+}
 function protocoloNumero(pafOrId) {
   const id = typeof pafOrId === "string" ? pafOrId : (pafOrId && pafOrId.id);
   const ordenados = [...state.pafs].sort((a, b) => {
@@ -882,6 +926,20 @@ function familiaEmAcolhimento(p) {
 // SUAS). "novas" = famílias com data de início no mês corrente (mesmo critério já usado na
 // Evolução mensal). "totalEmAcompanhamento" = famílias iniciadas até o fim do mês e ainda
 // não encerradas antes dele (ou seja, em acompanhamento em algum momento do mês).
+// Data efetiva de saída de acompanhamento de uma família, usada tanto no RMA
+// quanto na Evolução Mensal do painel de Gráficos. Prioriza a Data de
+// Encerramento preenchida manualmente na seção Encerramento; se estiver
+// vazia mas o status já não é mais "Em andamento" (porque o técnico usou o
+// botão rápido de status na capa do PAF, sem preencher a seção completa),
+// usa a Data da situação atual como aproximação — sem isso, famílias
+// marcadas como Encaminhado/Concluído pelo atalho continuavam contadas como
+// "em acompanhamento" para sempre nos relatórios.
+function dataSaidaEfetiva(p) {
+  if (p.encerramentoData) return p.encerramentoData;
+  if (p.situacaoPAF && p.situacaoPAF !== "andamento" && p.situacaoData) return p.situacaoData;
+  return "";
+}
+
 function computeRmaMensal(pafsParam) {
   const pafs = pafsParam || state.pafs;
   const hoje = new Date();
@@ -896,7 +954,7 @@ function computeRmaMensal(pafsParam) {
   const totalEmAcompanhamento = pafs.filter(p => {
     const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
     if (!base || base > fimMesISO) return false;
-    const saida = p.encerramentoData;
+    const saida = dataSaidaEfetiva(p);
     if (saida && saida.slice(0, 7) < ymAtual) return false;
     return true;
   }).length;
@@ -1029,6 +1087,39 @@ function toast(msg) {
   toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
 }
 
+// Deixa um modal recém-inserido (via innerHTML) acessível por teclado e leitor
+// de tela: marca role="dialog", manda o foco para dentro dele, fecha com Esc
+// e com clique fora (no fundo escurecido) — sem exigir mudança nenhuma nas
+// funções que já montam cada modal, só usar a função "fechar" que ela devolve
+// nos botões de fechar/cancelar, em vez de um innerHTML="" direto (isso evita
+// deixar o listener de tecla Esc registrado para sempre a cada modal aberto).
+function ativarAcessibilidadeModal(root, aoFechar) {
+  const backdrop = root.querySelector(".modal-backdrop");
+  const modal = root.querySelector(".modal");
+  if (!backdrop || !modal) return aoFechar;
+
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  const titulo = modal.querySelector("h3");
+  if (titulo) {
+    if (!titulo.id) titulo.id = "modalTitle_" + uid();
+    modal.setAttribute("aria-labelledby", titulo.id);
+  }
+
+  const focavel = modal.querySelector("button, [href], input, select, textarea, [tabindex]");
+  if (focavel) focavel.focus(); else { modal.setAttribute("tabindex", "-1"); modal.focus(); }
+
+  function fechar() {
+    document.removeEventListener("keydown", onKeydown);
+    aoFechar();
+  }
+  function onKeydown(e) { if (e.key === "Escape") fechar(); }
+
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) fechar(); });
+  document.addEventListener("keydown", onKeydown);
+  return fechar;
+}
+
 function confirmModal(title, msg, onConfirm) {
   const root = document.getElementById("modalRoot");
   if (!root) return;
@@ -1043,10 +1134,47 @@ function confirmModal(title, msg, onConfirm) {
         </div>
       </div>
     </div>`;
-  document.getElementById("modalCancel").onclick = () => root.innerHTML = "";
+  const fechar = ativarAcessibilidadeModal(root, () => root.innerHTML = "");
+  document.getElementById("modalCancel").onclick = fechar;
   document.getElementById("modalConfirm").onclick = () => {
     onConfirm();
-    root.innerHTML = "";
+    fechar();
+  };
+}
+
+// Confirmação reforçada para exclusões que NÃO deixam nenhum registro
+// administrativo depois (diferente de "Família desistiu", que guarda um
+// registro mínimo) — exige digitar o nome do responsável antes de habilitar
+// o botão de confirmação, para reduzir clique acidental numa ação irreversível.
+function confirmModalDigitarNome(title, msg, nomeEsperado, onConfirm) {
+  const root = document.getElementById("modalRoot");
+  if (!root) return;
+  const nomeAlvo = (nomeEsperado || "").trim() || "EXCLUIR";
+  root.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal">
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(msg)}</p>
+        <p class="hint">Para confirmar, digite abaixo exatamente: <strong>${escapeHtml(nomeAlvo)}</strong></p>
+        <div class="f"><input type="text" id="modalConfirmNome" autocomplete="off"></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="modalCancel">Cancelar</button>
+          <button class="btn btn-danger" id="modalConfirm" disabled>Excluir definitivamente</button>
+        </div>
+      </div>
+    </div>`;
+  const fechar = ativarAcessibilidadeModal(root, () => root.innerHTML = "");
+  const input = document.getElementById("modalConfirmNome");
+  const btnConfirm = document.getElementById("modalConfirm");
+  input.focus();
+  input.addEventListener("input", () => {
+    btnConfirm.disabled = input.value.trim().toLowerCase() !== nomeAlvo.toLowerCase();
+  });
+  document.getElementById("modalCancel").onclick = fechar;
+  btnConfirm.onclick = () => {
+    if (btnConfirm.disabled) return;
+    onConfirm();
+    fechar();
   };
 }
 
@@ -1096,7 +1224,8 @@ function openSettingsModal() {
       </div>
     </div>`;
 
-  document.getElementById("settingsCloseBtn").onclick = () => root.innerHTML = "";
+  const fechar = ativarAcessibilidadeModal(root, () => root.innerHTML = "");
+  document.getElementById("settingsCloseBtn").onclick = fechar;
   document.getElementById("settingsBackupBtn").onclick = baixarBackupJSON;
   document.getElementById("settingsDesistentesBtn").onclick = openDesistentesModal;
 }
@@ -1125,7 +1254,8 @@ function openDesistentesModal() {
       </div>
     </div>`;
 
-  document.getElementById("desistentesCloseBtn").onclick = () => root.innerHTML = "";
+  const fechar = ativarAcessibilidadeModal(root, () => root.innerHTML = "");
+  document.getElementById("desistentesCloseBtn").onclick = fechar;
   root.querySelectorAll("[data-remover-desistente]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.removerDesistente;
@@ -1275,7 +1405,7 @@ function computeResumoMensal(pafsParam) {
 
   const saidas = {};
   pafs.forEach(p => {
-    const dataSaida = p.encerramentoData;
+    const dataSaida = dataSaidaEfetiva(p);
     if (!dataSaida || dataSaida.length < 7) return;
     const ym = dataSaida.slice(0, 7);
     if (!saidas[ym]) saidas[ym] = { quantidade: 0, motivos: {} };
@@ -2507,6 +2637,14 @@ function initStorage() {
   if (firebaseConfigured()) {
     try {
       state.db = firebase.firestore();
+      // Habilita a fila de escrita offline (IndexedDB): se o técnico estiver
+      // sem conexão (ex.: visita domiciliar), o app continua salvando
+      // normalmente e sincroniza sozinho assim que a rede voltar. Se falhar
+      // (ex.: várias abas abertas ao mesmo tempo, ou navegador sem suporte),
+      // o app segue funcionando normalmente, só sem a fila offline.
+      state.db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+        console.warn("Persistência offline indisponível:", err.code || err);
+      });
       state.mode = "cloud";
       setSyncPill("ok", "Sincronizado (nuvem)");
       subscribeCloud();
@@ -2526,12 +2664,22 @@ function initStorage() {
 function subscribeCloud() {
   const col = state.db.collection(FIRESTORE_COLLECTION);
   state.unsub = col.onSnapshot(
+    { includeMetadataChanges: true },
     snap => {
       const todos = snap.docs.map(d => d.data());
       state.pafs = todos.filter(p => p.tipo !== "desistencia");
       state.desistentes = todos.filter(p => p.tipo === "desistencia");
       try { localStorage.setItem("paf_cache", JSON.stringify(todos)); } catch (err) { console.error(err); }
-      setSyncPill("ok", "Sincronizado (nuvem)");
+      // Se houver escritas pendentes (feitas offline, ainda na fila local do
+      // Firestore), avisa isso em vez de dizer "sincronizado" — evita passar
+      // uma falsa sensação de que tudo já chegou ao servidor.
+      if (snap.metadata.hasPendingWrites) {
+        setSyncPill("local", "Alterações pendentes — sincroniza ao voltar a conexão");
+      } else if (snap.metadata.fromCache) {
+        setSyncPill("err", "Sem conexão — mostrando cópia local");
+      } else {
+        setSyncPill("ok", "Sincronizado (nuvem)");
+      }
       if (state.view === "home") renderApp();
     },
     err => {
@@ -2580,11 +2728,34 @@ function persistLocalArray() {
   }
 }
 
+// Grava, na nuvem, um pequeno rastro de "quem fez o quê e quando" para ações
+// sensíveis (exclusão, desistência). Não substitui um histórico completo de
+// campo a campo, mas garante que uma exclusão sempre deixe um registro,
+// mesmo depois de o PAF original sumir da coleção principal. Falha em
+// silêncio (não deve travar a ação principal do usuário por causa disso).
+function registrarAuditoria(acao, paf) {
+  if (state.mode !== "cloud" || !state.db) return;
+  state.db.collection("auditoria").add({
+    acao,                                     // "criacao" | "exclusao" | "desistencia"
+    pafId: paf.id,
+    responsavel: paf.responsavel || null,
+    crasNome: paf.crasNome || null,
+    usuario: state.currentUser?.email || null,
+    timestamp: new Date().toISOString()
+  }).catch(err => console.error("Falha ao registrar auditoria:", err));
+}
+
 function savePAF(paf, opts = {}) {
+  const isNovo = !paf.criadoPor && !paf.createdAt;
   paf.updatedAt = new Date().toISOString();
+  paf.atualizadoPor = state.currentUser?.email || paf.atualizadoPor || null;
+  if (!paf.criadoPor) paf.criadoPor = state.currentUser?.email || null;
   if (state.mode === "cloud" && state.db) {
     state.db.collection(FIRESTORE_COLLECTION).doc(paf.id).set(paf)
-      .then(() => { if (!opts.silent) toast("Salvo e sincronizado."); })
+      .then(() => {
+        if (isNovo) registrarAuditoria("criacao", paf);
+        if (!opts.silent) toast("Salvo e sincronizado.");
+      })
       .catch(err => { console.error(err); toast("Não foi possível sincronizar — verifique a conexão."); });
   } else {
     const idx = state.pafs.findIndex(p => p.id === paf.id);
@@ -2595,9 +2766,10 @@ function savePAF(paf, opts = {}) {
 }
 
 function deletePAFRecord(id) {
+  const paf = state.pafs.find(p => p.id === id) || { id };
   if (state.mode === "cloud" && state.db) {
     state.db.collection(FIRESTORE_COLLECTION).doc(id).delete()
-      .then(() => toast("Registro excluído."))
+      .then(() => { registrarAuditoria("exclusao", paf); toast("Registro excluído."); })
       .catch(err => { console.error(err); toast("Não foi possível excluir na nuvem."); });
   } else {
     state.pafs = state.pafs.filter(p => p.id !== id);
@@ -2638,9 +2810,10 @@ function criarStubDesistencia(paf) {
 
 function registrarDesistencia(paf) {
   const stub = criarStubDesistencia(paf);
+  stub.registradoPor = state.currentUser?.email || null;
   if (state.mode === "cloud" && state.db) {
     state.db.collection(FIRESTORE_COLLECTION).doc(stub.id).set(stub)
-      .then(() => toast("PAF excluído — família registrada como desistente."))
+      .then(() => { registrarAuditoria("desistencia", paf); toast("PAF excluído — família registrada como desistente."); })
       .catch(err => { console.error(err); toast("Não foi possível sincronizar a desistência."); });
   } else {
     state.pafs = state.pafs.filter(p => p.id !== stub.id);
@@ -2881,7 +3054,14 @@ function attachHomeHandlers() {
   document.querySelectorAll("[data-del]").forEach(el => {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
-      confirmModal("Excluir este PAF?", "Essa ação não pode ser desfeita. O registro será removido de todos os dispositivos sincronizados.", () => deletePAFRecord(el.dataset.del));
+      const paf = state.pafs.find(p => p.id === el.dataset.del);
+      const frase = (paf?.responsavel || "").trim() || "EXCLUIR";
+      confirmModalDigitarNome(
+        "Excluir este PAF?",
+        "Essa ação não pode ser desfeita e não deixa nenhum registro administrativo depois (diferente de \"Família desistiu\"). O PAF será removido de todos os dispositivos sincronizados.",
+        frase,
+        () => deletePAFRecord(el.dataset.del)
+      );
     });
   });
   document.querySelectorAll("[data-export-toggle]").forEach(el => {
@@ -3342,7 +3522,7 @@ function renderSection(id, paf) {
           </div>
           <div class="f c4"><label>Apelido (se relevante)</label><input type="text" data-field="apelido" value="${escapeHtml(paf.apelido)}"></div>
           <div class="f c4"><label>Nome da mãe</label><input type="text" data-field="nomeMae" value="${escapeHtml(paf.nomeMae)}"></div>
-          <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
+          <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" class="${cpfValido(paf.cpf) ? "" : "input-invalido"}" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
           <div class="f c3"><label>NIS</label><input type="text" data-field="nis" value="${escapeHtml(paf.nis)}"></div>
           <div class="f c3"><label>Data inicial do PAF</label><input type="date" data-field="dataInicial" value="${escapeHtml(paf.dataInicial)}"></div>
           <div class="f c3"><label>Data de inclusão no sistema</label><input type="date" data-field="createdAt" value="${escapeHtml((paf.createdAt || "").slice(0, 10))}"></div>
@@ -3931,7 +4111,18 @@ function attachEditorHandlers() {
       }
       if (novoStatus === state.current.situacaoPAF) return;
       state.current.situacaoPAF = novoStatus;
-      if (!state.current.situacaoData) state.current.situacaoData = todayISO();
+      // Atualiza sempre a data da situação atual (antes só era gravada da
+      // primeira vez, então uma família que passasse por "Encaminhado" e
+      // depois "Concluído" continuava mostrando a data do primeiro câmbio).
+      state.current.situacaoData = todayISO();
+      // Preenche a Data de Encerramento automaticamente ao sair de "Em
+      // andamento" (se ainda não tiver sido preenchida manualmente na seção
+      // Encerramento) — sem isso, o RMA e a Evolução Mensal do painel de
+      // Gráficos não reconhecem a saída da família e ela continua contada
+      // como "em acompanhamento" indefinidamente.
+      if (novoStatus !== "andamento" && !state.current.encerramentoData) {
+        state.current.encerramentoData = todayISO();
+      }
       savePAF(state.current, { silent: true });
       renderApp();
     });
@@ -3946,6 +4137,10 @@ function attachEditorHandlers() {
     const evt = input.type === "radio" || input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
     
     input.addEventListener(evt, () => {
+      if (path === "cpf" && input.type === "text") {
+        input.value = mascaraCPF(input.value);
+        input.classList.toggle("input-invalido", !cpfValido(input.value));
+      }
       if (input.type === "radio") {
         if (input.checked) setPath(state.current, path, input.value);
       } else {
@@ -3953,6 +4148,15 @@ function attachEditorHandlers() {
       }
       scheduleAutosave();
     });
+
+    if (path === "cpf" && input.type === "text") {
+      input.addEventListener("blur", () => {
+        const duplicado = encontrarCpfDuplicado(input.value, state.current.id);
+        if (duplicado) {
+          toast(`Atenção: este CPF já está em outro PAF ativo (${duplicado.responsavel || "sem nome"}). Confira se não é cadastro duplicado.`);
+        }
+      });
+    }
   });
 
   // Atualiza a idade exibida ao lado do campo de nascimento, sem precisar re-renderizar a tela
