@@ -766,6 +766,7 @@ const state = {
   saveTimer: null,
   railOpen: false,
   currentUser: null,         // usuário autenticado (Firebase Auth) ou null
+  pendentes: false,          // há escritas ainda não enviadas ao servidor (fila offline do Firestore)
   authError: ""
 };
 
@@ -1188,13 +1189,13 @@ function computePrioridade(paf) {
 /* ---------------------------- Modal e Toast ---------------------------- */
 
 let toastTimer = null;
-function toast(msg) {
+function toast(msg, duracaoMs) {
   const el = document.getElementById("toast");
   if (!el) return;
   el.textContent = msg;
   el.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  toastTimer = setTimeout(() => el.classList.remove("show"), duracaoMs || 2600);
 }
 
 // Deixa um modal recém-inserido (via innerHTML) acessível por teclado e leitor
@@ -2695,11 +2696,106 @@ function updateUserPill(user) {
   }
 }
 
+// Encerra a sessão de forma segura: grava o que está em edição, tenta enviar o que
+// estiver pendente (até 4 s) e faz o signOut. A limpeza da cópia local (IndexedDB do
+// Firestore + localStorage) acontece em onAuthStateChanged, para valer também quando a
+// sessão termina por outro motivo (conta desativada, token revogado, inatividade).
+async function encerrarSessao(motivo) {
+  try {
+    if (state.mode === "cloud" && state.db) {
+      if (state.current) { clearTimeout(state.saveTimer); savePAF(state.current, { silent: true }); }
+      await Promise.race([
+        state.db.waitForPendingWrites().catch(() => {}),
+        new Promise(resolve => setTimeout(resolve, 4000))
+      ]);
+    }
+  } catch (err) { console.error(err); }
+  if (state.unsub) { state.unsub(); state.unsub = null; }
+  if (motivo) { try { sessionStorage.setItem("paf_motivo_logout", motivo); } catch (err) { /* ignora */ } }
+  firebase.auth().signOut().catch(err => console.error(err));
+}
+
 function handleLogout() {
-  confirmModal("Sair da conta?", "Você precisará entrar novamente com seu e-mail e senha para acessar os registros.", () => {
-    if (state.unsub) { state.unsub(); state.unsub = null; }
-    firebase.auth().signOut();
+  const aviso = state.pendentes
+    ? " Atenção: há alterações ainda não sincronizadas (sem conexão). Se sair agora, elas serão perdidas — conecte-se antes de sair."
+    : "";
+  confirmModal("Sair da conta?", "Você precisará entrar novamente com seu e-mail e senha para acessar os registros. A cópia dos dados neste aparelho será apagada." + aviso, () => {
+    encerrarSessao();
   });
+}
+
+/* ---- Logout automático por inatividade ---- */
+// Protege aparelhos perdidos ou computadores compartilhados do CRAS: sem uso por
+// INATIVIDADE_MAX_MS, a sessão é encerrada e a cópia local é apagada. A última atividade
+// fica em localStorage (só um carimbo de data/hora, sem dado pessoal) para valer também
+// quando o PWA é fechado e reaberto depois de um tempo.
+const INATIVIDADE_MAX_MS = 20 * 60 * 1000;     // ajuste aqui (ex.: 30 * 60 * 1000)
+const INATIVIDADE_AVISO_MS = 60 * 1000;        // avisa 1 min antes
+const CHAVE_ATIVIDADE = "paf_ultima_atividade";
+let inatividadeTimer = null;
+let inatividadeAvisou = false;
+let inatividadeUltimaGravacao = 0;
+
+function lerUltimaAtividade() {
+  try { return Number(localStorage.getItem(CHAVE_ATIVIDADE)) || 0; } catch (err) { return 0; }
+}
+
+function registrarAtividade() {
+  const agora = Date.now();
+  inatividadeAvisou = false;
+  if (agora - inatividadeUltimaGravacao < 15000) return;   // grava no máximo a cada 15 s
+  inatividadeUltimaGravacao = agora;
+  try { localStorage.setItem(CHAVE_ATIVIDADE, String(agora)); } catch (err) { /* ignora */ }
+}
+
+function verificarInatividade() {
+  if (!state.currentUser) return;
+  const ocioso = Date.now() - lerUltimaAtividade();
+  if (ocioso >= INATIVIDADE_MAX_MS) {
+    pararMonitorInatividade();
+    encerrarSessao("Sessão encerrada por inatividade. Entre novamente para continuar.");
+  } else if (ocioso >= INATIVIDADE_MAX_MS - INATIVIDADE_AVISO_MS && !inatividadeAvisou) {
+    inatividadeAvisou = true;
+    toast("Sessão será encerrada por inatividade em cerca de 1 minuto. Toque na tela para continuar.", 8000);
+  }
+}
+
+function iniciarMonitorInatividade() {
+  if (inatividadeTimer) return true;
+  // Reabriu o app depois do prazo? Encerra antes de mostrar qualquer dado.
+  const ultima = lerUltimaAtividade();
+  if (ultima && Date.now() - ultima >= INATIVIDADE_MAX_MS) {
+    encerrarSessao("Sessão encerrada por inatividade. Entre novamente para continuar.");
+    return false;
+  }
+  inatividadeUltimaGravacao = 0;
+  registrarAtividade();
+  ["pointerdown", "keydown", "touchstart", "scroll", "input"].forEach(ev =>
+    document.addEventListener(ev, registrarAtividade, { passive: true, capture: true }));
+  document.addEventListener("visibilitychange", verificarInatividade);
+  inatividadeTimer = setInterval(verificarInatividade, 15000);   // compara datas: funciona mesmo com a aba em segundo plano
+  return true;
+}
+
+function pararMonitorInatividade() {
+  if (inatividadeTimer) { clearInterval(inatividadeTimer); inatividadeTimer = null; }
+  ["pointerdown", "keydown", "touchstart", "scroll", "input"].forEach(ev =>
+    document.removeEventListener(ev, registrarAtividade, { capture: true }));
+  document.removeEventListener("visibilitychange", verificarInatividade);
+  try { localStorage.removeItem(CHAVE_ATIVIDADE); } catch (err) { /* ignora */ }
+}
+
+// Depois que a sessão termina, apaga a fila/cópia offline do Firestore (IndexedDB), que
+// guarda TODOS os PAFs e anexos, e recarrega a página — o Firestore encerrado não pode
+// ser reutilizado por um novo login na mesma página.
+async function descartarBancoLocalDaSessao(db) {
+  try {
+    await db.terminate();
+    await db.clearPersistence();
+  } catch (err) {
+    console.warn("Não foi possível limpar a cópia offline do Firestore:", err.code || err);
+  }
+  window.location.reload();
 }
 
 // Remove a cópia local dos registros (usada só para funcionar offline) sempre que
@@ -2727,16 +2823,30 @@ function initAuth() {
       authError(null);
       const pwField = document.getElementById("authPassword");
       if (pwField) pwField.value = "";
+      limparCacheLocalSensivel();      // sobra de versões antigas (paf_cache)
+      if (!iniciarMonitorInatividade()) return;   // sessão expirada: já está saindo, não carrega dados
       if (!state.unsub) initStorage();
     } else {
+      const dbAnterior = state.db;
+      pararMonitorInatividade();
       if (state.unsub) { state.unsub(); state.unsub = null; }
       state.db = null;
       state.mode = "local";
       state.pafs = [];
       state.desistentes = [];
+      state.current = null;
+      state.pendentes = false;
       state.view = "home";
       limparCacheLocalSensivel();
       showAuthScreen();
+      try {
+        const motivo = sessionStorage.getItem("paf_motivo_logout");
+        if (motivo) {
+          authError(motivo);
+          if (!dbAnterior) sessionStorage.removeItem("paf_motivo_logout");   // se vai recarregar, a mensagem é exibida após o reload
+        }
+      } catch (err) { /* ignora */ }
+      if (dbAnterior) descartarBancoLocalDaSessao(dbAnterior);
     }
   });
 }
@@ -2779,7 +2889,9 @@ function subscribeCloud() {
       const todos = snap.docs.map(d => d.data());
       state.pafs = todos.filter(p => p.tipo !== "desistencia");
       state.desistentes = todos.filter(p => p.tipo === "desistencia");
-      try { localStorage.setItem("paf_cache", JSON.stringify(todos)); } catch (err) { console.error(err); }
+      // (Sem cópia em localStorage: o próprio Firestore mantém o cache offline no IndexedDB,
+      // que é apagado ao sair da conta — ver descartarBancoLocalDaSessao.)
+      state.pendentes = !!snap.metadata.hasPendingWrites;
       // Se houver escritas pendentes (feitas offline, ainda na fila local do
       // Firestore), avisa isso em vez de dizer "sincronizado" — evita passar
       // uma falsa sensação de que tudo já chegou ao servidor.
@@ -2794,8 +2906,16 @@ function subscribeCloud() {
     },
     err => {
       console.error(err);
-      setSyncPill("err", "Sem conexão — mostrando cópia local");
-      loadLocalCacheOnly();
+      // Nunca mostra dados de uma cópia antiga em texto puro: em erro, a lista fica vazia.
+      state.pafs = [];
+      state.desistentes = [];
+      if (err && err.code === "permission-denied") {
+        setSyncPill("err", "Conta sem permissão de acesso");
+        toast("Esta conta não tem permissão nas regras do Firestore. Confira se o UID em firestore.rules é o da conta com que você entrou.", 8000);
+      } else {
+        setSyncPill("err", "Erro ao sincronizar — tente novamente");
+      }
+      if (state.view === "home") renderApp();
     }
   );
 }
@@ -2809,13 +2929,6 @@ function safeParseArray(raw) {
     console.error("Dados locais corrompidos, ignorando:", err);
     return [];
   }
-}
-
-function loadLocalCacheOnly() {
-  const todos = safeParseArray(localStorage.getItem("paf_cache"));
-  state.pafs = todos.filter(p => p.tipo !== "desistencia");
-  state.desistentes = todos.filter(p => p.tipo === "desistencia");
-  if (state.view === "home") renderApp();
 }
 
 function loadLocal() {
@@ -2847,8 +2960,7 @@ function registrarAuditoria(acao, paf) {
   if (state.mode !== "cloud" || !state.db) return;
   state.db.collection("auditoria").add({
     acao,                                     // "criacao" | "exclusao" | "desistencia"
-    pafId: paf.id,
-    responsavel: paf.responsavel || null,
+    pafId: paf.id,                            // só o identificador: o nome da família não fica no log imutável
     crasNome: paf.crasNome || null,
     usuario: state.currentUser?.email || null,
     timestamp: new Date().toISOString()
