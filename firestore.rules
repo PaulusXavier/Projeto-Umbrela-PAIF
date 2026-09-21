@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------------
+    // USO INDIVIDUAL: só a SUA conta acessa os dados.
+    //
+    // Troque COLE_SEU_UID_AQUI pelo UID da sua conta:
+    //   Firebase Console > Authentication > Users > coluna "User UID" (copiar).
+    //
+    // Qualquer outra conta — inclusive uma criada por auto-cadastro com a
+    // apiKey pública — é bloqueada, mesmo estando autenticada.
+    // ---------------------------------------------------------------------
+    function dono() {
+      return request.auth != null && request.auth.uid == 'yVnVPeyAIGdVxIIGzwljmZzR2tQ2';
+    }
+
+    // ---- PAFs (e registros de desistência) ----
+    match /planos_acompanhamento_familiar/{docId} {
+      allow read, write: if dono();
+
+      // Anexos (metadados + partes em base64)
+      match /anexos/{anexoId} {
+        allow read, write: if dono();
+      }
+    }
+
+    // ---- Trilha de auditoria: só cria (com os campos esperados) e lê;
+    //      nunca edita nem apaga ----
+    match /auditoria/{entryId} {
+      allow read: if dono();
+      allow create: if dono()
+        && request.resource.data.keys().hasAll(['acao', 'pafId', 'usuario', 'timestamp'])
+        && request.resource.data.keys().hasOnly(['acao', 'pafId', 'responsavel', 'crasNome', 'usuario', 'timestamp'])
+        && request.resource.data.acao in ['criacao', 'exclusao', 'desistencia']
+        && request.resource.data.usuario == request.auth.token.email;
+      allow update, delete: if false;
+    }
+  }
+}
