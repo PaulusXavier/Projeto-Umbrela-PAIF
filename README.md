@@ -30,10 +30,20 @@ os registros só para si (não compartilha com os outros).
      match /databases/{database}/documents {
        match /planos_acompanhamento_familiar/{docId} {
          allow read, write: if request.auth != null;
+
+         match /anexos/{anexoId} {
+           allow read, write: if request.auth != null;
+         }
        }
      }
    }
    ```
+
+   > **Já tinha configurado a nuvem antes?** Volte em Firestore > Regras e cole
+   > essa versão atualizada por cima da antiga (ela adiciona a subcoleção
+   > `anexos`, usada para permitir anexar bem mais fotos/documentos por PAF —
+   > veja a seção "Anexos" mais abaixo). Sem isso, novos anexos não vão
+   > sincronizar com a nuvem.
 
    > Isso libera leitura/escrita só para quem estiver logado (ver passo 1a abaixo) —
    > sem login, não é possível ver nem alterar os registros, mesmo tendo o link do app.
@@ -147,11 +157,15 @@ os registros só para si (não compartilha com os outros).
   separadamente pelo botão "Baixar" do próprio anexo). No **Word (.doc)**, as fotos
   também são incorporadas ao documento, mas os PDFs continuam apenas listados por
   nome (o Word não permite embutir páginas de outro PDF).
-  > **Atenção ao usar a sincronização em nuvem (Firestore):** cada PAF é salvo como
-  > um único documento, que tem um limite de ~1 MB no total. O app avisa quando os
-  > anexos de um PAF estão ficando grandes demais e recusa arquivos que ultrapassem
-  > esse limite. Para anexar PDFs grandes com folga, prefira o modo local (sem
-  > Firebase configurado) ou anexe poucos arquivos pequenos por PAF.
+  > **Sincronização em nuvem (Firestore):** cada anexo agora é salvo no seu próprio
+  > documento (subcoleção `anexos` dentro do PAF), em vez de dividir espaço com o
+  > restante da ficha e com os outros anexos — por isso cada arquivo pode chegar a
+  > quase 1 MB, e a soma por PAF sobe para até 20 MB (bem mais do que antes). Em
+  > **modo local** (sem Firebase configurado), os anexos continuam guardados no
+  > próprio aparelho, com limites um pouco mais conservadores (até 5 MB por arquivo,
+  > 6 MB no total por PAF), por causa do espaço menor do armazenamento do navegador.
+  > PAFs com anexos salvos antes desta atualização são migrados automaticamente para
+  > o novo formato assim que forem abertos — nenhum arquivo já anexado se perde.
 - O ícone ao lado de "Config" no topo mostra se a sincronização com a nuvem está ativa.
 - Em **Config**, é possível baixar um backup em JSON de todos os registros.
 - Na tela inicial, o botão **Ver gráficos** (aba "Gráficos" no topo) abre o painel
