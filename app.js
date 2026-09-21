@@ -479,20 +479,98 @@ function pilaresPaifStripHTML() {
 
 /* ---------------------------- Anexos (PDF/imagem) ---------------------------- */
 
-// Limite de referência: um documento no Firestore não pode passar de ~1 MB no total.
-// Por isso comprimimos imagens automaticamente e avisamos quando os anexos de um PAF
-// estiverem ficando grandes demais para sincronizar com segurança na nuvem.
-// Em modo local (sem Firebase configurado) o limite é bem mais folgado, já que o
-// registro fica só no localStorage deste aparelho — não precisa caber em 1 MB.
-const ANEXO_AVISO_BYTES_CLOUD = 650 * 1024;   // a partir daqui, mostramos aviso (nuvem)
-const ANEXO_MAX_BYTES_CLOUD = 900 * 1024;     // acima disso, recusamos o anexo (nuvem)
-const ANEXO_AVISO_BYTES_LOCAL = 3 * 1024 * 1024;  // aviso em modo local
-const ANEXO_MAX_BYTES_LOCAL = 4 * 1024 * 1024;    // recusa em modo local
+// Cada anexo agora é salvo como um documento próprio numa SUBCOLEÇÃO do PAF no
+// Firestore ("planos_acompanhamento_familiar/{id}/anexos/{anexoId}"), em vez de
+// ficar embutido dentro do documento principal do PAF (ver adicionarAnexos,
+// removerAnexo e garantirAnexosCarregados). Isso tira os anexos da disputa por
+// espaço com o restante da ficha e com os OUTROS anexos: o limite de ~1 MB por
+// documento do Firestore passa a valer por ARQUIVO, não pela soma de tudo —
+// então dá para anexar bem mais fotos/documentos por família do que antes.
+// Ainda mantemos um teto para a soma por PAF (bem mais alto agora), só como
+// limite de bom senso para o app continuar rápido e o custo previsível — não é
+// mais uma exigência técnica do Firestore.
+// Em modo local (sem Firebase configurado) os anexos continuam embutidos no
+// próprio registro salvo no localStorage deste aparelho, então os limites ali
+// seguem ligados ao espaço (bem mais apertado) do navegador.
+const ANEXO_AVISO_BYTES_CLOUD = 800 * 1024;        // aviso por arquivo, perto do limite (nuvem)
+const ANEXO_MAX_BYTES_CLOUD = 950 * 1024;          // recusa por arquivo — limite do próprio documento do Firestore (nuvem)
+const ANEXO_TOTAL_AVISO_CLOUD = 10 * 1024 * 1024;  // aviso quando a SOMA dos anexos do PAF ficar grande (nuvem)
+const ANEXO_TOTAL_MAX_CLOUD = 20 * 1024 * 1024;    // teto de bom senso para a soma por PAF (nuvem)
+
+const ANEXO_AVISO_BYTES_LOCAL = 3.5 * 1024 * 1024; // aviso por arquivo (modo local)
+const ANEXO_MAX_BYTES_LOCAL = 5 * 1024 * 1024;     // recusa por arquivo (modo local)
+const ANEXO_TOTAL_AVISO_LOCAL = 4.5 * 1024 * 1024; // aviso para a soma por PAF (modo local)
+const ANEXO_TOTAL_MAX_LOCAL = 6 * 1024 * 1024;     // teto para a soma por PAF — limitado pelo espaço do navegador (modo local)
+
 const ANEXO_IMG_MAX_DIM = 1600;         // redimensiona imagens maiores que isso
 const ANEXO_IMG_QUALIDADE = 0.72;       // qualidade do JPEG comprimido
 
 function anexoAvisoBytes() { return state.mode === "cloud" ? ANEXO_AVISO_BYTES_CLOUD : ANEXO_AVISO_BYTES_LOCAL; }
 function anexoMaxBytes() { return state.mode === "cloud" ? ANEXO_MAX_BYTES_CLOUD : ANEXO_MAX_BYTES_LOCAL; }
+function anexoTotalAvisoBytes() { return state.mode === "cloud" ? ANEXO_TOTAL_AVISO_CLOUD : ANEXO_TOTAL_AVISO_LOCAL; }
+function anexoTotalMaxBytes() { return state.mode === "cloud" ? ANEXO_TOTAL_MAX_CLOUD : ANEXO_TOTAL_MAX_LOCAL; }
+
+// Referência da subcoleção de anexos de um PAF (só existe sentido em modo nuvem).
+function anexosCollectionRef(pafId) {
+  return state.db.collection(FIRESTORE_COLLECTION).doc(pafId).collection("anexos");
+}
+
+// Busca os anexos completos (com dataURL) de um PAF direto da subcoleção.
+async function carregarAnexosCloud(pafId) {
+  const snap = await anexosCollectionRef(pafId).orderBy("addedAt").get();
+  return snap.docs.map(d => d.data());
+}
+
+// Garante que paf.anexos tenha os arquivos completos antes de exibir/exportar.
+// Em modo nuvem, os anexos não vêm junto com o restante do PAF (nem na lista
+// nem no snapshot) — precisam ser buscados à parte na subcoleção. Também cuida
+// da migração automática, e só uma vez, de PAFs salvos ANTES desta atualização
+// (quando os anexos ainda ficavam embutidos no próprio documento do PAF), sem
+// perder nenhum arquivo já salvo por um técnico.
+async function garantirAnexosCarregados(paf) {
+  if (state.mode !== "cloud" || !state.db) return paf;
+
+  if (Array.isArray(paf.anexos) && paf.anexos.length && paf.anexosCount == null) {
+    try {
+      const col = anexosCollectionRef(paf.id);
+      const batch = state.db.batch();
+      paf.anexos.forEach(a => batch.set(col.doc(a.id || uid()), a));
+      await batch.commit();
+      paf.anexosCount = paf.anexos.length;
+      savePAF(paf, { silent: true }); // regrava o documento principal já sem o array embutido
+    } catch (err) {
+      console.error("Falha ao migrar anexos antigos para a subcoleção:", err);
+    }
+    return paf;
+  }
+
+  const jaCarregado = Array.isArray(paf.anexos) && paf.anexos.length === (paf.anexosCount || 0);
+  if (jaCarregado) return paf;
+
+  try {
+    paf.anexos = await carregarAnexosCloud(paf.id);
+  } catch (err) {
+    console.error("Falha ao carregar anexos:", err);
+    toast("Não foi possível carregar os anexos deste PAF — verifique a conexão.");
+  }
+  return paf;
+}
+
+// Apaga todos os documentos da subcoleção de anexos de um PAF — usado ao
+// excluir o PAF definitivamente ou ao registrar a desistência da família
+// (que também exclui o PAF completo). O Firestore não apaga subcoleções
+// sozinho quando o documento "pai" é apagado, então isso é feito à parte.
+async function excluirAnexosSubcolecao(pafId) {
+  try {
+    const snap = await anexosCollectionRef(pafId).get();
+    if (snap.empty) return;
+    const batch = state.db.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+  } catch (err) {
+    console.error("Falha ao excluir anexos do PAF:", err);
+  }
+}
 
 function fmtBytes(n) {
   if (!n && n !== 0) return "—";
@@ -552,6 +630,7 @@ async function adicionarAnexos(fileList) {
   const arquivos = Array.from(fileList || []);
   if (!arquivos.length) return;
 
+  const novos = [];
   for (const file of arquivos) {
     const ehImagem = file.type.startsWith("image/");
     const ehPdf = file.type === "application/pdf";
@@ -564,23 +643,22 @@ async function adicionarAnexos(fileList) {
       const tamanho = dataURLBytes(dataURL);
 
       if (tamanho > anexoMaxBytes()) {
-        const dica = state.mode === "cloud" ? ' Se precisar anexar arquivos grandes, use o modo local (sem sincronização).' : '';
+        const dica = state.mode === "cloud" ? ' Se precisar anexar um arquivo maior, use o modo local (sem sincronização).' : '';
         toast(`"${file.name}" (${fmtBytes(tamanho)}) é grande demais para anexar com segurança.${dica}`);
         continue;
       }
 
-      // Verifica a SOMA dos anexos já salvos neste PAF, não só o arquivo
-      // atual — cada documento do Firestore tem limite de 1 MB, então vários
-      // anexos "válidos" individualmente ainda podem estourar esse limite
-      // juntos e fazer o salvamento falhar silenciosamente.
-      const totalAtual = totalAnexosBytes(state.current);
-      if (totalAtual + tamanho > anexoMaxBytes()) {
-        toast(`Anexar "${file.name}" (${fmtBytes(tamanho)}) faria os anexos deste PAF somarem ${fmtBytes(totalAtual + tamanho)}, acima do limite de ${fmtBytes(anexoMaxBytes())} por PAF. Remova algum anexo antes de adicionar este.`);
+      // Verifica a SOMA dos anexos já salvos neste PAF (mais os que já vão
+      // entrar nesta mesma leva), não só o arquivo atual — é um teto de bom
+      // senso por PAF, não mais uma exigência técnica do Firestore (cada
+      // anexo agora é salvo em seu próprio documento na subcoleção).
+      const totalAtual = totalAnexosBytes(state.current) + novos.reduce((s, a) => s + a.tamanho, 0);
+      if (totalAtual + tamanho > anexoTotalMaxBytes()) {
+        toast(`Anexar "${file.name}" (${fmtBytes(tamanho)}) faria os anexos deste PAF somarem ${fmtBytes(totalAtual + tamanho)}, acima do limite de ${fmtBytes(anexoTotalMaxBytes())} por PAF. Remova algum anexo antes de adicionar este.`);
         continue;
       }
 
-      if (!state.current.anexos) state.current.anexos = [];
-      state.current.anexos.push({
+      novos.push({
         id: uid(),
         nome: file.name,
         tipo: file.type,
@@ -594,22 +672,54 @@ async function adicionarAnexos(fileList) {
     }
   }
 
+  if (!novos.length) return;
+  if (!state.current.anexos) state.current.anexos = [];
+
+  if (state.mode === "cloud" && state.db) {
+    // Cada anexo vira um documento próprio na subcoleção do PAF — assim não
+    // compete por espaço com os outros anexos nem com o restante da ficha.
+    const col = anexosCollectionRef(state.current.id);
+    const resultados = await Promise.allSettled(novos.map(a => col.doc(a.id).set(a)));
+    resultados.forEach((r, i) => {
+      if (r.status === "fulfilled") {
+        state.current.anexos.push(novos[i]);
+      } else {
+        console.error(r.reason);
+        toast(`Não foi possível sincronizar "${novos[i].nome}" com a nuvem.`);
+      }
+    });
+  } else {
+    state.current.anexos.push(...novos);
+  }
+
   savePAF(state.current, { silent: true });
   renderApp();
 
   const totalDepois = totalAnexosBytes(state.current);
-  if (totalDepois > anexoAvisoBytes()) {
+  if (totalDepois > anexoTotalAvisoBytes()) {
     toast(state.mode === "cloud"
-      ? `Atenção: os anexos deste PAF somam ${fmtBytes(totalDepois)}. Isso pode ultrapassar o limite de sincronização com a nuvem.`
+      ? `Atenção: os anexos deste PAF já somam ${fmtBytes(totalDepois)}.`
       : `Atenção: os anexos deste PAF somam ${fmtBytes(totalDepois)}, um valor considerável para o armazenamento local do navegador.`);
   }
 }
 
 function removerAnexo(id) {
-  confirmModal("Remover este anexo?", "O arquivo será apagado deste PAF.", () => {
+  confirmModal("Remover este anexo?", "O arquivo será apagado deste PAF.", async () => {
+    const alvo = (state.current.anexos || []).find(a => a.id === id);
     state.current.anexos = (state.current.anexos || []).filter(a => a.id !== id);
-    savePAF(state.current, { silent: true });
     renderApp();
+
+    if (state.mode === "cloud" && state.db) {
+      try {
+        await anexosCollectionRef(state.current.id).doc(id).delete();
+      } catch (err) {
+        console.error(err);
+        toast("Não foi possível remover o anexo da nuvem — tente novamente.");
+        if (alvo) { state.current.anexos.push(alvo); renderApp(); }
+        return;
+      }
+    }
+    savePAF(state.current, { silent: true });
   });
 }
 
@@ -2751,7 +2861,12 @@ function savePAF(paf, opts = {}) {
   paf.atualizadoPor = state.currentUser?.email || paf.atualizadoPor || null;
   if (!paf.criadoPor) paf.criadoPor = state.currentUser?.email || null;
   if (state.mode === "cloud" && state.db) {
-    state.db.collection(FIRESTORE_COLLECTION).doc(paf.id).set(paf)
+    // Os anexos ficam numa subcoleção própria (ver adicionarAnexos/removerAnexo);
+    // aqui só guardamos a contagem, para os cartões da lista e a barra de
+    // progresso saberem que o PAF tem anexos sem precisar carregá-los todos.
+    const toSave = { ...paf, anexosCount: (paf.anexos || []).length };
+    delete toSave.anexos;
+    state.db.collection(FIRESTORE_COLLECTION).doc(paf.id).set(toSave)
       .then(() => {
         if (isNovo) registrarAuditoria("criacao", paf);
         if (!opts.silent) toast("Salvo e sincronizado.");
@@ -2768,6 +2883,7 @@ function savePAF(paf, opts = {}) {
 function deletePAFRecord(id) {
   const paf = state.pafs.find(p => p.id === id) || { id };
   if (state.mode === "cloud" && state.db) {
+    excluirAnexosSubcolecao(id); // melhor esforço, roda em paralelo — não precisa aguardar
     state.db.collection(FIRESTORE_COLLECTION).doc(id).delete()
       .then(() => { registrarAuditoria("exclusao", paf); toast("Registro excluído."); })
       .catch(err => { console.error(err); toast("Não foi possível excluir na nuvem."); });
@@ -2812,6 +2928,7 @@ function registrarDesistencia(paf) {
   const stub = criarStubDesistencia(paf);
   stub.registradoPor = state.currentUser?.email || null;
   if (state.mode === "cloud" && state.db) {
+    excluirAnexosSubcolecao(stub.id); // melhor esforço — o PAF completo, com seus anexos, está sendo excluído
     state.db.collection(FIRESTORE_COLLECTION).doc(stub.id).set(stub)
       .then(() => { registrarAuditoria("desistencia", paf); toast("PAF excluído — família registrada como desistente."); })
       .catch(err => { console.error(err); toast("Não foi possível sincronizar a desistência."); });
@@ -2868,10 +2985,22 @@ function openPAF(id) {
     if (!potenciaisExistentes.has(p)) state.current.potencialidades.push({ potencial: p, situacao: "", observacoes: "" });
   });
 
+  if (!state.current.anexos) state.current.anexos = [];
+
   state.view = "editor";
   // Ao abrir um PAF já existente, mostra primeiro os gráficos da família.
   state.activeSection = "graficos";
   renderApp();
+
+  // Carrega os anexos completos em segundo plano (em modo nuvem eles ficam
+  // numa subcoleção à parte) e atualiza a tela quando estiverem prontos, sem
+  // travar a abertura do PAF.
+  if (state.mode === "cloud" && state.db) {
+    const idAberto = state.current.id;
+    garantirAnexosCarregados(state.current).then(() => {
+      if (state.current && state.current.id === idAberto) renderApp();
+    });
+  }
 }
 
 function newPAF() {
@@ -3180,7 +3309,7 @@ function tabCompleteness(paf) {
     estrategias: paf.estrategias.length > 0,
     plano: !!(paf.tecnicoReferencia && paf.prazoExecucaoPlano) || (paf.objetivosPaif || []).length > 0,
     encerramento: !!paf.encerramentoMotivo,
-    anexos: (paf.anexos || []).length > 0,
+    anexos: (paf.anexosCount != null ? paf.anexosCount : (paf.anexos || []).length) > 0,
     observacoes: !!paf.observacoes
   };
 }
@@ -4026,7 +4155,8 @@ function renderSection(id, paf) {
     case "anexos": {
       const anexos = paf.anexos || [];
       const total = totalAnexosBytes(paf);
-      const avisoNuvem = total > anexoAvisoBytes();
+      const avisoNuvem = total > anexoTotalAvisoBytes();
+      const carregandoAnexos = state.mode === "cloud" && (paf.anexosCount || 0) > 0 && anexos.length === 0;
       const cards = anexos.map(a => {
         const ehImagem = a.tipo.startsWith("image/");
         const preview = ehImagem
@@ -4054,9 +4184,10 @@ function renderSection(id, paf) {
           <span>Clique para escolher imagens ou PDFs</span>
           <input type="file" id="anexoInput" accept="image/*,application/pdf" multiple style="display:none">
         </label>
-        <p class="hint">Imagens são comprimidas automaticamente ao anexar. Tamanho total dos anexos deste PAF: <strong>${fmtBytes(total)}</strong>${state.mode === "cloud" ? " (modo nuvem)" : " (somente neste dispositivo)"}.</p>
-        ${avisoNuvem ? `<p class="anexo-aviso">${uiIconSvg("warning", 13)} Os anexos estão ficando grandes para o modo nuvem (limite de sincronização por registro). Prefira menos arquivos ou imagens menores.</p>` : ""}
-        ${anexos.length ? `<div class="anexo-grid">${cards}</div>` : `<p class="hint" style="margin-top:10px;">Nenhum anexo adicionado ainda.</p>`}
+        <p class="hint">Imagens são comprimidas automaticamente ao anexar. Cada arquivo pode ter até ${fmtBytes(anexoMaxBytes())}. Tamanho total dos anexos deste PAF: <strong>${fmtBytes(total)}</strong> de até ${fmtBytes(anexoTotalMaxBytes())}${state.mode === "cloud" ? " (modo nuvem)" : " (somente neste dispositivo)"}.</p>
+        ${avisoNuvem ? `<p class="anexo-aviso">${uiIconSvg("warning", 13)} Os anexos deste PAF já somam ${fmtBytes(total)} — considere revisar se todos ainda são necessários.</p>` : ""}
+        ${carregandoAnexos ? `<p class="hint" style="margin-top:10px;">Carregando anexos…</p>`
+          : anexos.length ? `<div class="anexo-grid">${cards}</div>` : `<p class="hint" style="margin-top:10px;">Nenhum anexo adicionado ainda.</p>`}
       </div>`;
     }
 
@@ -4377,13 +4508,14 @@ function attachGlobalHandlers() {
 
 /* ---------------------------- Exportação: PDF (Impressão Nativa) ---------------------------- */
 
-function exportPDF(paf) {
+async function exportPDF(paf) {
   if (!paf) return;
   const printWin = window.open("", "_blank");
   if (!printWin) {
     toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
     return;
   }
+  await garantirAnexosCarregados(paf);
   const qtdPdfsAnexados = (paf.anexos || []).filter(a => a.tipo === "application/pdf").length;
   if (qtdPdfsAnexados) {
     toast(`Gerando documento com ${qtdPdfsAnexados} PDF${qtdPdfsAnexados > 1 ? "s" : ""} anexado${qtdPdfsAnexados > 1 ? "s" : ""} — pode levar alguns segundos…`);
@@ -5135,8 +5267,9 @@ function imprimirEncaminhamento(paf, enc) {
 
 /* ---------------------------- Exportação: Word (.doc) ---------------------------- */
 
-function exportWord(paf) {
+async function exportWord(paf) {
   if (!paf) return;
+  await garantirAnexosCarregados(paf);
 
   // ---- Cores e helpers compartilhados com o padrão visual do PDF ----
   const C = {
