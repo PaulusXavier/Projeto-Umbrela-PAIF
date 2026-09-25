@@ -442,6 +442,144 @@ function avatarConteudoHTML(p, size) {
   return escapeHtml((p.responsavel || "?").trim().charAt(0).toUpperCase() || "?");
 }
 
+/* ---------------------------- Mascote "Umbrella" ---------------------------- */
+// Pequeno assistente visual — um guarda-chuva com rosto, no mesmo espírito do
+// ícone do app — que fica flutuando no canto da tela e reage ao que já
+// acontece no app: em vez de duplicar mensagens em cada tela, ele "escuta" o
+// toast() central (ver função toast() acima) e muda de expressão e fala de
+// acordo com o tipo de aviso. Também cumprimenta ao entrar e, se clicado sem
+// nenhum aviso recente, sugere uma dica técnica do PAIF/PAF. É só uma camada
+// de interface: não lê nem guarda nenhum dado da família.
+const MASCOTE_CHAVE_MINIMIZADO = "paf_mascote_minimizado";
+let mascoteBubbleTimer = null;
+
+const MASCOTE_DICAS = [
+  "O Protocolo do PAIF orienta reavaliar o Plano a cada 6 meses, ou antes disso se a situação da família mudar.",
+  "Demandas de saúde mental vão para a rede intersetorial — o PAIF não tem caráter terapêutico.",
+  "Indício de violação de direitos? O encaminhamento correto é ao CREAS/PAEFI.",
+  "Dá para anexar vários arquivos de uma vez: segure Ctrl (ou Cmd no Mac) e clique em cada um na janela de seleção.",
+  "Fotos grandes são comprimidas automaticamente ao anexar — não precisa reduzir o arquivo antes.",
+  "A renda per capita, as vulnerabilidades e as situações sociais (seção 03) ajudam a calcular a prioridade da família.",
+  "Um PAF bem preenchido no dia a dia economiza tempo na hora de montar o relatório mensal (RMA).",
+  "\"Objetivos alcançados\" no encerramento exige avaliação conjunta com a família — se não foram, o caminho é ajustar o Plano, não encerrá-lo."
+];
+
+// Corpo do mascote (guarda-chuva com pernas) — só o rosto muda por humor.
+// As cores usam os mesmos tons do tema (--ink, --accent, --gold, --paper),
+// mas em hexadecimal fixo em vez de var(): atributos de apresentação de SVG
+// (fill/stroke como atributo, não como style) nem sempre resolvem custom
+// properties de forma confiável em todos os navegadores — o valor fixo
+// garante que o mascote sempre apareça com as cores certas.
+function mascoteSvg(mood) {
+  const COR_INK = "#1F3A5F", COR_ACCENT = "#2E7D6B", COR_GOLD = "#B98A34", COR_PAPEL = "#FFFEFA";
+  const olhos = mood === "preocupado"
+    ? `<path d="M25 39.5q5-4.5 10 0M49 39.5q5-4.5 10 0" stroke="${COR_INK}" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+       <circle cx="30" cy="46" r="3.1" fill="${COR_INK}"/><circle cx="54" cy="46" r="3.1" fill="${COR_INK}"/>`
+    : `<circle cx="30" cy="45" r="3.4" fill="${COR_INK}"/><circle cx="54" cy="45" r="3.4" fill="${COR_INK}"/>`;
+  const boca = mood === "feliz"
+    ? `<path d="M28 54q14 12 28 0" stroke="${COR_INK}" stroke-width="2.6" stroke-linecap="round" fill="none"/>`
+    : mood === "preocupado"
+    ? `<path d="M30 59q12 -7 24 0" stroke="${COR_INK}" stroke-width="2.3" stroke-linecap="round" fill="none"/>`
+    : mood === "pensativo"
+    ? `<circle cx="42" cy="55" r="2.4" fill="${COR_INK}"/>`
+    : `<path d="M31 55q11 6.5 22 0" stroke="${COR_INK}" stroke-width="2.3" stroke-linecap="round" fill="none"/>`;
+  return `<svg viewBox="0 0 84 84" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <ellipse cx="30" cy="75" rx="4.6" ry="2.6" fill="${COR_INK}" opacity=".8"/>
+    <ellipse cx="54" cy="75" rx="4.6" ry="2.6" fill="${COR_INK}" opacity=".8"/>
+    <path class="mascote-braco" d="M20 50q-11 -3 -13 -14" stroke="${COR_INK}" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    <path d="M42 46v18q0 6 -6 6" stroke="${COR_INK}" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    <path d="M8 46 A34 34 0 0 1 76 46 Q69.5 55 63 46 Q56.5 55 50 46 Q43.5 55 37 46 Q30.5 55 24 46 Q17.5 55 11 46 Q9 48.5 8 46 Z" fill="${COR_ACCENT}"/>
+    <path d="M42 12 A34 34 0 0 1 76 46 Q69.5 55 63 46 Q56.5 55 50 46 Q46 51.5 42 46 Z" fill="${COR_INK}"/>
+    <path d="M11 46 20 46 30 22 42 46 M20 46 42 12 M63 46 50 46" stroke="${COR_PAPEL}" stroke-width="1.1" opacity=".4" fill="none"/>
+    <circle cx="42" cy="10.5" r="2.6" fill="${COR_GOLD}"/>
+    ${olhos}${boca}
+  </svg>`;
+}
+
+function mascoteMoodParaTexto(msg) {
+  const t = (msg || "").toLowerCase();
+  if (/não foi possível|não é imagem|grande demais|acima do limite|cheio ou indisponível|bloqueador|permissão|duplicado|inatividade|falha/.test(t)) return "preocupado";
+  if (/salvo|sincronizado|gerado|enviado para|backup baixado/.test(t)) return "feliz";
+  return "pensativo";
+}
+
+function mascoteRenderizar(mood) {
+  const btn = document.getElementById("mascoteBtn");
+  if (btn) btn.innerHTML = mascoteSvg(mood || "normal");
+}
+
+function mascoteFalar(msg, mood, duracaoMs) {
+  const wrap = document.getElementById("mascoteUmbrella");
+  const bubble = document.getElementById("mascoteBubble");
+  if (!wrap || !bubble || wrap.classList.contains("minimizado")) return;
+  bubble.innerHTML = `${escapeHtml(msg)}<button class="mascote-bubble-fechar" id="mascoteBubbleFechar" type="button" aria-label="Fechar dica">×</button>`;
+  document.getElementById("mascoteBubbleFechar")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    bubble.classList.remove("show");
+  });
+  mascoteRenderizar(mood);
+  bubble.classList.add("show");
+  clearTimeout(mascoteBubbleTimer);
+  mascoteBubbleTimer = setTimeout(() => bubble.classList.remove("show"), duracaoMs || 4400);
+}
+
+// Chamado de dentro do toast() central — assim o mascote acompanha todo
+// aviso/confirmação que já existe no app, sem precisar duplicar chamadas em
+// cada tela nem manter uma segunda lista de mensagens.
+function mascoteReagirAoToast(msg) {
+  mascoteFalar(msg, mascoteMoodParaTexto(msg));
+}
+
+function mascoteSaudar() {
+  if (state.mascoteSaudou) return;
+  state.mascoteSaudou = true;
+  const wrap = document.getElementById("mascoteUmbrella");
+  if (wrap && !wrap.classList.contains("minimizado")) {
+    wrap.classList.add("aceno");
+    setTimeout(() => wrap.classList.remove("aceno"), 1700);
+    setTimeout(() => mascoteFalar("Olá! Sou o Umbrella — vou acompanhar você por aqui.", "feliz", 4600), 300);
+  }
+}
+
+function mascoteAlternarMinimizado() {
+  const wrap = document.getElementById("mascoteUmbrella");
+  if (!wrap) return;
+  const minimizado = wrap.classList.toggle("minimizado");
+  try { localStorage.setItem(MASCOTE_CHAVE_MINIMIZADO, minimizado ? "1" : "0"); } catch (err) { /* ignora */ }
+  if (!minimizado) mascoteRenderizar("normal");
+}
+
+function initMascote() {
+  const wrap = document.getElementById("mascoteUmbrella");
+  const btn = document.getElementById("mascoteBtn");
+  if (!wrap || !btn) return;
+  let minimizado = false;
+  try { minimizado = localStorage.getItem(MASCOTE_CHAVE_MINIMIZADO) === "1"; } catch (err) { /* ignora */ }
+  if (minimizado) wrap.classList.add("minimizado");
+  mascoteRenderizar("normal");
+  btn.addEventListener("click", () => {
+    if (mascotePressLongo) { mascotePressLongo = false; return; }
+    if (wrap.classList.contains("minimizado")) { mascoteAlternarMinimizado(); return; }
+    const dica = MASCOTE_DICAS[Math.floor(Math.random() * MASCOTE_DICAS.length)];
+    mascoteFalar(dica, "pensativo", 6200);
+  });
+  // Clique demorado (segurar) minimiza — não some com um único toque, para
+  // não ser fácil de derrubar sem querer. Sem o "mascotePressLongo", o mesmo
+  // toque que aciona o segurar geraria, ao soltar, um evento "click" comum
+  // logo em seguida — que reabriria o mascote na mesma hora (o clique do
+  // pointerup e o clique nativo do botão são o mesmo gesto).
+  let pressTimer = null;
+  let mascotePressLongo = false;
+  btn.addEventListener("pointerdown", () => {
+    mascotePressLongo = false;
+    pressTimer = setTimeout(() => {
+      mascotePressLongo = true;
+      mascoteAlternarMinimizado();
+    }, 650);
+  });
+  ["pointerup", "pointerleave"].forEach(ev => btn.addEventListener(ev, () => clearTimeout(pressTimer)));
+}
+
 // Ícone dos Aspectos Psicossociais e Instrumentais Técnicos (genograma/ecomapa):
 // três núcleos entrelaçados por linhas de geração, no mesmo vocabulário de traço
 // fino dos demais ícones do app — referência visual à leitura sistêmica dos
@@ -817,7 +955,8 @@ const state = {
   railOpen: false,
   currentUser: null,         // usuário autenticado (Firebase Auth) ou null
   pendentes: false,          // há escritas ainda não enviadas ao servidor (fila offline do Firestore)
-  authError: ""
+  authError: "",
+  mascoteSaudou: false       // já mostrou a saudação do mascote Umbrella nesta sessão?
 };
 
 function uid() {
@@ -1246,6 +1385,7 @@ function toast(msg, duracaoMs) {
   el.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), duracaoMs || 2600);
+  mascoteReagirAoToast(msg);
 }
 
 // Deixa um modal recém-inserido (via innerHTML) acessível por teclado e leitor
@@ -2887,6 +3027,7 @@ function initAuth() {
       state.current = null;
       state.pendentes = false;
       state.view = "home";
+      state.mascoteSaudou = false;
       limparCacheLocalSensivel();
       showAuthScreen();
       try {
@@ -2904,6 +3045,7 @@ function initAuth() {
 /* ---------------------------- Armazenamento (Firestore / local) ---------------------------- */
 
 function initStorage() {
+  mascoteSaudar();
   if (firebaseConfigured()) {
     try {
       state.db = firebase.firestore();
@@ -5774,5 +5916,6 @@ window.addEventListener("DOMContentLoaded", () => {
       <span class="login-pilar-item">${pilarIconSvg(id, 14)}<em>${id === "acolhida" ? "Acolhida" : id === "convivio" ? "Convívio" : "Autonomia"}</em></span>
     `).join("");
   }
+  initMascote();
   initAuth();
 });
