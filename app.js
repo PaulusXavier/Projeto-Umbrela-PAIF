@@ -492,18 +492,42 @@ function pilaresPaifStripHTML() {
 // Em modo local (sem Firebase configurado) os anexos continuam embutidos no
 // próprio registro salvo no localStorage deste aparelho, então os limites ali
 // seguem ligados ao espaço (bem mais apertado) do navegador.
-const ANEXO_AVISO_BYTES_CLOUD = 800 * 1024;        // aviso por arquivo, perto do limite (nuvem)
-const ANEXO_MAX_BYTES_CLOUD = 950 * 1024;          // recusa por arquivo — limite do próprio documento do Firestore (nuvem)
-const ANEXO_TOTAL_AVISO_CLOUD = 10 * 1024 * 1024;  // aviso quando a SOMA dos anexos do PAF ficar grande (nuvem)
-const ANEXO_TOTAL_MAX_CLOUD = 20 * 1024 * 1024;    // teto de bom senso para a soma por PAF (nuvem)
+// --- Limite por arquivo (nuvem): calculado a partir do limite REAL do Firestore ---
+// O Firestore recusa qualquer documento com mais de 1.048.576 bytes (1 MiB) no
+// total de seus campos. O arquivo não é salvo em bytes crus — vira uma string
+// Base64 dentro do campo "dataURL", e Base64 é ~33% maior que o arquivo
+// original (4 caracteres para cada 3 bytes). A conta certa, com folga para o
+// prefixo "data:...;base64," e os demais campos do documento (id, nome, tipo,
+// addedAt), é: bytes_originais_max ≈ (1.048.576 − ~4.000 de folga) × 0,75.
+// Isso dá ~765 KB — não os 950 KB usados antes (que, na prática, geravam uma
+// string Base64 de ~1,27 MB e o Firestore recusava o anexo silenciosamente
+// na sincronização). Este é o valor mais alto que ainda é seguro.
+const ANEXO_AVISO_BYTES_CLOUD = 620 * 1024;        // aviso por arquivo, perto do limite (nuvem)
+const ANEXO_MAX_BYTES_CLOUD = 750 * 1024;          // recusa por arquivo — máximo real e seguro do documento do Firestore (nuvem)
+
+// --- Soma por PAF (nuvem): não é uma exigência técnica do Firestore (cada
+// anexo já é um documento próprio na subcoleção) — é só um teto de bom senso
+// para a ficha continuar rápida de abrir e para o custo do projeto ficar
+// previsível dentro do plano gratuito (1 GiB de armazenamento total no
+// Firestore, compartilhado por TODOS os PAFs). Elevado de 20 MB para 50 MB:
+// dá bem mais espaço por família sem deixar uma única família capaz de
+// consumir sozinha uma fatia grande demais da cota gratuita do projeto.
+const ANEXO_TOTAL_AVISO_CLOUD = 35 * 1024 * 1024;  // aviso quando a SOMA dos anexos do PAF ficar grande (nuvem)
+const ANEXO_TOTAL_MAX_CLOUD = 50 * 1024 * 1024;    // teto de bom senso para a soma por PAF (nuvem)
 
 const ANEXO_AVISO_BYTES_LOCAL = 3.5 * 1024 * 1024; // aviso por arquivo (modo local)
 const ANEXO_MAX_BYTES_LOCAL = 5 * 1024 * 1024;     // recusa por arquivo (modo local)
 const ANEXO_TOTAL_AVISO_LOCAL = 4.5 * 1024 * 1024; // aviso para a soma por PAF (modo local)
 const ANEXO_TOTAL_MAX_LOCAL = 6 * 1024 * 1024;     // teto para a soma por PAF — limitado pelo espaço do navegador (modo local)
+// (Os valores locais ficam como estavam: o localStorage do navegador costuma
+// ter só 5–10 MB no TOTAL para o site inteiro, somando todos os PAFs — não
+// dá para aumentar isso com segurança sem arriscar erro de "armazenamento
+// cheio" logo no primeiro PAF com anexos.)
 
 const ANEXO_IMG_MAX_DIM = 1600;         // redimensiona imagens maiores que isso
-const ANEXO_IMG_QUALIDADE = 0.72;       // qualidade do JPEG comprimido
+const ANEXO_IMG_QUALIDADE = 0.72;       // qualidade inicial do JPEG comprimido
+const ANEXO_IMG_QUALIDADE_MIN = 0.35;   // piso de qualidade ao tentar caber no limite
+const ANEXO_IMG_DIM_MIN = 900;          // piso de dimensão ao tentar caber no limite
 
 function anexoAvisoBytes() { return state.mode === "cloud" ? ANEXO_AVISO_BYTES_CLOUD : ANEXO_AVISO_BYTES_LOCAL; }
 function anexoMaxBytes() { return state.mode === "cloud" ? ANEXO_MAX_BYTES_CLOUD : ANEXO_MAX_BYTES_LOCAL; }
@@ -583,7 +607,12 @@ function totalAnexosBytes(paf) {
   return (paf.anexos || []).reduce((sum, a) => sum + (a.tamanho || 0), 0);
 }
 
-function comprimirImagem(file) {
+// Comprime a imagem e, se o resultado ainda não couber em "maxBytes", tenta
+// de novo com qualidade progressivamente menor (e, em último caso, dimensões
+// menores) em vez de simplesmente recusar o arquivo. Isso aproveita ao máximo
+// o espaço disponível por anexo: uma foto de celular que sairia grande demais
+// na qualidade padrão normalmente ainda cabe, só um pouco mais compacta.
+function comprimirImagem(file, maxBytes) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
@@ -591,20 +620,41 @@ function comprimirImagem(file) {
       const img = new Image();
       img.onerror = () => reject(new Error("Falha ao processar a imagem."));
       img.onload = () => {
-        let { width, height } = img;
-        if (width > ANEXO_IMG_MAX_DIM || height > ANEXO_IMG_MAX_DIM) {
-          const escala = ANEXO_IMG_MAX_DIM / Math.max(width, height);
-          width = Math.round(width * escala);
-          height = Math.round(height * escala);
-        }
         const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
         const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", ANEXO_IMG_QUALIDADE));
+
+        function renderizar(dim, qualidade) {
+          let { width, height } = img;
+          if (width > dim || height > dim) {
+            const escala = dim / Math.max(width, height);
+            width = Math.round(width * escala);
+            height = Math.round(height * escala);
+          }
+          canvas.width = width;
+          canvas.height = height;
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          return canvas.toDataURL("image/jpeg", qualidade);
+        }
+
+        let dim = ANEXO_IMG_MAX_DIM;
+        let qualidade = ANEXO_IMG_QUALIDADE;
+        let dataURL = renderizar(dim, qualidade);
+
+        // Passo 1: reduz a qualidade JPEG em etapas até o piso mínimo.
+        while (maxBytes && dataURLBytes(dataURL) > maxBytes && qualidade > ANEXO_IMG_QUALIDADE_MIN) {
+          qualidade = Math.max(ANEXO_IMG_QUALIDADE_MIN, qualidade - 0.12);
+          dataURL = renderizar(dim, qualidade);
+        }
+        // Passo 2: se ainda não coube nem na qualidade mínima (foto muito
+        // grande/detalhada), reduz também as dimensões até o piso mínimo.
+        while (maxBytes && dataURLBytes(dataURL) > maxBytes && dim > ANEXO_IMG_DIM_MIN) {
+          dim = Math.max(ANEXO_IMG_DIM_MIN, Math.round(dim * 0.85));
+          dataURL = renderizar(dim, qualidade);
+        }
+
+        resolve(dataURL);
       };
       img.src = reader.result;
     };
@@ -639,7 +689,7 @@ async function adicionarAnexos(fileList) {
       continue;
     }
     try {
-      const dataURL = ehImagem ? await comprimirImagem(file) : await lerArquivoComoDataURL(file);
+      const dataURL = ehImagem ? await comprimirImagem(file, anexoMaxBytes()) : await lerArquivoComoDataURL(file);
       const tamanho = dataURLBytes(dataURL);
 
       if (tamanho > anexoMaxBytes()) {
