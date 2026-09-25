@@ -1428,3 +1428,69 @@ main { flex: 1; display: flex; min-height: 0; }
 .login-hint a:hover { border-bottom-color: currentColor; }
 .login-hint { text-align: center; font-size: var(--text-xs); color: var(--ink-faint); margin-top: 16px; }
 .login-hint + .login-hint { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line); }
+
+/* ---------------------------- Mascote "Umbrella" ---------------------------- */
+/* Assistente visual baseado no ícone do app: fica flutuando no canto da tela,
+   reage aos avisos/confirmações do app (ver toast() em app.js) e dá dicas do
+   PAIF/PAF quando clicado. Pode ser minimizado — a preferência fica salva
+   neste aparelho (não é sincronizada entre dispositivos, é só de interface). */
+.mascote-wrap {
+  position: fixed; right: 18px; bottom: 18px; z-index: 210;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  color: var(--ink);
+}
+.mascote-btn {
+  width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); cursor: pointer;
+  background: var(--paper); box-shadow: var(--shadow-lift); padding: 7px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  animation: mascoteFlutuar 3.4s ease-in-out infinite;
+  transition: transform .15s, width .18s, height .18s, opacity .18s;
+}
+.mascote-btn:hover { transform: scale(1.06); }
+.mascote-btn:active { transform: scale(.95); }
+.mascote-btn svg { width: 100%; height: 100%; overflow: visible; }
+@keyframes mascoteFlutuar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.mascote-wrap.aceno .mascote-btn { animation: mascoteFlutuar 3.4s ease-in-out infinite, mascoteAceno .55s ease-in-out 3; }
+@keyframes mascoteAceno {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-7deg); }
+  75% { transform: rotate(7deg); }
+}
+.mascote-braco { transform-origin: 20px 50px; }
+.mascote-wrap.aceno .mascote-braco { animation: mascoteBracoAceno .5s ease-in-out 3; }
+@keyframes mascoteBracoAceno {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-30deg); }
+}
+.mascote-wrap.minimizado .mascote-btn {
+  width: 30px; height: 30px; opacity: .55; animation: none; box-shadow: var(--shadow-sm);
+}
+.mascote-wrap.minimizado .mascote-bubble { display: none; }
+
+.mascote-bubble {
+  max-width: 230px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift); padding: 10px 26px 10px 14px; font-size: var(--text-sm); color: var(--ink);
+  line-height: 1.4; position: relative; opacity: 0; transform: translateY(6px) scale(.96); pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+.mascote-bubble.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.mascote-bubble::after {
+  content: ""; position: absolute; right: 24px; bottom: -7px; width: 13px; height: 13px;
+  background: var(--paper); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  transform: rotate(45deg);
+}
+.mascote-bubble-fechar {
+  position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--paper-soft); color: var(--ink-faint); border: none; cursor: pointer; font-size: 12px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.mascote-bubble-fechar:hover { background: var(--accent-soft); color: var(--accent-dark); }
+
+@media (max-width: 640px) {
+  .mascote-wrap { right: 12px; bottom: 12px; }
+  .mascote-btn { width: 48px; height: 48px; }
+  .mascote-bubble { max-width: 190px; }
+}
