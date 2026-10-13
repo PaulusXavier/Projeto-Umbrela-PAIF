@@ -1494,3 +1494,85 @@ main { flex: 1; display: flex; min-height: 0; }
   .mascote-btn { width: 48px; height: 48px; }
   .mascote-bubble { max-width: 190px; }
 }
+
+/* ---------------------------- Paulus (painel de conversa do mascote) ---------------------------- */
+/* Painel flutuante acima do mascote. Montado por paulus-umbrella.js; usa os mesmos tokens do tema. */
+.paulus-panel {
+  position: fixed; right: 18px; bottom: 88px; z-index: 215;
+  width: min(380px, calc(100vw - 24px)); height: min(560px, calc(100vh - 110px));
+  display: flex; flex-direction: column; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); overflow: hidden;
+}
+.paulus-panel[hidden] { display: none !important; }
+.paulus-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; background: var(--ink); color: #fff;
+}
+.paulus-head-title { display: flex; flex-direction: column; line-height: 1.2; }
+.paulus-head-title strong { font-family: var(--font-display); font-size: var(--text-md); }
+.paulus-head-title span { font-size: var(--text-2xs); opacity: .75; letter-spacing: .03em; }
+.paulus-head-actions { display: flex; align-items: center; gap: 6px; }
+.paulus-icon-btn {
+  background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.22);
+  border-radius: var(--radius-sm); padding: 4px 8px; font-size: var(--text-xs); cursor: pointer; font-family: inherit;
+}
+.paulus-icon-btn:hover { background: rgba(255,255,255,.22); }
+.paulus-close { font-size: 16px; line-height: 1; padding: 2px 8px; }
+.paulus-status {
+  padding: 6px 12px; font-size: var(--text-xs); background: var(--gold-soft); color: var(--gold-dark);
+  border-bottom: 1px solid var(--line);
+}
+.paulus-log {
+  flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--paper-soft);
+}
+.paulus-msg {
+  max-width: 88%; padding: 8px 11px; border-radius: var(--radius); font-size: var(--text-sm); line-height: 1.45;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.paulus-msg p { margin: 0 0 6px; }
+.paulus-msg p:last-child { margin-bottom: 0; }
+.paulus-msg ul { margin: 4px 0 6px; padding-left: 18px; }
+.paulus-paulus { align-self: flex-start; background: var(--paper); border: 1px solid var(--line); }
+.paulus-usuario { align-self: flex-end; background: var(--accent); color: #fff; }
+.paulus-oculta { background: var(--slate-soft); color: var(--ink-soft); font-style: italic; }
+.paulus-digitando { color: var(--ink-faint); font-style: italic; }
+.paulus-aviso { font-size: var(--text-xs); color: var(--ink-faint); margin-top: 6px !important; }
+.paulus-fontes { margin-top: 6px; font-size: var(--text-xs); color: var(--ink-soft); }
+.paulus-fontes summary { cursor: pointer; font-weight: 600; color: var(--accent-dark); }
+.paulus-fontes ul { margin: 4px 0 0; padding-left: 16px; }
+.paulus-telefones { list-style: none; padding: 0 !important; margin: 8px 0 0 !important; display: flex; flex-direction: column; gap: 4px; }
+.paulus-telefones a {
+  display: inline-block; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--danger-soft);
+  color: var(--danger); font-weight: 600; text-decoration: none; border: 1px solid var(--danger);
+}
+.paulus-chips, .paulus-confirm { display: flex; flex-wrap: wrap; gap: 6px; }
+.paulus-chips { padding: 6px 12px 0; background: var(--paper-soft); }
+.paulus-chips:empty { display: none; }
+.paulus-confirm { margin-top: 8px; }
+.paulus-chip {
+  background: var(--paper); color: var(--accent-dark); border: 1px solid var(--accent); border-radius: 999px;
+  padding: 4px 10px; font-size: var(--text-xs); cursor: pointer; font-family: inherit; text-align: left;
+}
+.paulus-chip:hover { background: var(--accent-soft); }
+.paulus-chip-ok { background: var(--accent); color: #fff; }
+.paulus-chip-ok:hover { background: var(--accent-dark); }
+.paulus-compose { display: flex; gap: 6px; padding: 8px 12px; background: var(--paper-soft); }
+.paulus-input {
+  flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font: inherit; font-size: var(--text-sm); background: var(--paper); color: var(--ink);
+}
+.paulus-send, .paulus-stop {
+  border: none; border-radius: var(--radius-sm); padding: 8px 12px; font: inherit; font-size: var(--text-sm);
+  font-weight: 600; cursor: pointer; color: #fff; background: var(--accent);
+}
+.paulus-send:hover { background: var(--accent-dark); }
+.paulus-stop { background: var(--danger); }
+.paulus-send[hidden], .paulus-stop[hidden] { display: none; }
+.paulus-note {
+  margin: 0; padding: 0 12px 8px; background: var(--paper-soft); font-size: var(--text-2xs); color: var(--ink-faint); line-height: 1.35;
+}
+@media (max-width: 640px) {
+  .paulus-panel { right: 12px; left: 12px; width: auto; bottom: 74px; height: min(70vh, calc(100vh - 96px)); }
+  .paulus-input { font-size: 16px; }   /* evita o zoom automático do iOS ao focar */
+}
+@media print { .paulus-panel { display: none !important; } }
