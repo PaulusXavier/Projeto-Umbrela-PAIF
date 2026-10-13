@@ -183,7 +183,39 @@ os registros só para si (não compartilha com os outros).
   Vulnerabilidades, Equipe e rede, Metas do Plano, Evolução mensal). O botão "Imprimir /
   Baixar PDF" respeita os filtros ativos no momento.
 
-## 4. Fundamentação técnica
+## 4. Assistente Paulus (IA)
+
+O mascote do app agora abre uma conversa com o **Paulus**, o copiloto de IA compartilhado pelos apps
+(repositório `Paulus`). Ele tira dúvidas do PAIF/SUAS **citando a norma** (documento e artigo) quando a
+base tem, explica como usar o app e abre telas ("abrir prioridades", "abrir gráficos", "abrir
+configurações", "abrir novo PAF" — este pede confirmação, porque cria um PAF em branco).
+
+**Privacidade (não negociável):** o Paulus **não lê nenhum dado do app**. Nem PAFs, nem anexos, nem
+Firestore. Só vai para o Worker a pergunta digitada (já filtrada: bloqueia nome, documento, telefone e
+endereço residencial), as últimas mensagens da conversa e o nome genérico da tela. A resposta é inserida
+na tela como texto, nunca como HTML. Ao sair da conta ou por inatividade, a conversa é apagada.
+
+**Ativar a IA (uma vez):**
+
+1. Publique o Worker do Paulus na Cloudflare (`docs/DEPLOY.md` do repositório Paulus) e **publique de
+   novo** sempre que o texto do Umbrella em `worker/apps.mjs` mudar.
+2. Em `paulus-umbrella.js`, preencha `PAULUS_ENDPOINT` com o endereço do Worker
+   (`https://paulus-ia.SEU-NOME.workers.dev`).
+3. No `wrangler.toml` do Paulus, confirme que `ALLOWED_ORIGINS` inclui o **domínio** onde o Umbrella
+   está publicado (só o domínio, sem caminho: `https://SEU-USUARIO.github.io`).
+
+Enquanto `PAULUS_ENDPOINT` estiver vazio, o painel funciona **só com a base de normas, no aparelho**
+(sem IA, sem internet). O mesmo acontece quando o aparelho está offline ou a cota diária da IA acaba.
+
+**Atualizar o Paulus:** no repositório do Paulus rode `npm run build`, copie `dist/paulus.v1.js` para
+`paulus.v1.js` e `dist/conhecimento-geral.json` para `conhecimento.json` (use o pacote *geral*, ~0,4 MB;
+não o `conhecimento.json` inteiro do Paulus, que passa de 7 MB) e aumente o número de `CACHE_NAME` em
+`sw.js`.
+
+---
+
+## 5. Fundamentação técnica
+
 
 Além do formulário original em Word, o conteúdo do app (campos, notas técnicas
 e checklists) foi organizado com base em:
@@ -283,7 +315,7 @@ Nenhum desses documentos substitui o julgamento técnico da equipe do CRAS —
 servem apenas como referência para orientar o preenchimento e a leitura do
 Plano.
 
-## 5. Arquivos do projeto
+## 6. Arquivos do projeto
 
 | Arquivo | Função |
 |---|---|
@@ -292,6 +324,9 @@ Plano.
 | `app.js` | Toda a lógica: formulário, sincronização, exportação |
 | `firebase-config.js` | Chaves do seu projeto Firebase (editar conforme passo 1) |
 | `manifest.json` / `sw.js` | Tornam o app instalável e utilizável offline |
+| `paulus.v1.js` | Módulo do Paulus (cópia local, gerada no repositório Paulus: `npm run build`) |
+| `paulus-umbrella.js` | Liga o Paulus ao app: painel de conversa, telas que ele abre e regras de privacidade |
+| `conhecimento.json` | Base de normas leve do Paulus (leis e decretos), usada também offline |
 | `icon-192.png` / `icon-512.png` | Ícones do app |
 
 ---
