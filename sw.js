@@ -1,14 +1,15 @@
-const CACHE_NAME = 'paf-paif-v47';
+const CACHE_NAME = 'paf-paif-v48';
 
 // Arquivos "essenciais" do app: sempre tentamos buscar a versão mais nova na rede
 // primeiro, e só usamos o cache se o dispositivo estiver offline. Isso garante que
 // qualquer alteração publicada apareça automaticamente, sem precisar trocar o número
 // de versão do cache manualmente.
-const CORE_ASSETS = ['./', './index.html', './styles.css', './app.js', './firebase-config.js'];
+const CORE_ASSETS = ['./', './index.html', './styles.css', './app.js', './firebase-config.js', './paulus.v1.js', './paulus-umbrella.js'];
 
 // Arquivos estáticos que raramente mudam (ícones, manifesto): cache primeiro,
 // com fallback para a rede.
-const STATIC_ASSETS = ['./manifest.json', './icon-192.png', './icon-512.png'];
+// conhecimento.json = base de normas do Paulus (pacote leve): cache primeiro; ao atualizá-la, troque o CACHE_NAME.
+const STATIC_ASSETS = ['./manifest.json', './icon-192.png', './icon-512.png', './conhecimento.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
