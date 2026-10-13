@@ -560,6 +560,8 @@ function initMascote() {
   btn.addEventListener("click", () => {
     if (mascotePressLongo) { mascotePressLongo = false; return; }
     if (wrap.classList.contains("minimizado")) { mascoteAlternarMinimizado(); return; }
+    // Paulus (copiloto de IA): abre o painel de conversa. Se não carregou ou ainda não há sessão, cai na dica.
+    if (typeof paulusAbrir === "function" && paulusAbrir()) return;
     const dica = MASCOTE_DICAS[Math.floor(Math.random() * MASCOTE_DICAS.length)];
     mascoteFalar(dica, "pensativo", 6200);
   });
@@ -3028,6 +3030,7 @@ function initAuth() {
       state.pendentes = false;
       state.view = "home";
       state.mascoteSaudou = false;
+      if (typeof paulusEncerrar === "function") paulusEncerrar();   // apaga a conversa e o histórico do Paulus
       limparCacheLocalSensivel();
       showAuthScreen();
       try {
