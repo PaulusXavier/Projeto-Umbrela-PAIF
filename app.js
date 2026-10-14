@@ -454,15 +454,74 @@ const MASCOTE_CHAVE_MINIMIZADO = "paf_mascote_minimizado";
 let mascoteBubbleTimer = null;
 
 const MASCOTE_DICAS = [
-  "O Protocolo do PAIF orienta reavaliar o Plano a cada 6 meses, ou antes disso se a situação da família mudar.",
-  "Demandas de saúde mental vão para a rede intersetorial — o PAIF não tem caráter terapêutico.",
-  "Indício de violação de direitos? O encaminhamento correto é ao CREAS/PAEFI.",
+  "Acompanhamento não é a mesma coisa que atendimento: atendimento é pontual; acompanhamento é um processo, com Plano (PAF), prazos e vários encontros.",
+  "O PAF se constrói COM a família, não para ela: a família é sujeito do plano. Combine prazos e uma data de retorno para avaliar juntos.",
+  "Quanto reavaliar o Plano? Guias do PAIF recomendam encontros periódicos de monitoramento (um deles fala em no mínimo 6 por ano). Não é norma nacional: confira o protocolo do seu município.",
+  "Se a situação da família mudou, o Plano pode ser readequado a qualquer momento: novas ações, novos prazos.",
+  "Demandas de saúde mental vão para a rede intersetorial (saúde/RAPS). O PAIF não tem caráter terapêutico.",
+  "Indício de violação de direitos? O encaminhamento é ao CREAS/PAEFI. O PAIF previne e fortalece vínculos; o PAEFI atua quando o direito já foi violado.",
+  "Participar do PAIF é voluntário: não pode ser imposto como condicionalidade do Bolsa Família.",
+  "Prioridade orienta a busca ativa, não o direito de ser atendida: toda família do território pode procurar o CRAS.",
+  "Oficina com famílias: as Orientações Técnicas do MDS sugerem de 7 a 15 participantes e de 60 a 120 minutos. Ela não deve ser a única forma de atendimento.",
+  "Na acolhida você decide, com o estudo social, se a família precisa de acompanhamento ou se o atendimento já resolve.",
+  "Visita domiciliar no PAIF é agendada, exige o consentimento da família e não tem caráter fiscalizatório.",
+  "Sempre que fizer sentido, prefira ações coletivas (oficinas, grupos, ações comunitárias) às particularizadas, sem negar o atendimento individual.",
+  "Cuidado para não culpabilizar a família nem sobrecarregar a mulher: o Estado deve apoiar a função protetiva da família, e não penalizá-la.",
+  "Nem toda família atendida precisa ser acompanhada. O PAF é para quem tem vulnerabilidades que pedem um processo, com plano e prazos.",
+  "Encaminhou? Combine a contrarreferência: a família precisa voltar ao acompanhamento no território depois do atendimento especializado.",
   "Dá para anexar vários arquivos de uma vez: segure Ctrl (ou Cmd no Mac) e clique em cada um na janela de seleção.",
   "Fotos grandes são comprimidas automaticamente ao anexar — não precisa reduzir o arquivo antes.",
   "A renda per capita, as vulnerabilidades e as situações sociais (seção 03) ajudam a calcular a prioridade da família.",
   "Um PAF bem preenchido no dia a dia economiza tempo na hora de montar o relatório mensal (RMA).",
   "\"Objetivos alcançados\" no encerramento exige avaliação conjunta com a família — se não foram, o caminho é ajustar o Plano, não encerrá-lo."
 ];
+
+// Dica técnica de cada seção do formulário: aparece uma vez por sessão, quando a pessoa abre a seção.
+// Só orientação geral do PAIF: nada aqui lê ou usa dado da família.
+const MASCOTE_DICAS_SECAO = {
+  cabecalho: "Comece pelo básico: quem é a família de referência, o CRAS e o técnico responsável. No PAIF, o acompanhamento começa na acolhida.",
+  familia: "Liste todos os membros, inclusive quem cuida de quem. A leitura da família como um todo (e não de um indivíduo) é a base do trabalho social do PAIF.",
+  diagnostico: "O diagnóstico olha para vulnerabilidades E potencialidades da família e do território. Evite rótulos como \"desestruturada\": descreva a situação.",
+  grupo: "O PAIF dá preferência às ações coletivas: grupos, oficinas e ações comunitárias. Registre aqui em quais a família participa.",
+  encaminhamentos: "Encaminhamento é do serviço menos complexo para o mais complexo (do CRAS ao CREAS) e pede contrarreferência para a família voltar ao território.",
+  programas: "Bolsa Família, BPC e CadÚnico: acompanhar a família não é condição para manter benefício. A participação no PAIF é voluntária.",
+  beneficioEventual: "Benefícios eventuais estão previstos na LOAS (art. 22); a concessão segue a regra municipal. Confira a lei local.",
+  rede: "Mapeie quem já atende a família: saúde, escola, SCFV, CREAS. O PAIF trabalha em rede, com fluxos pactuados de referência e contrarreferência.",
+  metas: "Metas pequenas, com prazo e combinadas com a família funcionam melhor. Registre a evolução para avaliar o plano na data de retorno.",
+  estrategias: "Estratégias: que ações individuais, coletivas e de rede vão sustentar cada meta? Lembre das ações comunitárias quando o problema for do território.",
+  plano: "O Plano é construído com a família, com prazos e data de retorno, e pode ser readequado quando a situação mudar.",
+  encerramento: "Encerrar exige avaliar com a família se os objetivos foram alcançados. Se não foram, o caminho é ajustar o Plano, não encerrar.",
+  anexos: "Anexe só o que for necessário ao acompanhamento. Os documentos têm informação sigilosa: sigilo profissional e LGPD valem aqui também.",
+  observacoes: "Registre fatos e o que a família disse, sem juízo de valor. O prontuário pode ser lido por outros profissionais e pela própria família.",
+  graficos: "Os gráficos desta família ajudam a ver a evolução. Use junto com a conversa com a família, não no lugar dela."
+};
+
+// Pergunta que o Paulus oferece como botão quando a pessoa está em cada seção (vira a primeira sugestão do painel).
+const MASCOTE_PERGUNTAS_SECAO = {
+  cabecalho: "como começa o acompanhamento familiar no PAIF?",
+  familia: "como fazer a leitura da família no PAIF?",
+  diagnostico: "como fazer o diagnóstico sem rotular a família?",
+  grupo: "quando usar oficina, grupo ou ação comunitária?",
+  encaminhamentos: "como funciona encaminhamento e contrarreferência?",
+  programas: "o PAIF pode ser exigido como condicionalidade do Bolsa Família?",
+  beneficioEventual: "o que são benefícios eventuais?",
+  rede: "como trabalhar em rede no PAIF?",
+  metas: "como definir metas do PAF com a família?",
+  estrategias: "quais ações o PAIF pode usar no plano?",
+  plano: "como construir o PAF junto com a família?",
+  encerramento: "quando encerrar o acompanhamento familiar?",
+  anexos: "que cuidados ter com sigilo e anexos?",
+  observacoes: "como registrar observações no prontuário?"
+};
+
+// Mostra a dica da seção uma vez por sessão (não repete a cada clique nem atrapalha quem já conhece).
+const mascoteSecoesVistas = new Set();
+function mascoteDicaDaSecao(secaoId) {
+  const dica = MASCOTE_DICAS_SECAO[secaoId];
+  if (!dica || mascoteSecoesVistas.has(secaoId)) return;
+  mascoteSecoesVistas.add(secaoId);
+  mascoteFalar(dica, "pensativo", 8000);
+}
 
 // Corpo do mascote (guarda-chuva com pernas) — só o rosto muda por humor.
 // As cores usam os mesmos tons do tema (--ink, --accent, --gold, --paper),
@@ -4529,6 +4588,7 @@ function attachEditorHandlers() {
       state.railOpen = false;
       document.getElementById("railOverlay")?.classList.remove("show");
       renderApp();
+      mascoteDicaDaSecao(state.activeSection);
     });
   });
 
