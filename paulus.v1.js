@@ -267,7 +267,12 @@ const SIGLAS = {
   caps: ['centro', 'atencao', 'psicossocial'],
   raps: ['rede', 'atencao', 'psicossocial'],
   pcd: ['pessoa', 'deficiencia'],
-  mds: ['ministerio', 'desenvolvimento', 'social']
+  mds: ['ministerio', 'desenvolvimento', 'social'],
+  paf: ['plano', 'acompanhamento', 'familiar'],
+  tsft: ['trabalho', 'social', 'familias', 'territorios'],
+  rma: ['relatorio', 'mensal', 'atendimentos'],
+  gpte: ['grupos', 'populacionais', 'tradicionais', 'especificos'],
+  spsbd: ['servico', 'protecao', 'social', 'basica', 'domicilio']
 };
 
 // Quantos trechos da base vão para a IA e para a resposta offline.
@@ -543,20 +548,26 @@ const SKINS = {
   anona: {
     app: 'anona',
     mascote: 'Anona',
-    saudacao: 'Oi! Eu sou o Paulus, aqui como Anona. Posso explicar o app e as regras de condicionalidades.',
-    sugestoes: ['como funciona o acompanhamento de condicionalidades?', 'abrir calendário']
+    saudacao: 'Oi! Eu sou o Paulus, aqui como Anona. Posso explicar o app, abrir cartões e tirar dúvidas sobre condicionalidades. Não tenho acesso às suas notas nem às planilhas das famílias.',
+    sugestoes: ['como funciona o acompanhamento de condicionalidades?', 'o que é a repercussão?', 'abrir calendário']
   },
   toth: {
     app: 'toth',
     mascote: 'Toth',
-    saudacao: 'Oi! Eu sou o Paulus, aqui como Toth. Posso ajudar a usar o diário de campo e a achar telas e funções.',
-    sugestoes: ['como organizar um registro de campo?', 'abrir registros']
+    saudacao: 'Oi! Eu sou o Paulus, aqui como Toth. Posso explicar o app, abrir filtros e tirar dúvidas do SUAS e da prática da psicologia. Não tenho acesso aos seus registros.',
+    sugestoes: ['como estruturar o registro de um atendimento?', 'o que o CFP orienta sobre sigilo no registro?', 'abrir acompanhamento']
+  },
+  grafia: {
+    app: 'grafia',
+    mascote: 'Grafia',
+    saudacao: 'Oi! Eu sou o Paulus, aqui como Grafia. Posso explicar o app, abrir uma nova nota e tirar dúvidas do SUAS e da escrita técnica. Não tenho acesso às suas notas.',
+    sugestoes: ['como estruturar uma anotação profissional?', 'o que o CFP orienta sobre sigilo e guarda de registros?', 'nova nota']
   },
   umbrella: {
     app: 'umbrella',
     mascote: 'Umbrella',
     saudacao: 'Oi! Eu sou o Paulus, aqui como Umbrella. Posso ajudar a usar o app, abrir telas e tirar dúvidas do PAIF e do SUAS. Não tenho acesso aos dados das famílias.',
-    sugestoes: ['como funciona o Formulário de Encaminhamento?', 'quando reavaliar o Plano de Acompanhamento?', 'abrir prioridades']
+    sugestoes: ['qual a diferença entre atendimento e acompanhamento?', 'como construir o PAF junto com a família?', 'abrir prioridades']
   }
 };
 
