@@ -59,7 +59,13 @@
   // Só o NOME GENÉRICO da tela (nunca o PAF aberto, nome de família ou seção preenchida).
   function abaAtual() {
     const mapa = { home: "registros", editor: "formulario do PAF", dashboard: "graficos", prioridades: "prioridades" };
-    return mapa[state && state.view] || "";
+    let aba = mapa[state && state.view] || "";
+    // No formulário, também o NOME da seção aberta (ex.: "Diagnóstico"): é o título fixo da seção, nunca o conteúdo preenchido.
+    if (state && state.view === "editor" && typeof SECTIONS !== "undefined") {
+      const sec = SECTIONS.find(x => x.id === state.activeSection);
+      if (sec) aba += ", secao " + sec.label;
+    }
+    return aba;
   }
 
   /* ------------------------------------------------------------------ INICIALIZAÇÃO DO PAULUS */
@@ -233,10 +239,19 @@
 
   function chipsIniciais() {
     const sk = Paulus.skin(APP_ID);
-    const base = ((sk && sk.sugestoes) || []).map(t => ({ rotulo: t, texto: t }));
+    const base = [];
+    // No formulário, a primeira sugestão é a pergunta técnica da seção aberta (só o id da seção, nunca o conteúdo).
+    if (state && state.view === "editor" && typeof MASCOTE_PERGUNTAS_SECAO !== "undefined" && MASCOTE_PERGUNTAS_SECAO[state.activeSection]) {
+      const q = MASCOTE_PERGUNTAS_SECAO[state.activeSection];
+      base.push({ rotulo: q, texto: q });
+    }
+    ((sk && sk.sugestoes) || []).forEach(t => base.push({ rotulo: t, texto: t }));
+    base.length = Math.min(base.length, 3);
     base.push({ rotulo: "Dica do PAIF", dica: true });
     chips(base, c => {
       if (c.dica) {
+        const secDica = (typeof MASCOTE_DICAS_SECAO !== "undefined" && state && state.view === "editor") ? MASCOTE_DICAS_SECAO[state.activeSection] : "";
+        if (secDica && Math.random() < 0.5) { mensagem("paulus", secDica); return; }
         const dicas = (typeof MASCOTE_DICAS !== "undefined" && MASCOTE_DICAS.length) ? MASCOTE_DICAS : [];
         if (dicas.length) mensagem("paulus", dicas[Math.floor(Math.random() * dicas.length)]);
       } else enviar(c.texto);
