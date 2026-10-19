@@ -282,6 +282,38 @@ e checklists) foi organizado com base em:
     fundamenta a nota sobre acolhida sem exigência de comprovação e o papel
     preventivo/complementar do PAIF frente ao PAEFI, na seção Sobre o Grupo
     Familiar;
+  - ***Trilha para a primeira infância*** (MDS, v. 4, julho de 2026), que fundamenta,
+    em notas técnicas ao longo do formulário:
+    - **Cabeçalho** — conceito de Trabalho Social com Famílias e Territórios (TSFT) e o
+      ciclo do PAIF em cinco passos (este PAF registra os passos 2 a 4); primeira infância
+      (0 a 6 anos) e gestação, Marco Legal (Lei nº 13.257/2016) e o Serviço de Proteção
+      Social Básica no Domicílio para Gestantes e Crianças — SPSBD-GC (Resolução CIT
+      nº 30/2025, em vigor em 1º/1/2027), complementar e referenciado ao PAIF;
+    - **Membros da Família** — análise da família em sua totalidade, situações de cuidado
+      (cuidador solo, adolescente, com deficiência, sem rede), sobrecarga feminina e
+      corresponsabilização masculina;
+    - **Diagnóstico** — vulnerabilidades por tipo de demanda (pobreza monetária, acesso
+      insuficiente a direitos, demanda por cuidados, vínculos fragilizados), riscos
+      sociais como prioridade absoluta, desproteções em ordem de gravidade (Quadro 7),
+      interseccionalidade e Grupos Populacionais Tradicionais e Específicos;
+    - **Potencialidades** — estratégias de sobrevivência, redes de solidariedade e
+      perguntas-guia do Quadro 8;
+    - **Trabalho Social Coletivo** — preponderância das atividades coletivas, modalidades
+      (pequenos grupos, ações comunitárias, arranjos participativos), brincar como
+      direito e parentalidade positiva e protetiva;
+    - **Encaminhamentos** — "encaminhar não basta: chegou? permaneceu?", elementos mínimos
+      dos fluxos de referência e contrarreferência, vinculação como direito e não
+      obrigação;
+    - **Registro de Atendimentos, Estratégias, Elaboração do Plano e Encerramento** —
+      registro técnico sem juízo de valor, vinculações possíveis, pactuação das metas a
+      partir das expectativas da família (Quadro 9) e avaliação de resultados com a
+      família (Quadro 14), sem caráter classificatório ou punitivo;
+    - **Prioridades e Gráficos** — priorização por gravidade e busca ativa (Passo 2) e
+      monitoramento agregado do PAIF, sem responsabilização moralizante (Passo 5);
+    - **Assistente Paulus** — 18 verbetes de resumo da Trilha na base de normas
+      (`conhecimento.json`, documento `paif-trilha-primeira-infancia-2026`). Se a base for
+      regenerada a partir do repositório do Paulus (seção 4), inclua esse documento lá
+      também, para que não se perca;
 - **Referências Técnicas para Atuação de Psicólogas(os) no CRAS/SUAS**
   (Conselho Federal de Psicologia / CREPOP, 3ª ed., 2021), que fundamenta,
   em especial: o entendimento da vulnerabilidade como situação social e
