@@ -195,6 +195,30 @@ Firestore. Só vai para o Worker a pergunta digitada (já filtrada: bloqueia nom
 endereço residencial), as últimas mensagens da conversa e o nome genérico da tela. A resposta é inserida
 na tela como texto, nunca como HTML. Ao sair da conta ou por inatividade, a conversa é apagada.
 
+**O que o Paulus sabe sobre o app (base própria, no aparelho):** além das normas, ele consulta
+`conhecimento-umbrella.json`, gerado do próprio código por `scripts/gerar-conhecimento-umbrella.mjs`
+(~140 verbetes: as notas técnicas de cada seção, as listas do formulário — objetivos do PAIF, seguranças,
+atividades coletivas, serviços, motivos de encerramento etc. —, o guia de cada seção, as dicas do mascote e o
+"como usar" deste README). São textos fixos do app; nenhum dado de família entra. Quando você editar uma nota
+técnica, uma lista ou o README, rode `node scripts/gerar-conhecimento-umbrella.mjs` e aumente o `CACHE_NAME` do
+`sw.js`. Essa base fica separada de `conhecimento.json`, então não se perde ao copiar a base do repositório do Paulus.
+
+**Como ele responde:** com IA ligada, a resposta vem da IA e, abaixo dela, o Paulus mostra botões
+**"No app: …"** com os trechos do próprio Umbrella sobre o assunto (texto completo, fonte e, com um PAF aberto,
+**"Ir para: seção"**). Sem IA, ou quando a IA não responde, ele usa a base local com a pergunta já limpa de palavras
+de enfeite e com sinônimos do PAIF (`paulus-consulta.js`; ex.: "quantas famílias por técnico" acha a nota sobre
+10 a 15 famílias). Em 25 perguntas de teste sobre o PAIF, os acertos subiram de 12 para 23. A pergunta enviada à IA
+nunca é alterada.
+
+**Comandos novos:** com um PAF aberto, "abrir diagnóstico", "abrir elaboração do plano", "abrir encerramento" etc.
+(todas as seções) trocam a aba do formulário — só navegam, não alteram dados. O botão **"Explicar esta seção"**
+resume a seção aberta e lista as notas técnicas dela.
+
+**IA mais fiel ao app (opcional, no repositório do Paulus):** a IA roda no Worker e não enxerga este código. Para
+que ela também "aprenda" o app, faça uma das duas coisas: (a) inclua `conhecimento-umbrella.json` na base que o
+Worker consulta (ela passa a recuperar e citar essas notas); ou (b) cole `docs/umbrella-para-o-worker.md` na
+descrição do Umbrella em `worker/apps.mjs`. Depois, publique o Worker de novo.
+
 **Ativar a IA (uma vez):**
 
 1. Publique o Worker do Paulus na Cloudflare (`docs/DEPLOY.md` do repositório Paulus) e **publique de
@@ -314,6 +338,34 @@ e checklists) foi organizado com base em:
       (`conhecimento.json`, documento `paif-trilha-primeira-infancia-2026`). Se a base for
       regenerada a partir do repositório do Paulus (seção 4), inclua esse documento lá
       também, para que não se perca;
+- ***A dimensão coletiva no SUAS: concepção e práticas no PAIF e no PAEFI*** (MDS/UNICEF,
+  1ª ed., NDH-PUCPR, 2026), que fundamenta, em notas técnicas e na base do Paulus:
+  - **Cabeçalho** — dimensão coletiva como termo guarda-chuva e chave de leitura da política
+    (LOAS, NOB-RH, NOB-SUAS, Orientações Técnicas do PAIF, Trilhas) e distinção entre
+    *atividades coletivas* e *visão coletiva* do TSFT, que orienta inclusive este PAF
+    particularizado;
+  - **Diagnóstico** — desproteções materiais e relacionais sem hierarquia; sofrimento
+    ético-político, sofrimento social e fatalismo como chaves para ler a "baixa adesão" sem
+    culpabilizar a família;
+  - **Sobre o Grupo Familiar e Potencialidades** — território vivo, caráter comunitário,
+    ativos do território, "referências comunitárias" no lugar de "lideranças";
+  - **Trabalho Social Coletivo (04a)** — modalidades (acolhida coletiva, rodas de conversa,
+    oficinas, grupos operativos; mobilização de coletivos, eventos culturais, campanhas
+    socioeducativas, articulação de redes) como percursos processuais; "construir com, e não
+    para" (participação como método, lente interseccional, horizontalidade, linguagem
+    popular, vínculo); registro e indicadores de processo. O checklist de atividades
+    coletivas ganhou os itens correspondentes (os registros antigos continuam válidos);
+  - **Rede do Território e Encaminhamentos** — articulação intersetorial e entre a própria
+    rede, corresponsabilização, integração PAIF–PAEFI sem que o encaminhamento ao CREAS
+    encerre a responsabilidade do CRAS;
+  - **Elaboração do Plano e Encerramento** — metas pactuadas em linguagem acessível, vínculo
+    a processos coletivos e avaliação de participação comunitária, rede de apoio e
+    pertencimento;
+  - **Gráficos** — qualidade dos acompanhamentos acima do volume de atendimentos e devolutiva
+    da Vigilância Socioassistencial às equipes;
+  - **Assistente Paulus** — 15 verbetes de resumo do Caderno (`conhecimento.json`, documento
+    `paif-dimensao-coletiva-suas-2026`). Se a base for regenerada a partir do repositório do
+    Paulus (seção 4), inclua esse documento lá também;
 - **Referências Técnicas para Atuação de Psicólogas(os) no CRAS/SUAS**
   (Conselho Federal de Psicologia / CREPOP, 3ª ed., 2021), que fundamenta,
   em especial: o entendimento da vulnerabilidade como situação social e
@@ -359,6 +411,10 @@ Plano.
 | `paulus.v1.js` | Módulo do Paulus (cópia local, gerada no repositório Paulus: `npm run build`) |
 | `paulus-umbrella.js` | Liga o Paulus ao app: painel de conversa, telas que ele abre e regras de privacidade |
 | `conhecimento.json` | Base de normas leve do Paulus (leis e decretos), usada também offline |
+| `conhecimento-umbrella.json` | O que o app ensina sobre o PAIF, em verbetes (gerado por `scripts/gerar-conhecimento-umbrella.mjs`; não editar à mão) |
+| `paulus-consulta.js` | Limpa a pergunta e acrescenta sinônimos do PAIF antes de consultar a base local |
+| `scripts/gerar-conhecimento-umbrella.mjs` | Gera `conhecimento-umbrella.json` e `docs/umbrella-para-o-worker.md` a partir do `app.js` e deste README |
+| `docs/umbrella-para-o-worker.md` | Resumo do app para a IA do Paulus (colar em `worker/apps.mjs` do repositório Paulus) |
 | `icon-192.png` / `icon-512.png` | Ícones do app |
 
 ---
