@@ -6,8 +6,14 @@
 
   O QUE ELE FAZ
     - tira dúvidas do PAIF/SUAS, citando a norma (artigo e documento) quando a base tem;
+    - conhece o que o PRÓPRIO app ensina sobre o PAIF (notas técnicas, listas do formulário, guia de cada
+      seção, dicas e o "como usar"): base conhecimento-umbrella.json, gerada por
+      scripts/gerar-conhecimento-umbrella.mjs a partir do código (texto fixo, nunca dado de família);
+    - reformula a pergunta antes de consultar a base local (paulus-consulta.js), para achar o trecho certo;
+    - oferece "No app: ..." e "Ir para a seção ..." depois das respostas, e "Explicar esta seção";
     - explica como usar o app;
-    - abre telas ("abrir prioridades", "abrir gráficos", "abrir configurações");
+    - abre telas ("abrir prioridades", "abrir gráficos", "abrir configurações") e, com um PAF aberto,
+      seções do formulário ("abrir diagnóstico", "abrir elaboração do plano");
     - sem internet, ainda responde pela base de normas, que fica no aparelho.
 
   O QUE ELE NUNCA FAZ (regra de ouro — veja docs/SEGURANCA.md do Paulus)
@@ -35,11 +41,18 @@
   // Base de normas leve (pacote "geral": leis e decretos). Cópia local, serve também offline.
   const PAULUS_CONHECIMENTO = "conhecimento.json";
 
+  // Conhecimento do próprio app sobre o PAIF (gerado do código; sobrevive a uma nova cópia do conhecimento.json).
+  const PAULUS_CONHECIMENTO_APP = "conhecimento-umbrella.json";
+
   const APP_ID = "umbrella";
 
   /* ------------------------------------------------------------------ ESTADO */
 
   let iniciado = false;
+  let conversaIniciada = false;
+  let baseMesclada = null;            // normas + conhecimento do app, já juntos
+  let verbetesApp = new Map();        // "titulo|referencia" -> verbete do app (texto completo e seção)
+  let historicoLocal = [];            // últimas perguntas SEM dado pessoal, só para entender "e para adolescente?"
   let ocupado = false;
   let aborto = null;
   let humorTimer = null;
@@ -68,17 +81,64 @@
     return aba;
   }
 
+  /* ------------------------------------------------------------------ BASE DE CONHECIMENTO */
+
+  const chaveVerbete = (titulo, ref) => String(titulo || "") + "|" + String(ref || "");
+
+  const encurtar = (t, n) => {
+    t = String(t || "").replace(/\s+/g, " ").trim();
+    return t.length > n ? t.slice(0, n).replace(/\s+\S*$/, "") + "…" : t;
+  };
+
+  // Carrega a base geral e a base do app em paralelo e junta. Se a do app falhar, segue só com a geral.
+  function carregarBase() {
+    if (typeof fetch !== "function") return;
+    const ler = url => fetch(url, { credentials: "omit" }).then(r => (r.ok ? r.json() : [])).catch(() => []);
+    Promise.all([ler(PAULUS_CONHECIMENTO), ler(PAULUS_CONHECIMENTO_APP)]).then(([normas, app]) => {
+      if (!Array.isArray(normas) || !normas.length) return;   // sem a base geral, o Paulus carrega sozinho pelo endereço
+      app = Array.isArray(app) ? app : [];
+      verbetesApp = new Map();
+      app.forEach(v => verbetesApp.set(chaveVerbete(v.titulo, v.referencia), v));
+      baseMesclada = normas.concat(app);
+      // Chegou depois do primeiro clique, mas antes de a conversa começar: reinicia o Paulus já com a base completa.
+      if (iniciado && !conversaIniciada && typeof Paulus !== "undefined") iniciarPaulus();
+    });
+  }
+
+  function iniciarPaulus() {
+    Paulus.init(Object.assign({
+      app: APP_ID,
+      endpoint: PAULUS_ENDPOINT
+      // "fichas" omitido de propósito: o Umbrella não tem diretório público, e dado de família jamais vai à IA.
+    }, baseMesclada ? { conhecimento: baseMesclada } : { conhecimentoUrl: PAULUS_CONHECIMENTO }));
+  }
+
+  const secaoDisponivel = id =>
+    !!(state && state.view === "editor" && typeof SECTIONS !== "undefined" && SECTIONS.some(s => s.id === id));
+
+  const rotuloSecao = id =>
+    (typeof SECTIONS !== "undefined" && (SECTIONS.find(s => s.id === id) || {}).label) || id;
+
+  // Troca a seção do formulário aberto (mesmo caminho do clique na aba lateral). Só navega, não altera dados.
+  function irParaSecao(id) {
+    if (!secaoDisponivel(id)) {
+      if (typeof toast === "function") toast("Abra um PAF para ir direto a uma seção do formulário.");
+      return false;
+    }
+    state.activeSection = id;
+    state.railOpen = false;
+    const ov = document.getElementById("railOverlay");
+    if (ov) ov.classList.remove("show");
+    if (typeof renderApp === "function") renderApp();
+    return true;
+  }
+
   /* ------------------------------------------------------------------ INICIALIZAÇÃO DO PAULUS */
 
   function garantirInicio() {
     if (iniciado) return true;
     if (typeof Paulus === "undefined") return false;   // paulus.v1.js não carregou: o app segue sem ele
-    Paulus.init({
-      app: APP_ID,
-      endpoint: PAULUS_ENDPOINT,
-      conhecimentoUrl: PAULUS_CONHECIMENTO
-      // "fichas" omitido de propósito: o Umbrella não tem diretório público, e dado de família jamais vai à IA.
-    });
+    iniciarPaulus();
 
     // Telas que o Paulus pode abrir. Só existe o que for registrado aqui.
     // Usam as mesmas funções dos botões do topo.
@@ -109,6 +169,26 @@
       confirmar: true,
       executar: () => { if (sessaoAtiva()) newPAF(); }
     });
+
+    // Seções do formulário (só navegam; exigem um PAF aberto). Os nomes mais longos vencem: "graficos da familia" abre a
+    // seção, "graficos" abre o painel geral.
+    const APELIDOS_SECAO = {
+      cabecalho: ["cabecalho"], familia: ["membros da familia", "composicao familiar"], diagnostico: ["diagnostico"],
+      grupo: ["trabalho coletivo", "situacoes sociais", "servicos da rede"], encaminhamentos: ["encaminhamentos"],
+      programas: ["programas e beneficios"], beneficioEventual: ["beneficio eventual"], rede: ["rede do territorio"],
+      metas: ["metas e evolucao", "metas", "registro de atendimentos"], estrategias: ["estrategias e eixos", "estrategias"],
+      plano: ["elaboracao do plano"], encerramento: ["encerramento"], anexos: ["anexos"], observacoes: ["observacoes"],
+      graficos: ["graficos da familia"]
+    };
+    if (typeof SECTIONS !== "undefined") {
+      SECTIONS.forEach(sec => {
+        Paulus.registrarAcao({
+          id: "secao-" + sec.id,
+          rotulos: (APELIDOS_SECAO[sec.id] || []).concat([sec.label]),
+          executar: () => { if (sessaoAtiva() && irParaSecao(sec.id)) fecharSeCelular(); }
+        });
+      });
+    }
 
     iniciado = true;
     return true;
@@ -245,10 +325,12 @@
       const q = MASCOTE_PERGUNTAS_SECAO[state.activeSection];
       base.push({ rotulo: q, texto: q });
     }
+    if (state && state.view === "editor" && secaoDisponivel(state.activeSection)) base.push({ rotulo: "Explicar esta seção", explicar: true });
     ((sk && sk.sugestoes) || []).forEach(t => base.push({ rotulo: t, texto: t }));
     base.length = Math.min(base.length, 3);
     base.push({ rotulo: "Dica do PAIF", dica: true });
     chips(base, c => {
+      if (c.explicar) { explicarSecao(); return; }
       if (c.dica) {
         const secDica = (typeof MASCOTE_DICAS_SECAO !== "undefined" && state && state.view === "editor") ? MASCOTE_DICAS_SECAO[state.activeSection] : "";
         if (secDica && Math.random() < 0.5) { mensagem("paulus", secDica); return; }
@@ -269,6 +351,8 @@
   function novaConversa() {
     if (aborto) aborto.abort();
     if (typeof Paulus !== "undefined") Paulus.limpar();
+    historicoLocal = [];
+    conversaIniciada = false;
     if (log) boasVindas();
     if (entrada) entrada.focus();
   }
@@ -280,6 +364,59 @@
     mascoteRenderizar(mood);
     clearTimeout(humorTimer);
     if (voltarMs) humorTimer = setTimeout(() => mascoteRenderizar("normal"), voltarMs);
+  }
+
+  /* ------------------------------------------------------------------ CONHECIMENTO DO APP NA CONVERSA */
+
+  const verbetesDaSecao = id => Array.from(verbetesApp.values()).filter(v => v.secao === id);
+
+  // Mostra o verbete COMPLETO (a busca devolve só um resumo) e, se houver PAF aberto, oferece ir à seção.
+  function mostrarVerbete(v) {
+    const m = mensagem("paulus", v.texto);
+    m.appendChild(el("p", "paulus-aviso", "Fonte: " + v.titulo + ". " + (v.norma || "")));
+    const opcoes = [];
+    if (v.secao && secaoDisponivel(v.secao)) opcoes.push({ rotulo: "Ir para: " + encurtar(rotuloSecao(v.secao), 32), secao: v.secao });
+    opcoes.push({ rotulo: "Voltar às sugestões", voltar: true });
+    chips(opcoes, c => {
+      if (c.secao) { if (irParaSecao(c.secao)) fecharSeCelular(); } else chipsIniciais();
+    });
+  }
+
+  function explicarSecao() {
+    const id = state && state.activeSection;
+    const todos = verbetesDaSecao(id);
+    const guia = todos.find(v => v.doc === "umbrella-secoes");
+    if (!guia) { mensagem("paulus", "Ainda estou carregando o conteúdo do app. Tente de novo em instantes."); return; }
+    const m = mensagem("paulus", guia.texto);
+    const notas = todos.filter(v => v.doc === "umbrella-notas-tecnicas");
+    if (notas.length) {
+      m.appendChild(el("p", "paulus-aviso", "Esta seção tem " + notas.length + " nota(s) técnica(s). Toque em uma para eu mostrar completa."));
+      chips(notas.slice(0, 4).map(v => ({ rotulo: encurtar(v.rotulo || v.referencia, 44), verbete: v })), c => mostrarVerbete(c.verbete));
+    }
+  }
+
+  // Consulta SÓ a base local, com a pergunta limpa e com sinônimos do PAIF. Nunca vai à rede.
+  async function consultaLocal(texto) {
+    if (typeof Paulus === "undefined" || typeof Paulus.consultarNormas !== "function") return null;
+    const refinada = (typeof PaulusConsulta !== "undefined") ? PaulusConsulta.refinar(texto).expandida : texto;
+    const hist = historicoLocal.map(t => ({ papel: "usuario", texto: t }));
+    try { return await Paulus.consultarNormas(refinada, { historico: hist }); } catch (e) { return null; }
+  }
+
+  const achadosDoApp = loc =>
+    ((loc && loc.fontes) || []).map(f => verbetesApp.get(chaveVerbete(f.documento, f.referencia))).filter(Boolean).slice(0, 2);
+
+  // Depois da resposta do Paulus: sem IA (ou sem resposta), a busca com a pergunta refinada costuma achar melhor;
+  // com IA, só acrescenta os trechos do próprio app ("No app: ...") para a pessoa conferir e navegar.
+  async function aprimorar(texto, r) {
+    if (!r) return r;
+    if (r.tipo === "sem_resposta" || r.tipo === "norma") {
+      const loc = await consultaLocal(texto);
+      if (loc) r = loc;
+    }
+    if (r.tipo === "norma") r.noApp = achadosDoApp(r);
+    else if (r.tipo === "ia") r.noApp = achadosDoApp(await consultaLocal(texto));
+    return r;
   }
 
   /* ------------------------------------------------------------------ ENVIO E RESPOSTA */
@@ -348,7 +485,12 @@
       case "norma":
         anexarFontes(bolha, r.fontes);
         anexarAvisos(bolha, r.avisos);
-        if (r.sugestoes && r.sugestoes.length) chips(r.sugestoes, t => enviar(t)); else chipsIniciais();
+        {
+          const lista = (r.noApp || []).map(v => ({ rotulo: "No app: " + encurtar(v.rotulo || v.referencia, 34), verbete: v }))
+            .concat((r.sugestoes || []).slice(0, 2).map(t => ({ rotulo: t, texto: t })));
+          if (lista.length) chips(lista, c => (c.verbete ? mostrarVerbete(c.verbete) : enviar(c.texto)));
+          else chipsIniciais();
+        }
         break;
       case "crise":
         mood = "preocupado";
@@ -377,6 +519,7 @@
     if (!texto) return;
     entrada.value = "";
     areaSugestoes.textContent = "";
+    conversaIniciada = true;
 
     // Se a mensagem tem dado pessoal, ela NÃO fica visível na tela (e o Paulus a bloqueia antes de qualquer envio).
     const sensivel = Paulus.temDadoPessoal(texto);
@@ -393,7 +536,7 @@
     aborto = typeof AbortController === "function" ? new AbortController() : null;
 
     try {
-      const r = await Paulus.perguntar(texto, {
+      let r = await Paulus.perguntar(texto, {
         aba: abaAtual(),
         sinal: aborto ? aborto.signal : undefined,
         onToken: (_pedaco, tudo) => {
@@ -403,6 +546,9 @@
         }
       });
       if (!painel) return;   // a sessão acabou no meio da resposta: o painel já foi apagado
+      r = await aprimorar(texto, r);
+      if (!painel) return;
+      if (!sensivel) { historicoLocal.push(texto); historicoLocal = historicoLocal.slice(-3); }
       bolha.classList.remove("paulus-digitando");
       mostrarResultado(bolha, r);
     } catch (e) {
@@ -449,9 +595,13 @@
   function encerrar() {
     if (aborto) aborto.abort();
     if (typeof Paulus !== "undefined") Paulus.limpar();
+    historicoLocal = [];
+    conversaIniciada = false;
     if (painel) { painel.remove(); painel = log = entrada = btnEnviar = btnParar = areaSugestoes = statusEl = null; }
     ocupado = false;
   }
+
+  carregarBase();
 
   window.paulusAbrir = abrirPainel;
   window.paulusEncerrar = encerrar;
