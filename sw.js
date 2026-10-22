@@ -1,10 +1,10 @@
-const CACHE_NAME = 'paf-paif-v51';
+const CACHE_NAME = 'paf-paif-v56';
 
 // Arquivos "essenciais" do app: sempre tentamos buscar a versão mais nova na rede
 // primeiro, e só usamos o cache se o dispositivo estiver offline. Isso garante que
 // qualquer alteração publicada apareça automaticamente, sem precisar trocar o número
 // de versão do cache manualmente.
-const CORE_ASSETS = ['./', './index.html', './styles.css', './app.js', './historico.js', './firebase-config.js', './paulus.v1.js', './paulus-umbrella.js'];
+const CORE_ASSETS = ['./', './index.html', './styles.css', './app.js', './historico.js', './notas.js', './firebase-config.js', './paulus.v1.js', './paulus-umbrella.js'];
 
 // Arquivos estáticos que raramente mudam (ícones, manifesto): cache primeiro,
 // com fallback para a rede.
