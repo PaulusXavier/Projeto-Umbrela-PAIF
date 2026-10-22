@@ -442,3 +442,41 @@ da família com o tempo.
   antigos são descartados.
 - O histórico começa a valer a partir do momento em que esta versão é publicada; PAFs antigos
   não têm histórico retroativo.
+
+---
+
+## Anotações e armazenamento (atualização)
+
+- **Anotações:** os campos de texto crescem sozinhos, mostram contagem de palavras/caracteres e têm o botão **⤢ Ampliar** (editor em tela cheia; *Esc* ou *Ctrl+Enter* conclui). Um selo discreto no canto inferior esquerdo mostra "Salvo às HH:MM".
+- **Anexos:** medidor de espaço do PAF, arrastar-e-soltar, **tipo de documento** e **legenda** por anexo (a legenda sai no PDF impresso), busca e visualizador interno de imagens (setas ← →).
+- **Config > Armazenamento:** espaço usado (fichas × anexos), famílias com mais anexos, **backup com anexos** e **restauração** (só acrescenta fichas inexistentes; nunca sobrescreve).
+- Arquivo novo: `notas.js`. Cache do service worker atualizado para `paf-paif-v52`.
+
+### Segunda rodada (anotações)
+
+- **📋 Modelos:** textos-modelo (visita domiciliar, atendimento, contato telefônico, ausência, encaminhamento, grupo PAIF) inseridos no cursor com a data de hoje; dá para salvar o texto de um campo como modelo próprio (fica só neste aparelho).
+- **🎤 Ditar:** escreve falando (pt-BR) em navegadores compatíveis. Pede confirmação na primeira vez, pois o áudio pode ser processado fora do aparelho — evite dados que identifiquem a família.
+- **Busca:** a lista de fichas agora ignora acentos e também procura dentro das anotações (observações e evolução dos atendimentos).
+- **Ctrl+S** salva a ficha aberta. **Lembrete de backup** (no máximo 1 por dia) quando passam 30 dias sem backup; Config mostra a data do último backup.
+- Cache do service worker: `paf-paif-v53`.
+
+### Terceira rodada (leitura e segurança do que foi digitado)
+
+- **Config > Aparência e leitura:** tamanho do texto (Normal / Grande / Maior / Máximo) e modo de **alto contraste**; a escolha fica salva neste aparelho.
+- **Anotações por dia (Histórico):** botões **Copiar todas as anotações** e **Baixar (.txt)** — reúne observações e evolução dos atendimentos em ordem cronológica.
+- Ao fechar a aba, minimizar ou trocar de app, o que foi digitado e ainda não tinha sido salvo é gravado na hora.
+- Cache do service worker: `paf-paif-v54`.
+
+### Quarta rodada (campo e segurança)
+
+- **★ Fixar anotação:** anotações importantes ficam no topo do campo e do Histórico, destacadas em dourado.
+- **Desfazer:** ao remover uma anotação aparece "Desfazer" por 9 segundos (sem janela de confirmação).
+- **Anexos:** botão **📷 Tirar foto agora** (celular/tablet, abre a câmera traseira) e **colar imagem com Ctrl+V** no computador.
+- Cache do service worker: `paf-paif-v55`.
+
+### Quinta rodada (lista de fichas)
+
+- Cada ficha mostra o **último registro** (anotação ou atendimento) e há quantos dias; em andamento há 30+ dias fica em destaque dourado.
+- Novo filtro **"Sem registro há 30+ dias"** (com contagem) para ver quem está sem acompanhamento.
+- Botão **+ Anotar** em cada linha: abre a ficha direto em Observações com uma anotação nova de hoje, pronta para digitar.
+- Cache do service worker: `paf-paif-v56`.
