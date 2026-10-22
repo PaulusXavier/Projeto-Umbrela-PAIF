@@ -419,3 +419,26 @@ Plano.
 
 ---
 Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR
+
+---
+
+## Histórico de Evolução da Família
+
+A seção **Histórico de Evolução** (penúltima do menu lateral) guarda, automaticamente, tudo o que
+é alterado no PAF — com data, usuário, valor anterior e valor novo —, para acompanhar a evolução
+da família com o tempo.
+
+- **Registro automático:** ao mudar renda, moradia, escolaridade, vulnerabilidades, situações
+  sociais, metas, membros etc., o app anota "antes → depois". Alterações do mesmo dia são
+  agrupadas num único registro (o "antes" é o valor do início do dia).
+- **Data da evolução:** cada registro tem uma data editável — útil quando a mudança aconteceu
+  antes do dia em que foi lançada no app.
+- **Marco manual:** botão "Registrar marco" para anotar avanços que não aparecem em nenhum campo.
+- **Duas visões:** *Linha do tempo* (por data) e *Por campo* (trajetória de cada campo, com
+  mini-gráfico para renda e outros números). Filtro por seção.
+- **Exportação:** o histórico sai no PDF e no Word do PAF.
+- **Nuvem:** o histórico fica dentro do próprio documento do PAF — não exige mudar as regras do
+  Firestore. Se ficar muito grande (limite de 1 MB por documento), os registros automáticos mais
+  antigos são descartados.
+- O histórico começa a valer a partir do momento em que esta versão é publicada; PAFs antigos
+  não têm histórico retroativo.
