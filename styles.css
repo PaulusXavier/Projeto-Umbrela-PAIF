@@ -1576,3 +1576,58 @@ main { flex: 1; display: flex; min-height: 0; }
   .paulus-input { font-size: 16px; }   /* evita o zoom automático do iOS ao focar */
 }
 @media print { .paulus-panel { display: none !important; } }
+
+/* ---------------------------- Histórico de Evolução ---------------------------- */
+.hist-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-3); margin: var(--space-4) 0; }
+.hist-novo { border: 1px dashed var(--gold); background: var(--gold-soft); border-radius: var(--radius); padding: var(--space-4); }
+.hist-novo h3 { margin: 0 0 var(--space-3); font-size: var(--text-md); color: var(--ink); }
+.hist-barra { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+.hist-filtro { min-width: 200px; }
+.hist-topo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); padding-right: 24px; }
+.hist-tipo { font-size: var(--text-xs); font-weight: 600; color: var(--accent-dark); background: var(--accent-soft); border-radius: 999px; padding: 2px 10px; }
+.hist-tipo.manual { color: var(--gold-dark); background: var(--gold-soft); }
+.hist-quem { font-size: var(--text-xs); color: var(--ink-faint); }
+.hist-grupo { margin: var(--space-2) 0; }
+.hist-grupo-titulo { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin-bottom: 4px; }
+.hist-mud { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.hist-mud:last-child { border-bottom: none; }
+.hist-campo { font-weight: 600; color: var(--ink); }
+.hist-de-para { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.hist-antes { color: var(--danger); text-decoration: line-through; text-decoration-color: rgba(181,71,63,.45); overflow-wrap: anywhere; max-width: 100%; }
+.hist-depois { color: var(--accent-dark); font-weight: 600; overflow-wrap: anywhere; max-width: 100%; }
+.hist-seta { color: var(--ink-faint); }
+.hist-chip { font-size: var(--text-xs); border-radius: 999px; padding: 2px 9px; }
+.hist-chip.add { background: var(--accent-soft); color: var(--accent-dark); }
+.hist-chip.rem { background: var(--danger-soft); color: var(--danger); }
+.hist-edit { margin-top: var(--space-3); }
+.hist-campo-card { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); background: var(--paper-soft); color: var(--accent); }
+.hist-campo-topo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.hist-secao-tag { font-size: var(--text-2xs); color: var(--ink-soft); background: var(--slate-soft); border-radius: 999px; padding: 2px 8px; }
+.hist-qtd { font-size: var(--text-xs); color: var(--ink-faint); margin-left: auto; }
+.hist-trilha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hist-trilha.col { flex-direction: column; align-items: flex-start; gap: 4px; font-size: var(--text-sm); color: var(--ink); }
+.hist-ponto { display: inline-flex; flex-direction: column; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 10px; color: var(--ink); max-width: 100%; }
+.hist-ponto b { font-size: var(--text-sm); overflow-wrap: anywhere; }
+.hist-ponto em { font-style: normal; font-size: var(--text-2xs); color: var(--ink-faint); }
+.hist-ponto.atual { border-color: var(--accent); background: var(--accent-soft); }
+.hist-linha-tempo em { font-style: normal; font-family: var(--font-mono); color: var(--ink-faint); margin-right: 6px; }
+.hist-spark { display: block; margin-top: var(--space-2); }
+.hist-stats .stat-box { background: var(--paper-soft); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-3); display: flex; flex-direction: column; align-items: flex-start; }
+.hist-stats .stat-box:hover { background: var(--paper-soft); border-color: var(--line); }
+.hist-stats .stat-num { color: var(--ink); }
+.hist-stats .stat-label { color: var(--ink-faint); }
+.hist-novo .timeline-row, .hist-edit { grid-template-columns: 190px 1fr; align-items: start; }
+.hist-novo .f > *, .hist-edit .f > * { max-width: 100%; }
+.hist-novo textarea, .hist-edit textarea { width: 100%; }
+.hist-edit .f, .hist-novo .f { grid-column: auto !important; min-width: 0; }
+@media (max-width: 700px) { .hist-novo .timeline-row, .hist-edit { grid-template-columns: 1fr; } }
+
+/* ---------------------------- Anotações por dia ---------------------------- */
+.diario-lista { display: flex; flex-direction: column; gap: var(--space-2); }
+.diario-item { position: relative; display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: var(--space-3); align-items: start; background: var(--paper-soft); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); padding: var(--space-3) 34px var(--space-3) var(--space-3); }
+.diario-item.sem-data { border-left-color: var(--ink-faint); }
+.diario-item .row-del { position: absolute; top: 6px; right: 6px; }
+.diario-data label { display: block; margin-bottom: 4px; }
+.diario-data input, .diario-texto textarea { width: 100%; }
+.diario-campo .add-row-btn { align-self: flex-start; }
+@media (max-width: 700px) { .diario-item { grid-template-columns: 1fr; } }
