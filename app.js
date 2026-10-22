@@ -974,7 +974,78 @@ function removerAnexo(id) {
   });
 }
 
+const ANEXO_CATEGORIAS = ["Documento pessoal", "Comprovante de residência", "Comprovante de renda", "Laudo / relatório", "Encaminhamento", "Foto da visita", "Termo / declaração", "Outro"];
+
+// Visualizador interno para imagens: tela cheia, setas/teclado para passar entre as imagens do PAF.
+function abrirVisualizadorImagem(id) {
+  const imgs = (state.current.anexos || []).filter(a => (a.tipo || "").startsWith("image/"));
+  let i = Math.max(0, imgs.findIndex(a => a.id === id));
+  if (!imgs.length) return;
+  const root = document.createElement("div");
+  root.className = "anexo-viewer";
+  root.setAttribute("role", "dialog");
+  root.setAttribute("aria-modal", "true");
+  root.setAttribute("aria-label", "Visualizador de anexo");
+  const anteriorFoco = document.activeElement;
+  const fechar = () => { document.removeEventListener("keydown", tecla); root.remove(); if (anteriorFoco && anteriorFoco.focus) anteriorFoco.focus(); };
+  const desenhar = () => {
+    const a = imgs[i];
+    root.innerHTML = `
+      <div class="anexo-viewer-barra">
+        <div class="anexo-viewer-titulo"><strong>${escapeHtml(a.nome)}</strong><span>${escapeHtml([a.categoria, a.legenda].filter(Boolean).join(" — "))}</span></div>
+        <span class="anexo-viewer-pos">${i + 1} / ${imgs.length}</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-v="zoom">Zoom</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-v="baixar">Baixar</button>
+        <button type="button" class="btn btn-primary btn-sm" data-v="fechar" aria-label="Fechar visualizador">Fechar</button>
+      </div>
+      <div class="anexo-viewer-palco">
+        ${imgs.length > 1 ? `<button type="button" class="anexo-viewer-seta esq" data-v="ant" aria-label="Anterior">‹</button>` : ""}
+        <img src="${a.dataURL}" alt="${escapeHtml(a.legenda || a.nome)}" referrerpolicy="no-referrer">
+        ${imgs.length > 1 ? `<button type="button" class="anexo-viewer-seta dir" data-v="prox" aria-label="Próximo">›</button>` : ""}
+      </div>`;
+    root.querySelectorAll("[data-v]").forEach(b => b.onclick = () => {
+      const v = b.dataset.v;
+      if (v === "fechar") fechar();
+      else if (v === "ant") { i = (i - 1 + imgs.length) % imgs.length; desenhar(); }
+      else if (v === "prox") { i = (i + 1) % imgs.length; desenhar(); }
+      else if (v === "zoom") root.classList.toggle("zoom");
+      else if (v === "baixar") baixarAnexo(a);
+    });
+    const fechaBtn = root.querySelector('[data-v="fechar"]'); if (fechaBtn) fechaBtn.focus();
+  };
+  function tecla(e) {
+    if (e.key === "Escape") { e.preventDefault(); fechar(); }
+    else if (e.key === "ArrowLeft" && imgs.length > 1) { i = (i - 1 + imgs.length) % imgs.length; desenhar(); }
+    else if (e.key === "ArrowRight" && imgs.length > 1) { i = (i + 1) % imgs.length; desenhar(); }
+  }
+  document.addEventListener("keydown", tecla);
+  root.addEventListener("click", (e) => { if (e.target === root || e.target.classList.contains("anexo-viewer-palco")) fechar(); });
+  document.body.appendChild(root);
+  desenhar();
+}
+
+// Salva legenda/tipo de um anexo (na subcoleção, em modo nuvem; no próprio PAF, em modo local).
+async function atualizarMetaAnexo(id, campos) {
+  const alvo = (state.current.anexos || []).find(a => a.id === id);
+  if (!alvo) return;
+  Object.assign(alvo, campos);
+  if (state.mode === "cloud" && state.db) {
+    try {
+      if (typeof window.__statusSalvamento === "function") window.__statusSalvamento("salvando");
+      await anexosCollectionRef(state.current.id).doc(id).update(campos);
+      if (typeof window.__statusSalvamento === "function") window.__statusSalvamento("ok", "nuvem");
+    } catch (err) {
+      console.error(err);
+      if (typeof window.__statusSalvamento === "function") window.__statusSalvamento("erro");
+      toast("Não foi possível salvar a legenda do anexo — verifique a conexão.");
+    }
+  } else {
+    savePAF(state.current, { silent: true });
+  }
+}
+
 function abrirAnexo(anexo) {
+  if ((anexo.tipo || "").startsWith("image/")) { abrirVisualizadorImagem(anexo.id); return; }
   // Abre em janela isolada (noopener: a nova aba não recebe referência a esta
   // janela, evitando que um anexo malicioso redirecione a aba original) e usa
   // um iframe em sandbox para o PDF, sem permitir scripts nem navegação —
@@ -1549,22 +1620,87 @@ function confirmModalDigitarNome(title, msg, nomeEsperado, onConfirm) {
 
 /* ---------------------------- Config / Backup ---------------------------- */
 
-function baixarBackupJSON() {
-  const payload = {
-    exportadoEm: new Date().toISOString(),
-    totalRegistros: state.pafs.length,
-    pafs: state.pafs
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+function baixarArquivoTexto(nome, texto, tipo) {
+  const blob = new Blob([texto], { type: tipo || "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `backup_paf_paif_${todayISO()}.json`;
+  a.download = nome;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  toast("Backup baixado.");
+}
+
+// Backup completo. Em modo nuvem os anexos ficam numa subcoleção, então só entram no
+// arquivo se forem carregados um a um (opção "incluir anexos").
+async function baixarBackupJSON(incluirAnexos) {
+  let pafs = state.pafs;
+  if (incluirAnexos && state.mode === "cloud" && state.db) {
+    toast("Reunindo os anexos para o backup… pode levar alguns instantes.");
+    pafs = [];
+    for (const p of state.pafs) {
+      const copia = { ...p };
+      try { await garantirAnexosCarregados(copia); } catch (err) { console.error(err); }
+      pafs.push(copia);
+    }
+  } else if (!incluirAnexos) {
+    pafs = state.pafs.map(p => { const c = { ...p }; if (Array.isArray(c.anexos)) { c.anexosCount = c.anexos.length; delete c.anexos; } return c; });
+  }
+  const payload = {
+    exportadoEm: new Date().toISOString(),
+    versaoBackup: 2,
+    incluiAnexos: !!incluirAnexos,
+    totalRegistros: pafs.length,
+    pafs,
+    desistentes: state.desistentes
+  };
+  try { localStorage.setItem("umbrela_ultimo_backup", String(Date.now())); } catch (err) { /* ignora */ }
+  baixarArquivoTexto(`backup_paf_paif_${todayISO()}${incluirAnexos ? "_com_anexos" : ""}.json`, JSON.stringify(payload));
+  toast(incluirAnexos ? "Backup completo (com anexos) baixado." : "Backup baixado.");
+}
+
+// Restauração SEGURA: só acrescenta PAFs cujo identificador ainda não existe — nunca sobrescreve nem apaga.
+async function restaurarBackupJSON(arquivo) {
+  let dados;
+  try { dados = JSON.parse(await arquivo.text()); } catch (err) { toast("Arquivo inválido: não é um backup JSON."); return; }
+  const lista = Array.isArray(dados) ? dados : (dados && Array.isArray(dados.pafs) ? dados.pafs : null);
+  if (!lista) { toast("Arquivo inválido: não encontrei a lista de PAFs."); return; }
+  const idsExistentes = new Set([...state.pafs, ...state.desistentes].map(p => p.id));
+  let novos = 0, ignorados = 0;
+  for (const bruto of lista) {
+    if (!bruto || typeof bruto !== "object" || typeof bruto.id !== "string" || !/^[\w-]{4,64}$/.test(bruto.id)) { ignorados++; continue; }
+    if (idsExistentes.has(bruto.id)) { ignorados++; continue; }
+    const paf = { ...bruto };
+    if (Array.isArray(paf.anexos)) {
+      paf.anexos = paf.anexos.filter(x => x && typeof x.id === "string" && /^[\w-]{4,64}$/.test(x.id) && typeof x.dataURL === "string" && /^data:(image\/[\w.+-]+|application\/pdf);base64,/.test(x.dataURL));
+    }
+    try {
+      if (state.mode === "cloud" && state.db && Array.isArray(paf.anexos) && paf.anexos.length) {
+        const col = anexosCollectionRef(paf.id);
+        await Promise.all(paf.anexos.map(x => col.doc(x.id).set(x)));
+      }
+      savePAF(paf, { silent: true });
+      idsExistentes.add(paf.id);
+      novos++;
+    } catch (err) { console.error(err); ignorados++; }
+  }
+  toast(`Backup restaurado: ${novos} PAF(s) adicionado(s), ${ignorados} ignorado(s) (já existiam ou inválidos).`);
+  renderApp();
+}
+
+function resumoArmazenamento() {
+  const linhas = state.pafs.map(p => {
+    const sem = { ...p }; delete sem.anexos;
+    const dados = JSON.stringify(sem).length;
+    const anex = p.anexosBytes != null ? p.anexosBytes : totalAnexosBytes(p);
+    const qtd = p.anexosCount != null ? p.anexosCount : (p.anexos || []).length;
+    return { nome: p.responsavel || "Sem nome", dados, anex, qtd, atualizado: p.updatedAt || "" };
+  });
+  const dados = linhas.reduce((s, l) => s + l.dados, 0);
+  const anex = linhas.reduce((s, l) => s + l.anex, 0);
+  const semMedida = state.mode === "cloud" && state.pafs.some(p => p.anexosBytes == null && (p.anexosCount || 0) > 0 && !(p.anexos || []).length);
+  return { linhas, dados, anex, semMedida };
 }
 
 function openSettingsModal() {
@@ -1573,30 +1709,78 @@ function openSettingsModal() {
 
   const modoLabel = state.mode === "cloud" ? "Sincronizado com a nuvem" : "Somente neste dispositivo";
   const emailLinha = state.currentUser ? `<div class="settings-field"><span class="k">Conta</span><span class="v">${escapeHtml(state.currentUser.email)}</span></div>` : "";
+  const r = resumoArmazenamento();
+  const total = r.dados + r.anex;
+  // Limites de referência: ~5 MB de localStorage (modo local) ou 1 GiB de armazenamento do Firestore (plano gratuito).
+  const limite = state.mode === "cloud" ? 1024 * 1024 * 1024 : 5 * 1024 * 1024;
+  const pct = Math.max(total ? 1 : 0, Math.min(100, Math.round(total / limite * 100)));
+  const pctDados = total ? Math.round(r.dados / total * pct) : 0;
+  const top = [...r.linhas].filter(l => l.anex > 0).sort((a, b) => b.anex - a.anex).slice(0, 5);
 
   root.innerHTML = `
     <div class="modal-backdrop">
-      <div class="modal">
-        <h3>Configurações</h3>
+      <div class="modal modal-wide">
+        <h3>Configurações e armazenamento</h3>
         <div class="settings-field"><span class="k">Armazenamento</span><span class="v">${modoLabel}</span></div>
         ${emailLinha}
         <div class="settings-field"><span class="k">Registros salvos</span><span class="v">${state.pafs.length} PAF(s)</span></div>
-        <div class="settings-field" style="margin-bottom:18px;"><span class="k">Famílias desistentes</span><span class="v">${state.desistentes.length} registro(s)</span></div>
-        <p>Baixe uma cópia de segurança de todos os PAFs cadastrados em um único arquivo JSON.</p>
+        <div class="settings-field"><span class="k">Famílias desistentes</span><span class="v">${state.desistentes.length} registro(s)</span></div>
+
+        <div class="aparencia-panel">
+          <strong>Aparência e leitura</strong>
+          <div class="aparencia-linha"><span>Tamanho do texto</span>
+            <div class="aparencia-opcoes" role="group" aria-label="Tamanho do texto">
+              ${[["100", "Normal"], ["115", "Grande"], ["130", "Maior"], ["150", "Máximo"]].map(([v, l]) => `<button type="button" class="btn btn-ghost btn-sm" data-aparencia-tamanho="${v}">${l}</button>`).join("")}
+            </div>
+          </div>
+          <div class="aparencia-linha"><span>Alto contraste</span>
+            <div class="aparencia-opcoes"><button type="button" class="btn btn-ghost btn-sm" data-aparencia-contraste="0">Desligado</button><button type="button" class="btn btn-ghost btn-sm" data-aparencia-contraste="1">Ligado</button></div>
+          </div>
+        </div>
+
+        <div class="storage-panel">
+          <div class="storage-topo"><strong>Espaço usado</strong><span>${fmtBytes(total)} de ${state.mode === "cloud" ? "1 GB (plano gratuito)" : "~5 MB (navegador)"}</span></div>
+          <div class="storage-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+            <span class="dados" style="width:${pctDados}%"></span><span class="anexos" style="width:${Math.max(0, pct - pctDados)}%"></span>
+          </div>
+          <div class="storage-legenda"><span><i class="dados"></i>Fichas e anotações: ${fmtBytes(r.dados)}</span><span><i class="anexos"></i>Anexos: ${fmtBytes(r.anex)}${r.semMedida ? " (parcial)" : ""}</span></div>
+          ${top.length ? `<div class="storage-top"><span class="k">Famílias com mais anexos</span>${top.map(l => `<div class="storage-linha"><span>${escapeHtml(l.nome)}</span><span>${l.qtd} arq. · ${fmtBytes(l.anex)}</span></div>`).join("")}</div>` : ""}
+          ${r.semMedida ? `<p class="hint">Alguns PAFs antigos ainda não têm o tamanho dos anexos medido — abra o PAF uma vez e ele passa a ser contado.</p>` : ""}
+          <p class="hint" id="storageEstimativa"></p>
+        </div>
+
+        <div class="storage-backup">
+          <strong>Cópia de segurança</strong>
+          <p class="hint" id="ultimoBackup">${(() => { let t = 0; try { t = Number(localStorage.getItem("umbrela_ultimo_backup")) || 0; } catch (e) { /* ignora */ } return t ? "Último backup neste aparelho: " + new Date(t).toLocaleDateString("pt-BR") + "." : "Nenhum backup feito neste aparelho ainda."; })()}</p>
+          <p class="hint">O backup padrão leva só as fichas. Marque abaixo para levar também os arquivos anexados (o arquivo fica maior).</p>
+          <label class="storage-check"><input type="checkbox" id="settingsBackupAnexos"> Incluir anexos no backup</label>
+          <div class="storage-acoes">
+            <button class="btn btn-primary" id="settingsBackupBtn">Baixar backup (JSON)</button>
+            <label class="btn btn-ghost" for="settingsRestoreInput">Restaurar de backup…</label>
+            <input type="file" id="settingsRestoreInput" accept="application/json,.json" style="display:none">
+          </div>
+          <p class="hint">Restaurar só acrescenta fichas que ainda não existem aqui; nada é sobrescrito nem apagado.</p>
+        </div>
+
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="btn btn-ghost" id="settingsCloseBtn">Fechar</button>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-ghost" id="settingsDesistentesBtn">Famílias desistentes</button>
-            <button class="btn btn-primary" id="settingsBackupBtn">Baixar backup (JSON)</button>
-          </div>
+          <button class="btn btn-ghost" id="settingsDesistentesBtn">Famílias desistentes</button>
         </div>
       </div>
     </div>`;
 
   const fechar = ativarAcessibilidadeModal(root, () => root.innerHTML = "");
   document.getElementById("settingsCloseBtn").onclick = fechar;
-  document.getElementById("settingsBackupBtn").onclick = baixarBackupJSON;
+  document.getElementById("settingsBackupBtn").onclick = () => baixarBackupJSON(document.getElementById("settingsBackupAnexos").checked);
+  document.getElementById("settingsRestoreInput").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) restaurarBackupJSON(f).then(() => fechar()); };
   document.getElementById("settingsDesistentesBtn").onclick = openDesistentesModal;
+  if (window.__aparencia) window.__aparencia.ligarBotoes(root);
+  if (navigator.storage && navigator.storage.estimate) {
+    navigator.storage.estimate().then(est => {
+      const el = document.getElementById("storageEstimativa");
+      if (el && est && est.quota) el.textContent = `Espaço do navegador neste aparelho: ${fmtBytes(est.usage || 0)} usados de ${fmtBytes(est.quota)} disponíveis.`;
+    }).catch(() => {});
+  }
 }
 
 function openDesistentesModal() {
@@ -3241,17 +3425,29 @@ function savePAF(paf, opts = {}) {
     // aqui só guardamos a contagem, para os cartões da lista e a barra de
     // progresso saberem que o PAF tem anexos sem precisar carregá-los todos.
     const toSave = { ...paf, anexosCount: (paf.anexos || []).length };
+    // Só atualiza o total em bytes quando os anexos estão carregados (senão manteria 0 por engano).
+    if (Array.isArray(paf.anexos) && paf.anexos.length === toSave.anexosCount && (paf.anexosCount == null || paf.anexosCount === toSave.anexosCount)) {
+      toSave.anexosBytes = totalAnexosBytes(paf);
+      paf.anexosBytes = toSave.anexosBytes;
+    }
     delete toSave.anexos;
+    if (typeof window.__statusSalvamento === "function") window.__statusSalvamento("salvando");
     state.db.collection(FIRESTORE_COLLECTION).doc(paf.id).set(toSave)
       .then(() => {
         if (isNovo) registrarAuditoria("criacao", paf);
+        if (typeof window.__statusSalvamento === "function") window.__statusSalvamento("ok", "nuvem");
         if (!opts.silent) toast("Salvo e sincronizado.");
       })
-      .catch(err => { console.error(err); toast("Não foi possível sincronizar — verifique a conexão."); });
+      .catch(err => {
+        console.error(err);
+        if (typeof window.__statusSalvamento === "function") window.__statusSalvamento("erro");
+        toast("Não foi possível sincronizar — verifique a conexão.");
+      });
   } else {
     const idx = state.pafs.findIndex(p => p.id === paf.id);
     if (idx === -1) state.pafs.unshift(paf); else state.pafs[idx] = paf;
     const ok = persistLocalArray();
+    if (typeof window.__statusSalvamento === "function") window.__statusSalvamento(ok ? "ok" : "erro", "local");
     if (ok && !opts.silent) toast("Salvo neste dispositivo.");
   }
 }
@@ -3427,18 +3623,56 @@ function updateTopbarTabs() {
 
 /* ---------------------------- Render: HOME ---------------------------- */
 
+// Data (ISO) do último registro de uma ficha: anotações por dia, atendimentos ou, na falta, o início do PAF.
+function ultimoRegistroISO(p) {
+  const datas = [];
+  Object.values(p.diario || {}).forEach(lista => (Array.isArray(lista) ? lista : []).forEach(e => { if (e && e.data && String(e.texto || "").trim()) datas.push(e.data); }));
+  (p.atendimentos || []).forEach(a => { if (a && a.data) datas.push(a.data); });
+  datas.sort();
+  return datas.length ? datas[datas.length - 1] : (p.dataInicial || "");
+}
+function diasSemRegistro(p) { return diasDesde(ultimoRegistroISO(p)); }
+
+// Abre a ficha direto na seção de observações, já com uma anotação nova de hoje, pronta para digitar.
+function anotarRapido(id) {
+  openPAF(id);
+  if (!state.current) return;
+  state.activeSection = "observacoes";
+  renderApp();
+  const btn = document.querySelector('[data-diario-add="observacoes"]');
+  if (btn) btn.click();
+}
+
+function normBusca(t) {
+  return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+// Todo o texto de anotações de um PAF (campos por dia + evolução dos atendimentos), sem acentos, para a busca.
+function textoAnotacoesPAF(p) {
+  const partes = (typeof DIARIO_CAMPOS !== "undefined" ? DIARIO_CAMPOS : []).map(k => p[k] || "");
+  (p.atendimentos || []).forEach(a => { partes.push(a.evolucao || "", a.encaminhamentos || ""); });
+  return normBusca(partes.join(" \n "));
+}
+
 function renderHomeHTML() {
   const q = state.search.trim().toLowerCase();
+  const qn = normBusca(q);
+  let achadosSoNasAnotacoes = 0;
   let list = state.pafs.filter(p => {
-    const matchesQ = !q || (p.responsavel || "").toLowerCase().includes(q) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || (p.apelido || "").toLowerCase().includes(q) || (p.crasNome || "").toLowerCase().includes(q);
+    const nosDados = !q || normBusca(p.responsavel).includes(qn) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || normBusca(p.apelido).includes(qn) || normBusca(p.crasNome).includes(qn);
+    const nasNotas = !nosDados && qn.length >= 3 && textoAnotacoesPAF(p).includes(qn);
+    const matchesQ = nosDados || nasNotas;
     const matchesStatus = state.statusFilter === "ativos" ? p.situacaoPAF === "andamento"
       : state.statusFilter === "arquivados" ? (p.situacaoPAF === "encaminhado" || p.situacaoPAF === "concluido")
+      : state.statusFilter === "parados" ? (p.situacaoPAF === "andamento" && (diasSemRegistro(p) || 0) >= 30)
       : p.situacaoPAF === state.statusFilter;
+    if (matchesQ && matchesStatus && !nosDados) achadosSoNasAnotacoes++;
     return matchesQ && matchesStatus;
   }).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
 
-  const chips = ["ativos", "arquivados"].map(s => {
-    const label = s === "ativos" ? "Ativos" : "Arquivados (Encaminhados/Concluídos)";
+  const qtdParados = state.pafs.filter(p => p.situacaoPAF === "andamento" && (diasSemRegistro(p) || 0) >= 30).length;
+  const chips = ["ativos", "parados", "arquivados"].map(s => {
+    const label = s === "ativos" ? "Ativos" : s === "parados" ? `Sem registro há 30+ dias${qtdParados ? " (" + qtdParados + ")" : ""}` : "Arquivados (Encaminhados/Concluídos)";
     return `<button class="filter-chip ${state.statusFilter === s ? "active" : ""}" data-status="${s}">${label}</button>`;
   }).join("");
 
@@ -3478,6 +3712,7 @@ function renderHomeHTML() {
       <div class="record-main">
         <div class="record-name">${escapeHtml(p.responsavel) || "Sem nome do responsável"}</div>
         <div class="record-protocolo">Prontuário Nº ${protocolo}</div>
+        ${(() => { const iso = ultimoRegistroISO(p); const d = diasDesde(iso); if (!iso || d == null) return ""; const alerta = p.situacaoPAF === "andamento" && d >= 30; return `<div class="record-ultimo${alerta ? " alerta" : ""}" title="Data do último registro (anotação ou atendimento)">Último registro: ${fmtDateBR(String(iso).slice(0, 10))} · ${d === 0 ? "hoje" : d + " dia(s)"}</div>`; })()}
         <div class="record-progress" title="${progresso}% do PAF preenchido"><div class="record-progress-fill" style="width:${progresso}%"></div></div>
       </div>
       <div class="record-cras">${escapeHtml(p.crasNome) || "—"}</div>
@@ -3491,6 +3726,7 @@ function renderHomeHTML() {
       </div>
       <div class="record-actions">
         <button class="btn btn-ghost btn-sm" data-open="${p.id}">Abrir</button>
+        <button class="btn btn-ghost btn-sm" data-anotar="${p.id}" title="Abrir a ficha e começar uma anotação de hoje">+ Anotar</button>
         <div class="export-menu">
           <button class="btn btn-ghost btn-sm" data-export-toggle="${p.id}">Exportar ▾</button>
           <div class="export-dropdown" id="exp-${p.id}" style="display:none">
@@ -3539,9 +3775,10 @@ function renderHomeHTML() {
     ${kpiStripHTML}
     ${pilaresPaifStripHTML()}
     <div class="search-row">
-      <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF ou CRAS…" value="${escapeHtml(state.search)}">
+      <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF, CRAS ou texto das anotações…" value="${escapeHtml(state.search)}">
       <div class="filter-tabs">${chips}</div>
     </div>
+    ${achadosSoNasAnotacoes ? `<p class="hint busca-notas-dica">${achadosSoNasAnotacoes} ficha(s) encontrada(s) pelo texto das anotações (observações, atendimentos).</p>` : ""}
     ${list.length ? `<div class="records-list">${recordsHead}${rows}</div>` : empty}
   </div>`;
 }
@@ -3559,6 +3796,9 @@ function attachHomeHandlers() {
   });
   document.querySelectorAll("[data-open]").forEach(el => {
     el.addEventListener("click", (e) => { e.stopPropagation(); openPAF(el.dataset.open); });
+  });
+  document.querySelectorAll("[data-anotar]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); anotarRapido(el.dataset.anotar); });
   });
   document.querySelectorAll("[data-del]").forEach(el => {
     el.addEventListener("click", (e) => {
@@ -4551,21 +4791,33 @@ function renderSection(id, paf) {
     case "anexos": {
       const anexos = paf.anexos || [];
       const total = totalAnexosBytes(paf);
-      const avisoNuvem = total > anexoTotalAvisoBytes();
+      const maxTotal = anexoTotalMaxBytes();
+      const pct = Math.min(100, Math.round((total / maxTotal) * 100));
+      const nivel = total > anexoTotalAvisoBytes() ? (total > maxTotal * 0.95 ? "crit" : "aviso") : "ok";
+      const avisoNuvem = nivel !== "ok";
       const carregandoAnexos = state.mode === "cloud" && (paf.anexosCount || 0) > 0 && anexos.length === 0;
-      const cards = anexos.map(a => {
-        const ehImagem = a.tipo.startsWith("image/");
+      const filtro = (state.anexoFiltro || "").toLowerCase();
+      const visiveis = anexos.filter(a => !filtro || `${a.nome} ${a.legenda || ""} ${a.categoria || ""}`.toLowerCase().includes(filtro));
+      const cards = visiveis.map(a => {
+        const ehImagem = (a.tipo || "").startsWith("image/");
         const preview = ehImagem
-          ? `<img src="${a.dataURL}" class="anexo-thumb" data-anexo-view="${a.id}">`
+          ? `<img src="${a.dataURL}" class="anexo-thumb" alt="${escapeHtml(a.legenda || a.nome)}" data-anexo-view="${a.id}">`
           : `<div class="anexo-thumb anexo-pdf-icon" data-anexo-view="${a.id}">PDF</div>`;
+        const data = a.addedAt ? fmtDateBR(String(a.addedAt).slice(0, 10)) : "";
         return `
         <div class="anexo-card">
           ${preview}
           <div class="anexo-info">
             <span class="anexo-nome" title="${escapeHtml(a.nome)}">${escapeHtml(a.nome)}</span>
-            <span class="anexo-meta">${fmtBytes(a.tamanho)}</span>
+            <span class="anexo-meta">${fmtBytes(a.tamanho)}${data ? " · " + data : ""}</span>
           </div>
+          <select class="anexo-cat" data-anexo-cat="${a.id}" aria-label="Tipo de documento">
+            <option value="">Tipo de documento…</option>
+            ${ANEXO_CATEGORIAS.map(c => `<option value="${escapeHtml(c)}" ${a.categoria === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+          </select>
+          <textarea class="anexo-legenda" rows="2" data-anexo-legenda="${a.id}" maxlength="400" placeholder="Legenda / observação (ex.: comprovante de 09/2026)" aria-label="Legenda do anexo">${escapeHtml(a.legenda || "")}</textarea>
           <div class="anexo-actions">
+            <button class="btn btn-ghost btn-sm" data-anexo-view-btn="${a.id}">Abrir</button>
             <button class="btn btn-ghost btn-sm" data-anexo-baixar="${a.id}">Baixar</button>
             <button class="btn btn-danger btn-sm" data-anexo-remover="${a.id}">Excluir</button>
           </div>
@@ -4575,15 +4827,29 @@ function renderSection(id, paf) {
       return `
       <div class="section-card">
         ${sectionHeader("13", "Anexos", "Anexe fotos, documentos digitalizados ou PDFs relacionados ao acompanhamento desta família.")}
-        <label class="anexo-dropzone" for="anexoInput">
+        <div class="anexo-medidor ${nivel}" role="group" aria-label="Espaço usado pelos anexos deste PAF">
+          <div class="anexo-medidor-topo">
+            <span><strong>${fmtBytes(total)}</strong> de ${fmtBytes(maxTotal)} usados neste PAF</span>
+            <span>${anexos.length || paf.anexosCount || 0} arquivo(s) · ${state.mode === "cloud" ? "nuvem" : "somente neste aparelho"}</span>
+          </div>
+          <div class="anexo-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
+        </div>
+        <label class="anexo-dropzone" for="anexoInput" id="anexoDropzone">
           <span class="anexo-dropzone-icon">＋</span>
-          <span>Clique para escolher imagens ou PDFs</span>
+          <span>Arraste arquivos para cá ou clique para escolher imagens/PDFs</span>
           <input type="file" id="anexoInput" accept="image/*,application/pdf" multiple style="display:none">
         </label>
-        <p class="hint">Imagens são comprimidas automaticamente ao anexar. Cada arquivo pode ter até ${fmtBytes(anexoMaxBytes())}. Tamanho total dos anexos deste PAF: <strong>${fmtBytes(total)}</strong> de até ${fmtBytes(anexoTotalMaxBytes())}${state.mode === "cloud" ? " (modo nuvem)" : " (somente neste dispositivo)"}.</p>
+        <label class="btn btn-ghost anexo-camera" for="anexoCamera">📷 Tirar foto agora
+          <input type="file" id="anexoCamera" accept="image/*" capture="environment" style="display:none">
+        </label>
+        <p class="hint anexo-dica-colar">Dica: no computador, você também pode colar uma imagem copiada (Ctrl+V) com esta seção aberta.</p>
+        <p class="hint">Imagens são comprimidas automaticamente ao anexar. Cada arquivo pode ter até ${fmtBytes(anexoMaxBytes())}.</p>
         ${avisoNuvem ? `<p class="anexo-aviso">${uiIconSvg("warning", 13)} Os anexos deste PAF já somam ${fmtBytes(total)} — considere revisar se todos ainda são necessários.</p>` : ""}
+        ${anexos.length > 3 ? `<div class="anexo-busca"><input type="search" id="anexoBusca" placeholder="Buscar anexo por nome, legenda ou tipo…" value="${escapeHtml(state.anexoFiltro || "")}" aria-label="Buscar anexo"></div>` : ""}
         ${carregandoAnexos ? `<p class="hint" style="margin-top:10px;">Carregando anexos…</p>`
-          : anexos.length ? `<div class="anexo-grid">${cards}</div>` : `<p class="hint" style="margin-top:10px;">Nenhum anexo adicionado ainda.</p>`}
+          : visiveis.length ? `<div class="anexo-grid">${cards}</div>`
+          : anexos.length ? `<p class="hint" style="margin-top:10px;">Nenhum anexo corresponde à busca.</p>`
+          : `<p class="hint" style="margin-top:10px;">Nenhum anexo adicionado ainda.</p>`}
       </div>`;
     }
 
@@ -4837,12 +5103,38 @@ function attachEditorHandlers() {
       e.target.value = "";
     });
   }
-  container.querySelectorAll("[data-anexo-view]").forEach(el => {
+  const anexoCamera = document.getElementById("anexoCamera");
+  if (anexoCamera) {
+    anexoCamera.addEventListener("change", (e) => { adicionarAnexos(e.target.files); e.target.value = ""; });
+  }
+  container.querySelectorAll("[data-anexo-view], [data-anexo-view-btn]").forEach(el => {
     el.addEventListener("click", () => {
-      const anexo = (state.current.anexos || []).find(a => a.id === el.dataset.anexoView);
+      const anexo = (state.current.anexos || []).find(a => a.id === (el.dataset.anexoView || el.dataset.anexoViewBtn));
       if (anexo) abrirAnexo(anexo);
     });
   });
+  container.querySelectorAll("[data-anexo-legenda]").forEach(el => {
+    el.addEventListener("change", () => atualizarMetaAnexo(el.dataset.anexoLegenda, { legenda: el.value.trim() }));
+  });
+  container.querySelectorAll("[data-anexo-cat]").forEach(el => {
+    el.addEventListener("change", () => atualizarMetaAnexo(el.dataset.anexoCat, { categoria: el.value }));
+  });
+  const anexoBusca = document.getElementById("anexoBusca");
+  if (anexoBusca) {
+    anexoBusca.addEventListener("input", () => {
+      state.anexoFiltro = anexoBusca.value;
+      const pos = anexoBusca.selectionStart;
+      renderApp();
+      const novo = document.getElementById("anexoBusca");
+      if (novo) { novo.focus(); try { novo.setSelectionRange(pos, pos); } catch (e) { /* ignora */ } }
+    });
+  }
+  const dz = document.getElementById("anexoDropzone");
+  if (dz) {
+    ["dragenter", "dragover"].forEach(ev => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("arrastando"); }));
+    ["dragleave", "drop"].forEach(ev => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("arrastando"); }));
+    dz.addEventListener("drop", (e) => { if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) adicionarAnexos(e.dataTransfer.files); });
+  }
   container.querySelectorAll("[data-anexo-baixar]").forEach(btn => {
     btn.addEventListener("click", () => {
       const anexo = (state.current.anexos || []).find(a => a.id === btn.dataset.anexoBaixar);
@@ -4992,7 +5284,7 @@ async function exportPDF(paf) {
     ${anexosImg.length ? `<div class="anexos-print-grid">${anexosImg.map(a => `
       <div class="anexo-print-item">
         <img src="${a.dataURL}">
-        <span>${escapeHtml(a.nome)}</span>
+        <span>${escapeHtml(a.legenda || a.nome)}</span>
       </div>`).join("")}</div>` : ""}
     ${anexosPdf.length ? `<p class="muted">Documentos PDF anexados (incluídos a seguir, uma página por documento): ${anexosPdf.map(a => escapeHtml(a.nome)).join(", ")}</p>` : ""}
   ` : "";
