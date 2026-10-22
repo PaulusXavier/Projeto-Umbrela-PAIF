@@ -1027,7 +1027,10 @@ function uid() {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  // Data local (não UTC): em Boa Vista (UTC-4), depois das 20h o UTC já é "amanhã".
+  const d = new Date();
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 function emptyPAF() {
@@ -3728,7 +3731,7 @@ function renderEditorHTML() {
     </nav>
     <div class="form-scroll" id="formScroll">
       <div class="form-inner">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="backHomeBtn">${uiIconSvg("chevronLeft", 13)} Voltar à lista</button>
           <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
           <span class="section-pos-tag">Seção ${activeIdx + 1} de ${SECTIONS.length}</span>
