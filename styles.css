@@ -1086,7 +1086,7 @@ main { flex: 1; display: flex; min-height: 0; }
   display: flex; align-items: center; gap: 9px;
 }
 .resumo-secao h4::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
-.resumo-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+.resumo-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: start; }
 .resumo-cols-donut2 { grid-template-columns: repeat(2, 1fr); max-width: 640px; }
 .resumo-cols > div {
   background: var(--paper-soft); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 15px;
@@ -1791,3 +1791,59 @@ main:has(> .footer-bar) .footer-bar { padding-right: 84px; } /* espaço para o m
 .record-ultimo { font-size: var(--text-xs); color: var(--ink-faint); margin-top: 2px; }
 .record-ultimo.alerta { color: #8A5A12; font-weight: 600; }
 .record-ultimo.alerta::before { content: "● "; color: var(--gold); }
+
+
+/* ---------- Painel de apoio lateral (ocupa as margens vazias em telas largas) ---------- */
+.home-layout { flex: 1; display: flex; justify-content: center; align-items: flex-start; gap: 20px; width: 100%; padding: 0 12px; }
+.home-main { flex: 0 1 1080px; min-width: 0; }
+.apoio-lateral { display: none; }
+.form-cols { display: flex; justify-content: center; align-items: flex-start; gap: 4px; }
+.form-cols > .form-inner { flex: 0 1 880px; min-width: 0; margin: 0; }
+@media (min-width: 1440px) {
+  .apoio-home { display: flex; flex: 0 0 280px; flex-direction: column; gap: 12px; position: sticky; top: 16px; margin-top: 150px; padding-bottom: 40px; }
+}
+@media (min-width: 1280px) {
+  .apoio-editor { display: flex; flex: 0 0 272px; flex-direction: column; gap: 12px; position: sticky; top: 26px; padding: 0 20px 40px 0; }
+}
+.apoio-card { background: var(--paper); border: 1px solid var(--line); border-top: 3px solid var(--gold-soft); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow-sm); font-size: var(--text-sm); color: var(--ink-soft); }
+.apoio-card h3 { margin: 0 0 8px; font-size: var(--text-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.apoio-card h3 em { font-style: normal; background: var(--gold-soft); color: var(--gold-dark); border-radius: 999px; padding: 1px 7px; font-size: var(--text-2xs); }
+.apoio-linha { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; }
+.apoio-linha strong { color: var(--ink); text-align: right; }
+.apoio-barra { height: 6px; background: var(--paper-soft); border-radius: 99px; overflow: hidden; margin: 2px 0 8px; }
+.apoio-barra span { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.apoio-nivel { font-weight: 700; font-size: var(--text-xs); padding: 2px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-dark); }
+.apoio-nivel-alta { background: var(--danger-soft); color: var(--danger); }
+.apoio-nivel-media { background: var(--gold-soft); color: var(--gold-dark); }
+.apoio-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.apoio-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.apoio-link { width: 100%; text-align: left; background: none; border: 0; border-radius: var(--radius-sm); padding: 6px 8px; margin: 0 -8px; width: calc(100% + 16px); font: inherit; color: var(--ink); cursor: pointer; display: flex; flex-direction: column; gap: 1px; }
+.apoio-link:hover, .apoio-link:focus-visible { background: var(--paper-soft); }
+.apoio-link small { color: var(--ink-faint); font-size: var(--text-xs); }
+.apoio-vazio, .apoio-nota, .apoio-mais { margin: 0; color: var(--ink-faint); font-size: var(--text-xs); }
+.apoio-nota { margin-top: 6px; }
+.apoio-rodape { margin-top: 8px; background: none; border: 0; padding: 0; font: inherit; font-size: var(--text-xs); color: var(--accent-dark); font-weight: 600; cursor: pointer; text-decoration: underline; }
+.apoio-dica { background: var(--paper-soft); border-top-color: var(--accent); }
+.apoio-dica p { margin: 0; line-height: 1.5; }
+.apoio-passos { margin: 0; padding-left: 18px; line-height: 1.55; }
+.apoio-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.apoio-duo div { display: flex; flex-direction: column; }
+.apoio-duo strong { font-family: var(--font-serif, Lora, serif); font-size: 26px; color: var(--ink); line-height: 1.1; }
+.apoio-duo span { font-size: var(--text-xs); color: var(--ink-faint); }
+@media print { .apoio-lateral { display: none !important; } }
+
+/* Resumo recolhível para telas sem margem lateral */
+.apoio-mobile { display: block; margin: 0 0 14px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.apoio-mobile > summary { cursor: pointer; padding: 11px 14px; font-weight: 700; font-size: var(--text-sm); color: var(--ink); list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.apoio-mobile > summary::-webkit-details-marker { display: none; }
+.apoio-mobile > summary::after { content: "▾"; color: var(--ink-faint); transition: transform .15s; }
+.apoio-mobile[open] > summary::after { transform: rotate(180deg); }
+.apoio-mobile-corpo { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; padding: 0 12px 12px; }
+.apoio-mobile-corpo .apoio-card { box-shadow: none; }
+@media (min-width: 1440px) { .home-main > .apoio-mobile { display: none; } }
+@media (min-width: 1280px) { .form-inner > .apoio-mobile { display: none; } }
+@media print { .apoio-mobile { display: none !important; } }
+
+.apoio-acoes { border-top-color: var(--accent); }
+.apoio-acao { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; font: inherit; font-size: var(--text-sm); font-weight: 600; color: var(--accent-dark); background: var(--accent-soft); border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; }
+.apoio-acao:hover, .apoio-acao:focus-visible { border-color: var(--accent); }
