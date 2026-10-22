@@ -457,14 +457,14 @@ main { flex: 1; display: flex; min-height: 0; }
   background: var(--paper); box-shadow: var(--shadow);
 }
 .records-list-head {
-  display: grid; grid-template-columns: 46px 1.7fr 1fr 108px 118px 118px 258px;
+  display: grid; grid-template-columns: 46px 1.7fr 1fr 108px 118px 118px 330px;
   gap: 14px; align-items: center; padding: 9px 18px 9px 14px;
   background: var(--paper-soft); border-bottom: 1px solid var(--line);
   font-family: var(--font-mono); font-size: var(--text-micro); text-transform: uppercase; letter-spacing: .09em;
   color: var(--ink-faint); border-radius: 0 var(--radius) 0 0;
 }
 .record-row {
-  display: grid; grid-template-columns: 46px 1.7fr 1fr 108px 118px 118px 258px;
+  display: grid; grid-template-columns: 46px 1.7fr 1fr 108px 118px 118px 330px;
   gap: 14px; align-items: center; padding: 12px 18px 12px 14px;
   border-bottom: 1px solid var(--line); position: relative; cursor: pointer;
   background: var(--paper); transition: background .15s, box-shadow .15s;
@@ -1643,3 +1643,151 @@ main { flex: 1; display: flex; min-height: 0; }
 /* Editor: a barra de ações (Baixar PDF / Word / Salvar) fica embaixo, não como coluna ao lado do formulário */
 main:has(> .footer-bar) { flex-direction: column; }
 main:has(> .footer-bar) .footer-bar { padding-right: 84px; } /* espaço para o mascote Umbrella não cobrir o botão Salvar */
+
+
+/* ===================== Anotações: leitura e escrita mais confortáveis ===================== */
+.f textarea, .diario-texto textarea, .hist-novo textarea, .hist-edit textarea {
+  line-height: 1.6; padding: var(--space-3) var(--space-4); min-height: 84px; overflow-wrap: anywhere;
+  font-size: calc(var(--text-base) + 1px);
+}
+.diario-texto textarea { min-height: 96px; background: #fff; }
+.dyn-table textarea { line-height: 1.45; min-height: 0; resize: none; }
+.f textarea:focus, .diario-texto textarea:focus { box-shadow: 0 0 0 3px var(--accent-soft), 0 6px 18px rgba(20,32,45,.07); }
+.diario-item { grid-template-columns: 150px minmax(0, 1fr); padding: var(--space-4) 38px var(--space-4) var(--space-4); }
+.diario-item:focus-within { border-left-color: var(--accent-dark); box-shadow: 0 2px 14px rgba(20,32,45,.07); }
+@media (max-width: 900px) { .diario-item { grid-template-columns: 1fr; } .diario-data input { max-width: 220px; } }
+
+.nota-rodape { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: 4px; min-height: 24px; }
+.nota-contador { font-size: var(--text-xs); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.nota-ampliar {
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink-soft); border-radius: 999px;
+  font-size: var(--text-xs); font-weight: 600; padding: 3px 11px; cursor: pointer; opacity: .75; transition: opacity .12s, background .12s, color .12s;
+}
+.nota-ampliar:hover, .nota-ampliar:focus-visible { opacity: 1; background: var(--accent-soft); color: var(--accent-dark); border-color: var(--accent); }
+@media (hover: none) { .nota-ampliar { opacity: 1; padding: 6px 14px; } }
+
+/* Editor ampliado */
+.nota-editor { position: fixed; inset: 0; z-index: 400; background: rgba(20,32,45,.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 18px; }
+.nota-editor-caixa { background: var(--paper, #fff); width: min(920px, 100%); height: min(86vh, 900px); border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); display: flex; flex-direction: column; overflow: hidden; }
+.nota-editor-topo { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line); }
+.nota-editor-topo strong { font-size: var(--text-md); color: var(--ink); overflow-wrap: anywhere; }
+.nota-editor-dica { font-size: var(--text-xs); color: var(--ink-faint); white-space: nowrap; }
+.nota-editor-area { flex: 1; width: 100%; border: 0; outline: none; resize: none; padding: var(--space-5); font-size: calc(var(--text-base) + 3px); line-height: 1.75; background: #fff; color: var(--ink); min-height: 0; height: auto; overflow-y: auto !important; }
+.nota-editor-rodape { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-5); border-top: 1px solid var(--line); background: var(--paper-soft); }
+@media (max-width: 640px) { .nota-editor { padding: 0; } .nota-editor-caixa { height: 100dvh; border-radius: 0; } .nota-editor-dica { display: none; } .nota-editor-area { font-size: var(--text-lg); padding: var(--space-4); } }
+
+/* Indicador de salvamento */
+.save-pill {
+  position: fixed; left: 14px; bottom: 14px; z-index: 90; max-width: calc(100vw - 110px);
+  background: #fff; border: 1px solid var(--line); color: var(--ink-soft); border-radius: 999px;
+  padding: 6px 14px; font-size: var(--text-xs); font-weight: 600; box-shadow: 0 4px 16px rgba(20,32,45,.12);
+  opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.save-pill.visivel { opacity: 1; transform: none; }
+.save-pill[data-estado="ok"] { color: var(--accent-dark); border-color: var(--accent); }
+.save-pill[data-estado="erro"] { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+.save-pill[data-estado="pendente"], .save-pill[data-estado="salvando"] { color: #7A5A1E; border-color: var(--gold); }
+@media print { .save-pill, .nota-rodape, .nota-editor { display: none !important; } }
+
+/* ===================== Anexos: medidor, arrastar, cartões e visualizador ===================== */
+.anexo-medidor { background: var(--paper-soft); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
+.anexo-medidor-topo { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px var(--space-3); font-size: var(--text-sm); color: var(--ink-soft); margin-bottom: 8px; }
+.anexo-barra, .storage-barra { height: 9px; border-radius: 999px; background: #E4DFD2; overflow: hidden; display: flex; }
+.anexo-barra span { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s; }
+.anexo-medidor.aviso .anexo-barra span { background: var(--gold); }
+.anexo-medidor.crit .anexo-barra span { background: var(--danger); }
+.anexo-dropzone.arrastando { background: #D3E4DE; border-style: solid; transform: scale(1.01); }
+.anexo-busca { margin-top: var(--space-3); }
+.anexo-busca input { width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper-soft); }
+.anexo-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--space-4); }
+.anexo-thumb { height: 150px; object-fit: cover; }
+.anexo-cat, .anexo-legenda { width: 100%; padding: 6px 9px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; font-size: var(--text-sm); }
+.anexo-legenda { resize: none; line-height: 1.4; }
+.anexo-actions { flex-wrap: wrap; }
+.anexo-viewer { position: fixed; inset: 0; z-index: 450; background: rgba(12,18,26,.94); display: flex; flex-direction: column; }
+.anexo-viewer-barra { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); color: #fff; }
+.anexo-viewer-titulo { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.anexo-viewer-titulo strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.anexo-viewer-titulo span { font-size: var(--text-xs); opacity: .75; }
+.anexo-viewer-pos { font-size: var(--text-sm); opacity: .8; font-variant-numeric: tabular-nums; }
+.anexo-viewer-palco { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; overflow: auto; padding: 0 56px 18px; }
+.anexo-viewer-palco img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; background: #fff; }
+.anexo-viewer.zoom .anexo-viewer-palco { align-items: flex-start; justify-content: flex-start; }
+.anexo-viewer.zoom .anexo-viewer-palco img { max-width: none; max-height: none; width: 180%; }
+.anexo-viewer-seta { position: fixed; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; border: 0; border-radius: 10px; background: rgba(255,255,255,.14); color: #fff; font-size: 34px; cursor: pointer; }
+.anexo-viewer-seta:hover { background: rgba(255,255,255,.28); }
+.anexo-viewer-seta.esq { left: 6px; } .anexo-viewer-seta.dir { right: 6px; }
+
+/* ===================== Painel de armazenamento (Config) ===================== */
+.modal.modal-wide { max-width: 620px; }
+.storage-panel, .storage-backup { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper-soft); padding: var(--space-4); margin: var(--space-4) 0; }
+.storage-topo { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px var(--space-3); font-size: var(--text-sm); margin-bottom: 8px; }
+.storage-barra .dados { background: var(--slate, #5B7083); display: block; height: 100%; }
+.storage-barra .anexos { background: var(--accent); display: block; height: 100%; }
+.storage-legenda { display: flex; flex-wrap: wrap; gap: 4px var(--space-4); margin-top: 8px; font-size: var(--text-xs); color: var(--ink-soft); }
+.storage-legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+.storage-legenda i.dados { background: var(--slate, #5B7083); } .storage-legenda i.anexos { background: var(--accent); }
+.storage-top { margin-top: var(--space-3); border-top: 1px solid var(--line); padding-top: var(--space-2); }
+.storage-top .k { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); }
+.storage-linha { display: flex; justify-content: space-between; gap: var(--space-3); font-size: var(--text-sm); padding: 3px 0; }
+.storage-check { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); margin: 6px 0 10px; }
+.storage-acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.storage-acoes label.btn { cursor: pointer; }
+
+/* ===================== Modelos, ditado e busca nas anotações ===================== */
+.nota-acoes, .nota-ferramentas { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+.nota-mic.gravando { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); opacity: 1; animation: notaPulsa 1.2s ease-in-out infinite; }
+@keyframes notaPulsa { 50% { box-shadow: 0 0 0 5px rgba(181,71,63,.18); } }
+@media (prefers-reduced-motion: reduce) { .nota-mic.gravando { animation: none; } }
+.nota-rodape { flex-wrap: wrap; }
+.nota-editor-rodape { gap: var(--space-3); flex-wrap: wrap; }
+.nota-editor-rodape .nota-contador { margin-right: auto; }
+.nota-modelos { position: fixed; z-index: 500; width: min(360px, calc(100vw - 16px)); max-height: min(70vh, 460px); overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lift); padding: var(--space-2); }
+.nota-modelos-tit { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); padding: 8px 8px 4px; }
+.nota-modelo-item { display: flex; align-items: stretch; gap: 4px; }
+.nota-modelo-usar { flex: 1; text-align: left; border: 0; background: transparent; border-radius: var(--radius-sm); padding: 7px 8px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nota-modelo-usar:hover, .nota-modelo-usar:focus-visible { background: var(--accent-soft); outline: none; }
+.nota-modelo-usar strong { font-size: var(--text-sm); color: var(--ink); }
+.nota-modelo-usar span { font-size: var(--text-xs); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nota-modelo-del { border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; font-size: 18px; padding: 0 10px; border-radius: var(--radius-sm); }
+.nota-modelo-del:hover { background: var(--danger-soft); color: var(--danger); }
+.nota-modelos-novo { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+.nota-modelos-novo button { width: 100%; border: 0; background: transparent; color: var(--accent-dark); font-weight: 600; font-size: var(--text-sm); padding: 8px; text-align: left; cursor: pointer; border-radius: var(--radius-sm); }
+.nota-modelos-novo button:hover { background: var(--accent-soft); }
+.busca-notas-dica { margin: 6px 2px 0; }
+@media print { .nota-modelos { display: none !important; } }
+
+/* ===================== Aparência e leitura ===================== */
+.aparencia-panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper-soft); padding: var(--space-4); margin: var(--space-4) 0; }
+.aparencia-linha { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); margin-top: var(--space-3); font-size: var(--text-sm); }
+.aparencia-opcoes { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.aparencia-opcoes .btn.ativo { background: var(--accent); color: #fff; border-color: var(--accent); }
+.hist-diario-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--space-3); }
+@media print { .hist-diario-acoes { display: none !important; } }
+
+/* Alto contraste: texto mais escuro, bordas firmes, campos bem delimitados */
+:root[data-contraste="alto"] {
+  --ink: #0B1B33; --ink-soft: #1B2B40; --ink-faint: #2F4258; --line: #7A8796;
+}
+:root[data-contraste="alto"] .f input, :root[data-contraste="alto"] .f select, :root[data-contraste="alto"] .f textarea,
+:root[data-contraste="alto"] .diario-item, :root[data-contraste="alto"] .anexo-card { border-color: #5A6878; }
+:root[data-contraste="alto"] .f textarea, :root[data-contraste="alto"] .diario-texto textarea { background: #fff; color: #000; }
+:root[data-contraste="alto"] .f label { color: var(--ink); }
+:root[data-contraste="alto"] :focus-visible { outline: 3px solid #0B5FFF; outline-offset: 2px; }
+
+/* ===================== Fixar anotação, desfazer, foto ===================== */
+.diario-fixar { position: absolute; top: 6px; right: 34px; border: 0; background: transparent; color: var(--ink-faint); font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: var(--radius-sm); }
+.diario-fixar:hover, .diario-fixar:focus-visible { background: var(--gold-soft); color: var(--gold-dark, #7A5A1E); outline: none; }
+.diario-fixar.on { color: var(--gold); }
+.diario-item.fixada { border-left-color: var(--gold); background: #FFFBF0; }
+.hist-fixada { color: var(--gold); margin-right: 6px; }
+.desfazer-snack { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 480; display: flex; align-items: center; gap: 14px; background: var(--ink); color: #fff; padding: 10px 14px 10px 18px; border-radius: 999px; box-shadow: var(--shadow-lift); font-size: var(--text-sm); max-width: calc(100vw - 24px); }
+.desfazer-snack button { border: 0; background: rgba(255,255,255,.16); color: #fff; font-weight: 700; border-radius: 999px; padding: 5px 14px; cursor: pointer; }
+.desfazer-snack button:hover { background: rgba(255,255,255,.3); }
+.anexo-camera { display: none; margin-top: 8px; width: 100%; justify-content: center; padding: 14px; font-size: var(--text-md); cursor: pointer; }
+@media (pointer: coarse) { .anexo-camera { display: inline-flex; } .anexo-dica-colar { display: none; } }
+@media print { .desfazer-snack, .diario-fixar { display: none !important; } }
+
+.record-ultimo { font-size: var(--text-xs); color: var(--ink-faint); margin-top: 2px; }
+.record-ultimo.alerta { color: #8A5A12; font-weight: 600; }
+.record-ultimo.alerta::before { content: "● "; color: var(--gold); }
