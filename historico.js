@@ -480,7 +480,10 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
 
 function historicoSectionHTML(paf) {
   const st = histEstatisticas(paf);
-  const secoes = [...new Set((paf.historico || []).flatMap(e => (e.mudancas || []).map(m => m.secao)))];
+  const secoes = [...new Set([
+    ...(paf.historico || []).flatMap(e => (e.mudancas || []).map(m => m.secao)),
+    ...DIARIO_CAMPOS.filter(k => ((paf.diario || {})[k] || []).some(e => e.texto)).map(k => histSecaoId(k))
+  ])];
   if (HIST_UI.secao && !secoes.includes(HIST_UI.secao)) HIST_UI.secao = "";
   const vazio = !st.registros;
   return `
@@ -508,12 +511,13 @@ function historicoSectionHTML(paf) {
       <div class="status-picker">
         <button class="status-opt ${HIST_UI.view === "linha" ? "selected andamento" : ""}" data-hist-view="linha">Linha do tempo</button>
         <button class="status-opt ${HIST_UI.view === "campo" ? "selected andamento" : ""}" data-hist-view="campo">Por campo</button>
+        <button class="status-opt ${HIST_UI.view === "diario" ? "selected andamento" : ""}" data-hist-view="diario">Anotações por dia</button>
       </div>
       <div class="f hist-filtro"><label for="histFiltroSecao">Seção</label>
         <select id="histFiltroSecao"><option value="">Todas</option>${secoes.map(s => `<option value="${s}" ${HIST_UI.secao === s ? "selected" : ""}>${escapeHtml(histSecaoLabel(s))}</option>`).join("")}</select>
       </div>
     </div>
-    ${vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}
+    ${HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}
   </div>`;
 }
 
@@ -662,8 +666,8 @@ function diarioCampoHTML(paf, key, label, opts) {
     .sort((a, b) => (b.e.data || "").localeCompare(a.e.data || "") || b.i - a.i);
   const itens = ordenada.map(({ e, i }) => `
     <div class="diario-item${e.data ? "" : " sem-data"}">
-      <div class="diario-data"><label>${e.data ? "Data" : "Registro anterior (sem data)"}</label><input type="date" data-field="diario.${key}.${i}.data" value="${escapeHtml(e.data)}"></div>
-      <div class="diario-texto"><textarea rows="${opts.rows || 3}" data-field="diario.${key}.${i}.texto" placeholder="${escapeHtml(opts.placeholder || "Anotação deste dia...")}">${escapeHtml(e.texto)}</textarea></div>
+      <div class="diario-data"><label>${e.data ? "Data" : "Registro anterior (sem data)"}</label><input type="date" aria-label="Data da anotação" data-field="diario.${key}.${i}.data" value="${escapeHtml(e.data)}"></div>
+      <div class="diario-texto"><textarea rows="${opts.rows || 3}" aria-label="Anotação de ${e.data ? fmtDateBR(e.data) : "data não informada"}" data-field="diario.${key}.${i}.texto" placeholder="${escapeHtml(opts.placeholder || "Anotação deste dia...")}">${escapeHtml(e.texto)}</textarea></div>
       <button class="row-del" data-diario-del="${key}" data-idx="${i}" title="Remover esta anotação" aria-label="Remover esta anotação">${uiIconSvg("close", 12)}</button>
     </div>`).join("");
   return `
@@ -694,4 +698,29 @@ function attachDiarioHandlers(container) {
       renderApp();
     });
   }));
+}
+
+// Visão unificada de todas as anotações por dia (de todos os campos), da mais recente para a mais antiga.
+const DIARIO_ROTULOS = {
+  habitacaoObs: "Habitação", eduObs: "Educação", rendaObs: "Trabalho e renda", saudeObs: "Saúde",
+  aspectosPsicossociaisObs: "Aspectos relacionais", barreirasDesafios: "Barreiras e desafios", observacoes: "Observações gerais"
+};
+
+function histDiarioHTML(paf, secaoFiltro) {
+  const todas = [];
+  DIARIO_CAMPOS.forEach(k => {
+    if (secaoFiltro && histSecaoId(k) !== secaoFiltro) return;
+    ((paf.diario || {})[k] || []).forEach(e => {
+      if (e && String(e.texto || "").trim()) todas.push({ k, data: e.data || "", texto: e.texto });
+    });
+  });
+  if (!todas.length) return `<p class="hint">Nenhuma anotação por dia registrada${secaoFiltro ? " nesta seção" : ""}. Use "+ Anotação de hoje" nos campos de observação.</p>`;
+  todas.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  return `<div class="hist-diario">${todas.map(t => `
+    <div class="hist-diario-item">
+      <span class="hist-diario-data">${t.data ? fmtDateBR(t.data) : "sem data"}</span>
+      <span class="hist-secao-tag">${escapeHtml(DIARIO_ROTULOS[t.k] || t.k)}</span>
+      <p>${diarioBr(t.texto)}</p>
+    </div>`).join("")}</div>
+  <p class="hint">Para editar uma anotação, volte ao campo correspondente (o texto aqui é só leitura).</p>`;
 }
