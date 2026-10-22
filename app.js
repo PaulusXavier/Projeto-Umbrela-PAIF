@@ -336,6 +336,7 @@ const SECTIONS = [
   { id: "encerramento", label: "Encerramento" },
   { id: "anexos", label: "Anexos" },
   { id: "observacoes", label: "Observações" },
+  { id: "historico", label: "Histórico de Evolução" },
   { id: "graficos", label: "Gráficos da Família" }
 ];
 
@@ -357,7 +358,8 @@ const SECTION_ICONS = {
   plano: `<path d="M6 3.8h9l3 3v13.4H6z"/><path d="M15 3.8v3h3"/><path d="M9 12h6M9 15.4h6M9 8.6h3"/>`,
   encerramento: `<path d="M5 5.5h14v13H5z"/><path d="m8.5 12 2.4 2.4L16 9"/>`,
   anexos: `<path d="M15.8 8.2 9.6 14.4a2.8 2.8 0 1 1-4-4l6.9-6.9a2 2 0 1 1 2.8 2.8l-6.6 6.6a1.2 1.2 0 1 1-1.7-1.7l5.7-5.7"/>`,
-  observacoes: `<path d="M5 5h14v10.5H10L6 19v-3.5H5z"/><path d="M8.3 8.5h7.4M8.3 11.6h4.8"/>`
+  observacoes: `<path d="M5 5h14v10.5H10L6 19v-3.5H5z"/><path d="M8.3 8.5h7.4M8.3 11.6h4.8"/>`,
+  historico: `<path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5"/><path d="M4.5 4.8v3.6h3.6"/><path d="M12 8v4.2l2.8 1.8"/>`
 };
 
 function sectionIconSvg(id, size) {
@@ -1109,6 +1111,8 @@ function emptyPAF() {
     encerramentoTecnico: "",
     encerramentoData: "",
     observacoes: "",
+    historico: [],
+    diario: {},
     anexos: []
   };
 }
@@ -3224,6 +3228,8 @@ function registrarAuditoria(acao, paf) {
 
 function savePAF(paf, opts = {}) {
   const isNovo = !paf.criadoPor && !paf.createdAt;
+  diarioCompilar(paf); // anotações datadas -> texto dos campos (historico.js)
+  histRegistrar(paf); // histórico de evolução: compara com o último salvamento (historico.js)
   paf.updatedAt = new Date().toISOString();
   paf.atualizadoPor = state.currentUser?.email || paf.atualizadoPor || null;
   if (!paf.criadoPor) paf.criadoPor = state.currentUser?.email || null;
@@ -3353,6 +3359,9 @@ function openPAF(id) {
   });
 
   if (!state.current.anexos) state.current.anexos = [];
+  if (!Array.isArray(state.current.historico)) state.current.historico = [];
+  diarioMigrar(state.current);
+  histIniciarBase(state.current); // "foto" inicial, depois das migrações acima, para o histórico de evolução
 
   state.view = "editor";
   // Ao abrir um PAF já existente, mostra primeiro os gráficos da família.
@@ -3372,6 +3381,7 @@ function openPAF(id) {
 
 function newPAF() {
   state.current = emptyPAF();
+  histIniciarBase(state.current);
   state.view = "editor";
   state.activeSection = "cabecalho";
   savePAF(state.current, { silent: true });
@@ -3678,14 +3688,15 @@ function tabCompleteness(paf) {
     plano: !!(paf.tecnicoReferencia && paf.prazoExecucaoPlano) || (paf.objetivosPaif || []).length > 0,
     encerramento: !!paf.encerramentoMotivo,
     anexos: (paf.anexosCount != null ? paf.anexosCount : (paf.anexos || []).length) > 0,
-    observacoes: !!paf.observacoes
+    observacoes: !!paf.observacoes,
+    historico: (paf.historico || []).length > 0
   };
 }
 
 // Percentual de preenchimento do PAF (mesmas seções usadas na barra de progresso do
 // editor, sempre excluindo "Gráficos da Família" por não ter campos próprios) —
 // reaproveitado tanto no editor quanto nos cartões da lista de registros.
-const SECOES_PROGRESSO = SECTIONS.filter(s => s.id !== "graficos");
+const SECOES_PROGRESSO = SECTIONS.filter(s => s.id !== "graficos" && s.id !== "historico");
 function pafProgresso(paf) {
   const complete = tabCompleteness(paf);
   const completas = SECOES_PROGRESSO.filter(s => complete[s.id]).length;
@@ -4156,7 +4167,7 @@ function renderSection(id, paf) {
           <div class="f c3"><label>Nº total de cômodos</label><input type="text" data-field="habitacaoComodos" value="${escapeHtml(paf.habitacaoComodos)}"></div>
           <div class="f c3"><label>Nº de dormitórios</label><input type="text" data-field="habitacaoDormitorios" value="${escapeHtml(paf.habitacaoDormitorios)}"></div>
           ${simNao("habitacaoAreaRisco", paf.habitacaoAreaRisco)}
-          <div class="f c12"><label>Observações sobre a habitação</label><textarea rows="2" data-field="habitacaoObs">${escapeHtml(paf.habitacaoObs)}</textarea></div>
+          ${diarioCampoHTML(paf, "habitacaoObs", "Observações sobre a habitação")}
         </div>
       </div>
 
@@ -4169,7 +4180,7 @@ function renderSection(id, paf) {
           <div class="f c4"><label>Qtd. entre 10-17 anos que não sabem ler/escrever</label><input type="text" data-field="eduAnalfabetismo1017" value="${escapeHtml(paf.eduAnalfabetismo1017)}"></div>
           <div class="f c4"><label>Qtd. entre 18-59 anos que não sabem ler/escrever</label><input type="text" data-field="eduAnalfabetismo1859" value="${escapeHtml(paf.eduAnalfabetismo1859)}"></div>
           <div class="f c4"><label>Qtd. com 60 anos ou mais que não sabem ler/escrever</label><input type="text" data-field="eduAnalfabetismo60mais" value="${escapeHtml(paf.eduAnalfabetismo60mais)}"></div>
-          <div class="f c12"><label>Observações sobre educação</label><textarea rows="2" data-field="eduObs">${escapeHtml(paf.eduObs)}</textarea></div>
+          ${diarioCampoHTML(paf, "eduObs", "Observações sobre educação")}
         </div>
       </div>
 
@@ -4179,7 +4190,7 @@ function renderSection(id, paf) {
         <div class="field-grid">
           <div class="f c6"><label>Renda total da família (sem programas sociais)</label><input type="text" data-field="rendaTotal" placeholder="R$" value="${escapeHtml(paf.rendaTotal)}"></div>
           <div class="f c6"><label>Renda familiar per capita (sem programas sociais)</label><input type="text" data-field="rendaPerCapita" placeholder="R$" value="${escapeHtml(paf.rendaPerCapita)}"></div>
-          <div class="f c12"><label>Observações sobre trabalho e renda</label><textarea rows="2" data-field="rendaObs">${escapeHtml(paf.rendaObs)}</textarea></div>
+          ${diarioCampoHTML(paf, "rendaObs", "Observações sobre trabalho e renda")}
         </div>
       </div>
 
@@ -4191,7 +4202,7 @@ function renderSection(id, paf) {
           ${simNao("saudeAlcool", paf.saudeAlcool, "saudeAlcoolQuem", paf.saudeAlcoolQuem)}
           ${simNao("saudeDrogas", paf.saudeDrogas, "saudeDrogasQuem", paf.saudeDrogasQuem)}
           ${simNao("saudeGestante", paf.saudeGestante, "saudeGestanteQuem", paf.saudeGestanteQuem)}
-          <div class="f c12"><label>Observações sobre saúde</label><textarea rows="2" data-field="saudeObs">${escapeHtml(paf.saudeObs)}</textarea></div>
+          ${diarioCampoHTML(paf, "saudeObs", "Observações sobre saúde")}
         </div>
         <p class="hint">A presença de PCD e a necessidade de cuidados constantes devem ser registradas na lista de vulnerabilidades acima e/ou no campo de observações do Diagnóstico.</p>
       </div>
@@ -4201,7 +4212,7 @@ function renderSection(id, paf) {
         <p class="section-sub">Recursos técnicos utilizados para a leitura da dinâmica e dos vínculos familiares.</p>
         ${notaTecnica("Genograma e ecomapa são instrumentos de leitura sistêmica da família e de sua rede — reconhecidos pelas Referências CFP/CREPOP —, não instrumentos de diagnóstico clínico individual. Apoiam a compreensão de vínculos e potencialidades, nunca substituindo avaliação psicológica ou psicoterapia, fora do escopo do PAIF.")}
         ${chkList("instrumentaisTecnicos", INSTRUMENTAIS_TECNICOS, paf.instrumentaisTecnicos || [], true)}
-        <div class="f c12" style="margin-top:12px"><label>Aspectos relacionais observados (dinâmica, comunicação, papéis, potencialidades e vínculos da família)</label><textarea rows="3" data-field="aspectosPsicossociaisObs">${escapeHtml(paf.aspectosPsicossociaisObs)}</textarea></div>
+        ${diarioCampoHTML(paf, "aspectosPsicossociaisObs", "Aspectos relacionais observados (dinâmica, comunicação, papéis, potencialidades e vínculos da família)", { mt: true })}
       </div>
 
       <div class="section-card">
@@ -4220,7 +4231,7 @@ function renderSection(id, paf) {
             </div>
             <input type="text" placeholder="Observações" data-field="potencialidades.${i}.observacoes" value="${escapeHtml(row.observacoes)}">
           </div>`).join("")}
-        <div class="f c12" style="margin-top:12px"><label>Barreiras e desafios para a superação das vulnerabilidades</label><textarea rows="2" data-field="barreirasDesafios" placeholder="Ex.: dificuldade de acesso a serviços no território, ausência de rede de apoio, entre outros...">${escapeHtml(paf.barreirasDesafios)}</textarea></div>
+        ${diarioCampoHTML(paf, "barreirasDesafios", "Barreiras e desafios para a superação das vulnerabilidades", { mt: true, placeholder: "Ex.: dificuldade de acesso a serviços no território, ausência de rede de apoio, entre outros..." })}
       </div>`;
     }
 
@@ -4576,10 +4587,10 @@ function renderSection(id, paf) {
     case "observacoes": return `
       <div class="section-card">
         ${sectionHeader("14", "Observações Gerais", "Anotações complementares técnicas sobre o acompanhamento da família.")}
-        <div class="f">
-          <textarea data-field="observacoes" rows="8" placeholder="Digite aqui observações adicionais...">${escapeHtml(paf.observacoes)}</textarea>
-        </div>
+        ${diarioCampoHTML(paf, "observacoes", "Observações gerais", { placeholder: "Digite aqui observações adicionais...", rows: 5 })}
       </div>`;
+
+    case "historico": return historicoSectionHTML(paf);
 
     default: return "";
   }
@@ -4838,6 +4849,10 @@ function attachEditorHandlers() {
   container.querySelectorAll("[data-anexo-remover]").forEach(btn => {
     btn.addEventListener("click", () => removerAnexo(btn.dataset.anexoRemover));
   });
+
+  // Histórico de evolução (historico.js)
+  attachHistoricoHandlers(container);
+  attachDiarioHandlers(container);
 }
 
 /* ---------------------------- Global Handlers ---------------------------- */
@@ -5349,12 +5364,12 @@ async function exportPDF(paf) {
         <div class="field"><span class="label">Doença grave na família</span>${escapeHtml(paf.saudeDoencaGrave) || "—"}${paf.saudeDoencaGraveQuem ? " (" + escapeHtml(paf.saudeDoencaGraveQuem) + ")" : ""}</div>
         <div class="field"><span class="label">Gestante(s) na família</span>${escapeHtml(paf.saudeGestante) || "—"}${paf.saudeGestanteQuem ? " (" + escapeHtml(paf.saudeGestanteQuem) + ")" : ""}</div>
       </div>
-      ${[paf.habitacaoObs, paf.eduObs, paf.rendaObs, paf.saudeObs].filter(Boolean).map(o => `<p class="muted" style="margin:4px 0;">${escapeHtml(o)}</p>`).join("")}
+      ${[paf.habitacaoObs, paf.eduObs, paf.rendaObs, paf.saudeObs].filter(Boolean).map(o => `<p class="muted" style="margin:4px 0;">${diarioBr(o)}</p>`).join("")}
 
       ${(paf.instrumentaisTecnicos || []).length || paf.aspectosPsicossociaisObs ? `
       <h2>Aspectos Psicossociais e Instrumentais Técnicos</h2>
       ${(paf.instrumentaisTecnicos || []).length ? `<div>${paf.instrumentaisTecnicos.map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
-      ${paf.aspectosPsicossociaisObs ? `<p class="muted" style="margin:6px 0 0;">${escapeHtml(paf.aspectosPsicossociaisObs)}</p>` : ""}` : ""}
+      ${paf.aspectosPsicossociaisObs ? `<p class="muted" style="margin:6px 0 0;">${diarioBr(paf.aspectosPsicossociaisObs)}</p>` : ""}` : ""}
 
       ${(paf.encaminhamentosForm || []).length ? `
       <h2>Encaminhamentos Realizados</h2>
@@ -5374,7 +5389,7 @@ async function exportPDF(paf) {
         <thead><tr><th>Potencial</th><th>Situação</th><th>Observações</th></tr></thead>
         <tbody>${potencialidadesHTML}</tbody>
       </table>
-      ${paf.barreirasDesafios ? `<p class="muted" style="margin:6px 0 0;"><strong>Barreiras e desafios:</strong> ${escapeHtml(paf.barreirasDesafios)}</p>` : ""}
+      ${paf.barreirasDesafios ? `<p class="muted" style="margin:6px 0 0;"><strong>Barreiras e desafios:</strong> ${diarioBr(paf.barreirasDesafios)}</p>` : ""}
 
       <h2>Trabalho Social Coletivo do PAIF</h2>
       <div class="tags-wrap">${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
@@ -5411,6 +5426,8 @@ async function exportPDF(paf) {
       <h2>Registro de Atendimentos</h2>
       ${atendimentosHTML}
 
+      ${historicoPdfHTML(paf)}
+
       <h2>Metas e Evolução</h2>
       <table>
         <thead><tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr></thead>
@@ -5444,7 +5461,7 @@ async function exportPDF(paf) {
       </div>
       ${paf.encerramentoOutros ? `<p style="margin:6px 0 0;"><strong>Outros motivos/observações do encerramento:</strong> ${escapeHtml(paf.encerramentoOutros)}</p>` : ""}
 
-      ${paf.observacoes ? `<h2>Observações Gerais</h2><p class="anotacao">${escapeHtml(paf.observacoes)}</p>` : ""}
+      ${paf.observacoes ? `<h2>Observações Gerais</h2><p class="anotacao">${diarioBr(paf.observacoes)}</p>` : ""}
 
       <h2>Gráficos da Família</h2>
       <div class="graficos-print-secao">${graficosFamiliaBlocosHTML(paf)}</div>
@@ -5866,7 +5883,7 @@ async function exportWord(paf) {
         <tr><th>Potencial</th><th>Situação</th><th>Observações</th></tr>
         ${potencialidadesWordHTML}
       </table>
-      ${paf.barreirasDesafios ? `<p><b>Barreiras e desafios:</b> <span class="anotacao">${escapeHtml(paf.barreirasDesafios)}</span></p>` : ""}
+      ${paf.barreirasDesafios ? `<p><b>Barreiras e desafios:</b> <span class="anotacao">${diarioBr(paf.barreirasDesafios)}</span></p>` : ""}
 
       ${secao("03b", "Trabalho Social Coletivo do PAIF")}
       <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};">${(paf.atividadesColetivas || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:normal;">Nenhuma registrada</span>`}${paf.atividadesColetivasOutras ? "<br><b>Outras:</b> " + escapeHtml(paf.atividadesColetivasOutras) : ""}</p>
@@ -5891,7 +5908,7 @@ async function exportWord(paf) {
       ${secao("03e", "Aspectos Psicossociais e Instrumentais Técnicos")}
       ${camposGrid([
         ["Instrumentais utilizados", (paf.instrumentaisTecnicos || []).map(escapeHtml).join(", ")],
-        ["Aspectos relacionais observados", `<span style="text-align:justify;display:inline-block;">${escapeHtml(paf.aspectosPsicossociaisObs) || "—"}</span>`]
+        ["Aspectos relacionais observados", `<span style="text-align:justify;display:inline-block;">${diarioBr(paf.aspectosPsicossociaisObs) || "—"}</span>`]
       ])}
 
       ${secao("04", "Registro de Atendimentos")}
@@ -5899,6 +5916,14 @@ async function exportWord(paf) {
         <tr><th>Data</th><th>Tipo</th><th>Técnico</th><th>Evolução</th><th>Encaminhamentos</th></tr>
         ${atendimentosWordHTML}
       </table>
+
+      ${historicoWordLinhas(paf) ? `
+      ${secao("04b", "Evolução da Família")}
+      ${historicoWordSintese(paf)}
+      <table class="dados">
+        <tr><th>Data</th><th>Campo</th><th>Alteração / anotação</th></tr>
+        ${historicoWordLinhas(paf)}
+      </table>` : ""}
 
       ${encaminhamentosWordHTML}
 
@@ -5936,7 +5961,7 @@ async function exportWord(paf) {
         ["Motivo de Encerramento", escapeHtml(ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo)?.label) + (paf.encerramentoOutros ? " (" + escapeHtml(paf.encerramentoOutros) + ")" : "")],
         ["Técnico / Data do Encerramento", (escapeHtml(paf.encerramentoTecnico) || "—") + " · " + (fmtDateBR(paf.encerramentoData) || "—")]
       ])}
-      ${paf.observacoes ? `<p><b>Observações:</b></p><p class="anotacao">${escapeHtml(paf.observacoes)}</p>` : ""}
+      ${paf.observacoes ? `<p><b>Observações:</b></p><p class="anotacao">${diarioBr(paf.observacoes)}</p>` : ""}
 
       ${anexosWordHTML}
 
