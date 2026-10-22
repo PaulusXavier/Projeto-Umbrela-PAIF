@@ -3589,12 +3589,60 @@ function newPAF() {
 
 /* ---------------------------- Render: SHELL ---------------------------- */
 
+function apoioLayout(mainHTML, asideHTML, rotulo, resumoTitulo) {
+  return `<div class="home-layout"><div class="home-main"><details class="apoio-mobile"><summary>${resumoTitulo}</summary><div class="apoio-mobile-corpo">${asideHTML}</div></details>${mainHTML}</div><aside class="apoio-lateral apoio-home" aria-label="${rotulo}">${asideHTML}</aside></div>`;
+}
+
+function apoioDashboardHTML() {
+  if (!state.pafs.length) return `<div class="apoio-card apoio-dica"><h3>Gráficos</h3><p>Cadastre PAFs para ver aqui os números-chave do território.</p></div>`;
+  const r = computeResumoGeral(state.pafs);
+  const topo = (obj, n) => Object.entries(obj || {}).sort((a, b) => b[1] - a[1]).slice(0, n);
+  const lista = (titulo, pares) => pares.length ? `<div class="apoio-card"><h3>${titulo}</h3><ul class="apoio-lista">${pares.map(([k, v]) => `<li class="apoio-linha"><span>${escapeHtml(k)}</span><strong>${v}</strong></li>`).join("")}</ul></div>` : "";
+  const linha = (rot, val) => val == null ? "" : `<div class="apoio-linha"><span>${rot}</span><strong>${val}</strong></div>`;
+  return `
+    <div class="apoio-card">
+      <h3>Números-chave</h3>
+      ${linha("PAFs", r.total)}
+      ${linha("Pessoas acompanhadas", r.totalMembros)}
+      ${linha("Média de membros/família", r.mediaMembros)}
+      ${linha("Em abrigo", r.totalAbrigados + " (" + r.pctAbrigados + "%)")}
+      ${linha("Indígenas", r.totalIndigena + " (" + r.pctIndigena + "%)")}
+      ${linha("Com deficiência", r.totalPCD)}
+      ${linha("Situações superadas", r.pctSituacoesSuperadas + "%")}
+    </div>
+    ${lista("Vulnerabilidades mais citadas", topo(r.porVulnerabilidade, 5))}
+    ${lista("Nacionalidades", topo(r.porNacionalidade, 5))}
+    <div class="apoio-card apoio-dica"><h3>Leitura dos dados</h3><p>Use os números para planejar ações coletivas e busca ativa no território; a decisão sobre cada família continua sendo do técnico de referência.</p></div>`;
+}
+
+function apoioPrioridadesHTML() {
+  const ativos = state.pafs.filter(p => p.situacaoPAF === "andamento");
+  const cont = { alta: 0, media: 0, baixa: 0 };
+  const motivos = {};
+  ativos.forEach(p => {
+    const pr = computePrioridade(p);
+    cont[pr.nivel]++;
+    pr.motivos.forEach(m => { motivos[m.label] = (motivos[m.label] || 0) + 1; });
+  });
+  const top = Object.entries(motivos).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  return `
+    <div class="apoio-card">
+      <h3>Distribuição · ${ativos.length} em andamento</h3>
+      ${["alta", "media", "baixa"].map(n => `<div class="apoio-linha"><span class="apoio-nivel apoio-nivel-${n}">${PRIORIDADE_LABELS[n]}</span><strong>${cont[n]}</strong></div>`).join("")}
+    </div>
+    <div class="apoio-card">
+      <h3>Motivos mais frequentes</h3>
+      ${top.length ? `<ul class="apoio-lista">${top.map(([l, n]) => `<li class="apoio-linha"><span>${escapeHtml(l)}</span><strong>${n}</strong></li>`).join("")}</ul>` : `<p class="apoio-vazio">Sem indicadores de risco lançados.</p>`}
+    </div>
+    <div class="apoio-card apoio-dica"><h3>Lembrete</h3><p>A prioridade orienta a busca ativa, não o direito de ser atendida: toda família do território pode procurar o CRAS.</p></div>`;
+}
+
 function renderApp() {
   const main = document.getElementById("mainArea");
   if (!main) return;
-  main.innerHTML = state.view === "home" ? renderHomeHTML()
-    : state.view === "dashboard" ? renderDashboardHTML()
-    : state.view === "prioridades" ? renderPrioridadesHTML()
+  main.innerHTML = state.view === "home" ? apoioLayout(renderHomeHTML(), apoioHomeHTML(), "Painel de apoio da equipe", "Resumo da equipe")
+    : state.view === "dashboard" ? apoioLayout(renderDashboardHTML(), apoioDashboardHTML(), "Números-chave", "Números-chave")
+    : state.view === "prioridades" ? apoioLayout(renderPrioridadesHTML(), apoioPrioridadesHTML(), "Resumo das prioridades", "Resumo das prioridades")
     : renderEditorHTML();
   attachGlobalHandlers();
   if (state.view === "home") attachHomeHandlers();
@@ -3788,6 +3836,7 @@ function attachHomeHandlers() {
   document.getElementById("emptyNewBtn")?.addEventListener("click", newPAF);
   document.getElementById("resumoMensalBtn")?.addEventListener("click", goDashboard);
   document.getElementById("prioridadesBtn")?.addEventListener("click", goPrioridades);
+  document.querySelectorAll("[data-apoio-prior]").forEach(b => b.addEventListener("click", goPrioridades));
   const search = document.getElementById("searchInput");
   search?.addEventListener("input", e => { state.search = e.target.value; renderApp(); focusSearchEnd(); });
 
@@ -3946,6 +3995,120 @@ function pafProgresso(paf) {
   return Math.round((completas / SECOES_PROGRESSO.length) * 100);
 }
 
+/* ---------------------------- Painel de apoio (espaços laterais em telas largas) ----------------------------
+   Aproveita as margens vazias do editor e da lista: mostra, a partir dos dados já lançados,
+   o que falta preencher, alertas de acompanhamento e a orientação técnica da seção aberta.
+   É só leitura/atalho — não altera nenhum dado e não substitui o julgamento técnico. */
+function apoioAlertasPAF(paf) {
+  const alertas = [];
+  const andamento = paf.situacaoPAF === "andamento";
+  const nomeados = (paf.membros || []).filter(m => m && m.nome);
+  if (!paf.cpf && !paf.nis) alertas.push({ txt: "Responsável sem CPF nem NIS informado", sec: "cabecalho" });
+  if (!paf.tecnicoReferencia) alertas.push({ txt: "Técnico de referência não definido", sec: "plano" });
+  const semNasc = nomeados.filter(m => !m.nascimento).length;
+  if (semNasc) alertas.push({ txt: `${semNasc} membro(s) sem data de nascimento (afeta gráficos e prioridade)`, sec: "familia" });
+  if (andamento && !(paf.atendimentos || []).length) alertas.push({ txt: "Nenhum atendimento técnico registrado", sec: "metas" });
+  if (andamento && (paf.metas || []).length && !(paf.metas || []).some(m => m && m.prazo)) alertas.push({ txt: "Metas sem prazo definido", sec: "metas" });
+  const dias = diasSemRegistro(paf);
+  if (andamento && dias != null && dias >= 30) alertas.push({ txt: `${dias} dias sem nenhum registro nesta ficha`, sec: "observacoes" });
+  if ((paf.situacaoPAF === "encaminhado" || paf.situacaoPAF === "concluido") && !paf.encerramentoMotivo) alertas.push({ txt: "Ficha arquivada sem motivo de encerramento", sec: "encerramento" });
+  return alertas;
+}
+
+function apoioMembrosHTML(paf) {
+  const membros = (paf.membros || []).filter(m => m && m.nome);
+  if (!membros.length) return "";
+  const linhas = membros.slice(0, 8).map(m => {
+    const idade = m.nascimento ? calcularIdade(m.nascimento) : null;
+    const meta = [m.parentesco, idade != null ? idade + " anos" : ""].filter(Boolean).join(" · ");
+    return `<li><button type="button" class="apoio-link" data-apoio-goto="familia"><span>${escapeHtml(m.nome)}</span>${meta ? `<small>${escapeHtml(meta)}</small>` : ""}</button></li>`;
+  }).join("");
+  return `<div class="apoio-card"><h3>Núcleo familiar <em>${membros.length}</em></h3><ul class="apoio-lista">${linhas}${membros.length > 8 ? `<li class="apoio-mais">e mais ${membros.length - 8}</li>` : ""}</ul></div>`;
+}
+
+function apoioUltimosAtendimentosHTML(paf) {
+  const lista = (paf.atendimentos || []).filter(a => a && a.data).slice().sort((x, y) => String(y.data).localeCompare(String(x.data))).slice(0, 4);
+  if (!lista.length) return "";
+  const linhas = lista.map(a => {
+    const resumo = String(a.evolucao || "").trim();
+    return `<li><button type="button" class="apoio-link" data-apoio-goto="metas"><span>${fmtDateBR(a.data)}${a.tipo ? " · " + escapeHtml(a.tipo) : ""}</span>${resumo ? `<small>${escapeHtml(resumo.length > 80 ? resumo.slice(0, 80) + "…" : resumo)}</small>` : ""}</button></li>`;
+  }).join("");
+  return `<div class="apoio-card"><h3>Últimos atendimentos</h3><ul class="apoio-lista">${linhas}</ul></div>`;
+}
+
+function apoioEditorHTML(paf) {
+  const complete = tabCompleteness(paf);
+  const progresso = pafProgresso(paf);
+  const pr = computePrioridade(paf);
+  const alertas = apoioAlertasPAF(paf);
+  const pendentes = SECOES_PROGRESSO.filter(s => !complete[s.id]);
+  const dica = MASCOTE_DICAS_SECAO[state.activeSection] || "";
+  const secAtual = SECTIONS.find(s => s.id === state.activeSection);
+  const ult = ultimoRegistroISO(paf);
+  const dias = diasSemRegistro(paf);
+  const ultTxt = !ult ? "Sem registros" : dias === 0 ? "Hoje" : `${fmtDateBR(ult)} · há ${dias} dia(s)`;
+  return `
+    <div class="apoio-card apoio-acoes">
+      <h3>Atalhos</h3>
+      <button type="button" class="apoio-acao" data-apoio-acao="atendimento">+ Registrar atendimento</button>
+      <button type="button" class="apoio-acao" data-apoio-acao="anotacao">+ Anotação de hoje</button>
+      <button type="button" class="apoio-acao" data-apoio-acao="membro">+ Membro da família</button>
+    </div>
+    <div class="apoio-card">
+      <h3>Situação da ficha</h3>
+      <div class="apoio-linha"><span>Preenchimento</span><strong>${progresso}%</strong></div>
+      <div class="apoio-barra"><span style="width:${progresso}%"></span></div>
+      <div class="apoio-linha"><span>Prioridade</span><span class="apoio-nivel apoio-nivel-${pr.nivel}">${PRIORIDADE_LABELS[pr.nivel]} · ${pr.score} pts</span></div>
+      <div class="apoio-linha"><span>Último registro</span><strong>${escapeHtml(ultTxt)}</strong></div>
+      ${pr.motivos.length ? `<div class="apoio-chips">${pr.motivos.slice(0, 3).map(m => `<span class="motivo-chip">${escapeHtml(m.label)}</span>`).join("")}</div>` : ""}
+    </div>
+    <div class="apoio-card">
+      <h3>Alertas${alertas.length ? ` <em>${alertas.length}</em>` : ""}</h3>
+      ${alertas.length ? `<ul class="apoio-lista">${alertas.map(a => `<li><button type="button" class="apoio-link" data-apoio-goto="${a.sec}">${escapeHtml(a.txt)}</button></li>`).join("")}</ul>`
+        : `<p class="apoio-vazio">Nenhum alerta no momento.</p>`}
+    </div>
+    <div class="apoio-card">
+      <h3>Seções por preencher${pendentes.length ? ` <em>${pendentes.length}</em>` : ""}</h3>
+      ${pendentes.length ? `<ul class="apoio-lista">${pendentes.slice(0, 7).map(s => `<li><button type="button" class="apoio-link" data-apoio-goto="${s.id}">${escapeHtml(s.label)}</button></li>`).join("")}${pendentes.length > 7 ? `<li class="apoio-mais">e mais ${pendentes.length - 7}</li>` : ""}</ul>`
+        : `<p class="apoio-vazio">Todas as seções têm informações lançadas.</p>`}
+    </div>
+    ${apoioMembrosHTML(paf)}
+    ${apoioUltimosAtendimentosHTML(paf)}
+    ${dica ? `<div class="apoio-card apoio-dica"><h3>Orientação · ${escapeHtml(secAtual ? secAtual.label : "")}</h3><p>${escapeHtml(dica)}</p></div>` : ""}`;
+}
+
+function apoioHomeHTML() {
+  const ativos = state.pafs.filter(p => p.situacaoPAF === "andamento");
+  if (!state.pafs.length) {
+    return `<div class="apoio-card apoio-dica"><h3>Por onde começar</h3>
+      <ol class="apoio-passos"><li>Clique em <strong>Novo PAF</strong> e preencha o cabeçalho.</li><li>Cadastre os membros da família.</li><li>Registre diagnóstico, metas e atendimentos.</li></ol></div>`;
+  }
+  const comPr = ativos.map(p => ({ p, pr: computePrioridade(p) })).sort((a, b) => b.pr.score - a.pr.score);
+  const topo = comPr.filter(x => x.pr.nivel !== "baixa").slice(0, 5);
+  const parados = ativos.map(p => ({ p, d: diasSemRegistro(p) })).filter(x => x.d != null && x.d >= 30).sort((a, b) => b.d - a.d);
+  const mes = todayISO().slice(0, 7);
+  const novos = state.pafs.filter(p => (p.dataInicial || "").slice(0, 7) === mes).length;
+  const atends = state.pafs.reduce((n, p) => n + (p.atendimentos || []).filter(a => a && (a.data || "").slice(0, 7) === mes).length, 0);
+  const item = (p, extra) => `<li><button type="button" class="apoio-link" data-open="${p.id}"><span>${escapeHtml(p.responsavel) || "Sem nome"}</span><small>${extra}</small></button></li>`;
+  return `
+    <div class="apoio-card">
+      <h3>Neste mês</h3>
+      <div class="apoio-duo"><div><strong>${novos}</strong><span>PAF(s) iniciado(s)</span></div><div><strong>${atends}</strong><span>atendimento(s)</span></div></div>
+      <p class="apoio-nota">Útil para conferir o RMA do mês.</p>
+    </div>
+    <div class="apoio-card">
+      <h3>Busca ativa · maior prioridade</h3>
+      ${topo.length ? `<ul class="apoio-lista">${topo.map(x => item(x.p, `${PRIORIDADE_LABELS[x.pr.nivel]} · ${x.pr.score} pts`)).join("")}</ul>`
+        : `<p class="apoio-vazio">Nenhuma família em prioridade alta ou média.</p>`}
+      <button type="button" class="apoio-rodape" data-apoio-prior>Ver escala completa</button>
+    </div>
+    <div class="apoio-card">
+      <h3>Sem registro há 30+ dias${parados.length ? ` <em>${parados.length}</em>` : ""}</h3>
+      ${parados.length ? `<ul class="apoio-lista">${parados.slice(0, 5).map(x => item(x.p, `${x.d} dias`)).join("")}</ul>${parados.length > 5 ? `<p class="apoio-mais">e mais ${parados.length - 5}</p>` : ""}`
+        : `<p class="apoio-vazio">Todas as fichas em andamento estão em dia.</p>`}
+    </div>`;
+}
+
 function renderEditorHTML() {
   const paf = state.current;
   const complete = tabCompleteness(paf);
@@ -3970,7 +4133,9 @@ function renderEditorHTML() {
       ${rail}
     </nav>
     <div class="form-scroll" id="formScroll">
+      <div class="form-cols">
       <div class="form-inner">
+        <details class="apoio-mobile"><summary>Resumo da ficha</summary><div class="apoio-mobile-corpo" id="apoioEditorMobile">${apoioEditorHTML(paf)}</div></details>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="backHomeBtn">${uiIconSvg("chevronLeft", 13)} Voltar à lista</button>
           <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
@@ -3993,6 +4158,8 @@ function renderEditorHTML() {
             ? `<button class="btn btn-primary section-nav-btn next" data-section="${nextSection.id}"><span class="section-nav-text"><em>Próxima seção</em><span class="section-nav-label">${nextSection.label}</span></span><span class="section-nav-arrow">${uiIconSvg("chevronRight", 14)}</span></button>`
             : `<span class="section-nav-spacer"></span>`}
         </div>
+      </div>
+      <aside class="apoio-lateral apoio-editor" id="apoioEditor" aria-label="Painel de apoio da ficha">${apoioEditorHTML(paf)}</aside>
       </div>
     </div>
   </div>
@@ -4868,6 +5035,34 @@ function renderSection(id, paf) {
 /* ---------------------------- Eventos do Editor ---------------------------- */
 
 function attachEditorHandlers() {
+  document.getElementById("formScroll")?.addEventListener("click", (e) => {
+    const acao = e.target.closest("[data-apoio-acao]");
+    if (acao) {
+      const tipo = acao.dataset.apoioAcao;
+      state.activeSection = tipo === "atendimento" ? "metas" : tipo === "anotacao" ? "observacoes" : "familia";
+      renderApp();
+      const sel = tipo === "atendimento" ? "[data-action='add-atendimento']" : tipo === "anotacao" ? '[data-diario-add="observacoes"]' : "[data-action='add-membro']";
+      document.querySelector(sel)?.click();
+      document.getElementById("formScroll")?.scrollTo({ top: 0 });
+      return;
+    }
+    const alvo = e.target.closest("[data-apoio-goto]");
+    if (!alvo) return;
+    state.activeSection = alvo.dataset.apoioGoto;
+    renderApp();
+    document.getElementById("formScroll")?.scrollTo({ top: 0 });
+  });
+  let apoioTimer = null;
+  const agendarApoio = () => {
+    clearTimeout(apoioTimer);
+    apoioTimer = setTimeout(() => {
+      if (state.view !== "editor" || !state.current) return;
+      const html = apoioEditorHTML(state.current);
+      ["apoioEditor", "apoioEditorMobile"].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = html; });
+    }, 500);
+  };
+  document.getElementById("formScroll")?.addEventListener("input", agendarApoio);
+  document.getElementById("formScroll")?.addEventListener("change", agendarApoio);
   document.getElementById("backHomeBtn")?.addEventListener("click", goHome);
   document.getElementById("saveBtn")?.addEventListener("click", () => {
     savePAF(state.current);
