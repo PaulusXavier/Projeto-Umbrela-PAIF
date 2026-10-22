@@ -1798,7 +1798,8 @@ main:has(> .footer-bar) .footer-bar { padding-right: 84px; } /* espaço para o m
 .home-main { flex: 0 1 1080px; min-width: 0; }
 .apoio-lateral { display: none; }
 .form-cols { display: flex; justify-content: center; align-items: flex-start; gap: 4px; }
-.form-cols > .form-inner { flex: 0 1 880px; min-width: 0; margin: 0; }
+.form-cols { width: 100%; }
+.form-cols > .form-inner { flex: 1 1 0; max-width: none; min-width: 0; margin: 0; }
 @media (min-width: 1440px) {
   .apoio-home { display: flex; flex: 0 0 280px; flex-direction: column; gap: 12px; position: sticky; top: 16px; margin-top: 150px; padding-bottom: 40px; }
 }
@@ -1847,3 +1848,47 @@ main:has(> .footer-bar) .footer-bar { padding-right: 84px; } /* espaço para o m
 .apoio-acoes { border-top-color: var(--accent); }
 .apoio-acao { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; font: inherit; font-size: var(--text-sm); font-weight: 600; color: var(--accent-dark); background: var(--accent-soft); border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; }
 .apoio-acao:hover, .apoio-acao:focus-visible { border-color: var(--accent); }
+
+
+/* ===== Editor ocupa toda a largura disponível + campo de evolução maior ===== */
+.form-cols > .form-inner { padding-left: clamp(16px, 2.5vw, 40px); padding-right: clamp(16px, 2.5vw, 40px); }
+.timeline-card textarea[data-field$=".evolucao"] { min-height: 220px; resize: vertical; line-height: 1.6; }
+@media (min-width: 1100px) { .timeline-row { grid-template-columns: 170px 260px minmax(0, 1fr); } }
+
+/* Modo foco: esconde menu de seções e painel lateral; o formulário usa a tela inteira */
+.editor-wrap.modo-foco .tab-rail, .editor-wrap.modo-foco .apoio-editor { display: none !important; }
+.editor-wrap.modo-foco .form-cols > .form-inner { padding-left: clamp(16px, 4vw, 64px); padding-right: clamp(16px, 4vw, 64px); }
+.editor-wrap.modo-foco .timeline-card textarea[data-field$=".evolucao"] { min-height: 320px; }
+
+/* Metas: várias anotações separadas por meta */
+.meta-card { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius); background: var(--paper-soft); padding: var(--space-3) var(--space-4); margin-bottom: 12px; }
+.meta-card-topo { display: flex; gap: 16px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 10px; }
+.meta-card-topo .meta-label { flex: 1 1 260px; font-weight: 600; font-size: var(--text-base); color: var(--ink); padding: 0; }
+.meta-prazo { flex: 0 0 200px; }
+.meta-prazo label, .meta-nota label { display: block; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-faint); font-weight: 600; margin-bottom: 4px; }
+.meta-notas { display: flex; flex-direction: column; gap: 10px; }
+.meta-nota { position: relative; display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 38px 10px 10px; }
+.meta-nota input, .meta-nota textarea { width: 100%; box-sizing: border-box; }
+.meta-nota textarea { min-height: 96px; resize: vertical; line-height: 1.6; }
+.meta-nota .row-del { position: absolute; top: 8px; right: 8px; }
+.meta-notas .add-row-btn { align-self: flex-start; }
+@media (max-width: 700px) { .meta-nota { grid-template-columns: 1fr; } }
+
+/* Seletor de membros: nunca estoura o cartão, mesmo com muitos nomes selecionados */
+.matrix-row > * { min-width: 0; }
+.situ-membros-dropdown { min-width: 0; max-width: 100%; }
+.situ-membros-summary { min-width: 0; overflow: hidden; }
+.situ-membros-resumo { flex: 1 1 auto; min-width: 0; }
+.situ-membros-dropdown .situ-membros-picker { max-width: min(360px, 90vw); max-height: 260px; overflow-y: auto; display: flex; }
+
+/* Seletor de membros com etiquetas (chips) */
+.situ-membros-summary { align-items: flex-start; min-height: 36px; }
+.situ-membros-resumo { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; overflow: visible; text-overflow: clip; }
+.situ-chip { background: var(--accent-soft); color: var(--accent-dark); border-radius: 999px; padding: 2px 9px; font-size: var(--text-xs); font-weight: 600; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.situ-vazio { padding: 2px 0; }
+.situ-membros-summary:hover { border-color: var(--ink-faint); }
+.situ-membros-dropdown[open] .situ-membros-summary { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.situ-acoes { display: flex; gap: 8px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.situ-acoes button { border: 0; background: none; padding: 2px 0; font: inherit; font-size: var(--text-xs); font-weight: 700; color: var(--accent-dark); cursor: pointer; text-decoration: underline; }
+.situ-membros-dropdown .situ-membros-picker { min-width: 260px; }
+.matrix-row .chk:has(input[type=checkbox]) { white-space: nowrap; }
