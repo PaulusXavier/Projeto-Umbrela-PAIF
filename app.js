@@ -3589,6 +3589,19 @@ function newPAF() {
 
 /* ---------------------------- Render: SHELL ---------------------------- */
 
+// Cada meta guarda várias anotações separadas (anotacoes). "resultados" continua existindo como
+// texto único (união das anotações) para PDF, Word, histórico e indicadores de preenchimento.
+function metaNotas(m) {
+  if (!Array.isArray(m.anotacoes)) m.anotacoes = (m.resultados || "").trim() ? [{ data: "", texto: m.resultados }] : [];
+  return m.anotacoes;
+}
+function sincMetaResultados(m) {
+  m.resultados = metaNotas(m).filter(n => (n.texto || "").trim())
+    .map(n => (n.data ? fmtDateBR(n.data) + " — " : "") + n.texto.trim()).join("\n");
+}
+
+function modoFocoAtivo() { try { return localStorage.getItem("paif_modo_foco") === "1"; } catch (e) { return false; } }
+
 function apoioLayout(mainHTML, asideHTML, rotulo, resumoTitulo) {
   return `<div class="home-layout"><div class="home-main"><details class="apoio-mobile"><summary>${resumoTitulo}</summary><div class="apoio-mobile-corpo">${asideHTML}</div></details>${mainHTML}</div><aside class="apoio-lateral apoio-home" aria-label="${rotulo}">${asideHTML}</aside></div>`;
 }
@@ -4123,7 +4136,7 @@ function renderEditorHTML() {
   const nextSection = activeIdx < SECTIONS.length - 1 ? SECTIONS[activeIdx + 1] : null;
 
   return `
-  <div class="editor-wrap">
+  <div class="editor-wrap${modoFocoAtivo() ? " modo-foco" : ""}" id="editorWrap">
     <nav class="tab-rail ${state.railOpen ? "open" : ""}" id="tabRail">
       <div class="rail-label">Seções do PAF</div>
       <div class="rail-progress" title="${progresso}% das seções com informações preenchidas">
@@ -4138,6 +4151,7 @@ function renderEditorHTML() {
         <details class="apoio-mobile"><summary>Resumo da ficha</summary><div class="apoio-mobile-corpo" id="apoioEditorMobile">${apoioEditorHTML(paf)}</div></details>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="backHomeBtn">${uiIconSvg("chevronLeft", 13)} Voltar à lista</button>
+          <button class="btn btn-ghost btn-sm" id="modoFocoBtn" type="button" title="Esconde o menu de seções e o painel lateral para escrever com a tela inteira">${modoFocoAtivo() ? "⤡ Sair do modo foco" : "⤢ Modo foco (tela inteira)"}</button>
           <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
           <span class="section-pos-tag">Seção ${activeIdx + 1} de ${SECTIONS.length}</span>
           <div class="status-picker" style="margin-left:auto">
@@ -4201,6 +4215,11 @@ function segurancasChkList(selectedArr) {
     </label>`).join("") + `</div>`;
 }
 
+function situNomeCurto(n) { const p = (n || "").trim().split(/\s+/); return p.length > 2 ? p[0] + " " + p[p.length - 1] : n; }
+function situResumoHTML(sel) {
+  return sel.length ? sel.map(n => `<span class="situ-chip" title="${escapeHtml(n)}">${escapeHtml(situNomeCurto(n))}</span>`).join("") : `<span class="situ-vazio">Selecionar membros</span>`;
+}
+
 function situacaoMembrosField(paf, i, row) {
   const nomes = [...new Set((paf.membros || []).map(m => (m.nome || "").trim()).filter(Boolean))];
   if (!nomes.length) {
@@ -4209,11 +4228,12 @@ function situacaoMembrosField(paf, i, row) {
   const selecionados = (row.membros || "").split(",").map(s => s.trim()).filter(Boolean);
   const resumo = selecionados.length ? selecionados.join(", ") : "Selecionar membros";
   return `<details class="situ-membros-dropdown">
-    <summary class="situ-membros-summary" title="Clique para selecionar os membros">
-      <span class="situ-membros-resumo">${escapeHtml(resumo)}</span>
+    <summary class="situ-membros-summary" title="${escapeHtml(selecionados.length ? selecionados.join(", ") : "Clique para selecionar os membros")}">
+      <span class="situ-membros-resumo">${situResumoHTML(selecionados)}</span>
       <span class="situ-membros-count">${selecionados.length ? selecionados.length : ""}</span>
     </summary>
     <div class="situ-membros-picker">
+      <div class="situ-acoes"><button type="button" data-situ-todos="${i}">Marcar todos</button><button type="button" data-situ-limpar="${i}">Limpar</button></div>
       ${nomes.map(n => `
         <label class="chk chk-mini">
           <input type="checkbox" data-situ-idx="${i}" data-situ-nome="${escapeHtml(n)}" ${selecionados.includes(n) ? "checked" : ""}>
@@ -4873,7 +4893,7 @@ function renderSection(id, paf) {
                   </div>
                   <div class="f"><label>Técnico Responsável</label><input type="text" data-field="atendimentos.${i}.tecnico" value="${escapeHtml(a.tecnico)}" placeholder="${escapeHtml(paf.tecnicoReferencia) || 'Nome do técnico'}"></div>
                 </div>
-                <div class="f" style="margin-top:10px"><label>Evolução / Observações do Atendimento</label><textarea data-field="atendimentos.${i}.evolucao" rows="3" placeholder="O que foi discutido, observado ou trabalhado neste atendimento...">${escapeHtml(a.evolucao)}</textarea></div>
+                <div class="f" style="margin-top:10px"><label>Evolução / Observações do Atendimento</label><textarea data-field="atendimentos.${i}.evolucao" rows="9" placeholder="O que foi discutido, observado ou trabalhado neste atendimento...">${escapeHtml(a.evolucao)}</textarea></div>
                 <div class="f" style="margin-top:10px"><label>Encaminhamentos Realizados</label><input type="text" data-field="atendimentos.${i}.encaminhamentos" value="${escapeHtml(a.encaminhamentos)}" placeholder="Ex.: encaminhado ao CREAS, agendada nova visita..."></div>
               </div>
             </div>`;
@@ -4885,14 +4905,22 @@ function renderSection(id, paf) {
       <div class="section-card">
         <h2><span class="num">08a</span>Metas, Evolução e Resultados</h2>
         <p class="section-sub">Equipe técnica.</p>
-        <div class="meta-row" style="font-size: 11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;">
-          <div>Meta</div><div>Prazo de execução</div><div>Resultados alcançados</div>
-        </div>
+        <p class="section-sub" style="margin-top:-6px">Para cada meta, registre quantas anotações separadas quiser (uma por data/ocorrência) em “Resultados alcançados”.</p>
         ${paf.metas.map((row, i) => `
-          <div class="meta-row">
-            <div class="meta-label">${escapeHtml(row.meta)}</div>
-            <input type="text" placeholder="Prazo" data-field="metas.${i}.prazo" value="${escapeHtml(row.prazo)}">
-            <input type="text" placeholder="Resultados" data-field="metas.${i}.resultados" value="${escapeHtml(row.resultados)}">
+          <div class="meta-card">
+            <div class="meta-card-topo">
+              <div class="meta-label">${escapeHtml(row.meta)}</div>
+              <div class="meta-prazo"><label>Prazo de execução</label><input type="text" placeholder="Prazo" data-field="metas.${i}.prazo" value="${escapeHtml(row.prazo)}"></div>
+            </div>
+            <div class="meta-notas">
+              ${metaNotas(row).map((n, j) => `
+                <div class="meta-nota">
+                  <div class="meta-nota-data"><label>Data</label><input type="date" data-field="metas.${i}.anotacoes.${j}.data" value="${escapeHtml(n.data)}"></div>
+                  <div class="meta-nota-texto"><label>Anotação ${j + 1}</label><textarea rows="3" data-field="metas.${i}.anotacoes.${j}.texto" placeholder="Resultado alcançado, evolução, observação...">${escapeHtml(n.texto)}</textarea></div>
+                  <button class="row-del" type="button" data-action="del-meta-nota" data-meta="${i}" data-nota="${j}" title="Remover esta anotação" aria-label="Remover esta anotação">${uiIconSvg("close", 12)}</button>
+                </div>`).join("")}
+              <button class="add-row-btn" type="button" data-action="add-meta-nota" data-meta="${i}">+ Adicionar anotação</button>
+            </div>
           </div>`).join("")}
       </div>`;
     }
@@ -5064,6 +5092,11 @@ function attachEditorHandlers() {
   document.getElementById("formScroll")?.addEventListener("input", agendarApoio);
   document.getElementById("formScroll")?.addEventListener("change", agendarApoio);
   document.getElementById("backHomeBtn")?.addEventListener("click", goHome);
+  document.getElementById("modoFocoBtn")?.addEventListener("click", (e) => {
+    const on = document.getElementById("editorWrap")?.classList.toggle("modo-foco");
+    try { localStorage.setItem("paif_modo_foco", on ? "1" : "0"); } catch (err) { /* ignora */ }
+    e.currentTarget.textContent = on ? "⤡ Sair do modo foco" : "⤢ Modo foco (tela inteira)";
+  });
   document.getElementById("saveBtn")?.addEventListener("click", () => {
     savePAF(state.current);
     renderApp();
@@ -5135,6 +5168,8 @@ function attachEditorHandlers() {
       } else {
         setPath(state.current, path, input.value);
       }
+      const mm = /^metas\.(\d+)\.anotacoes\./.exec(path);
+      if (mm) sincMetaResultados(state.current.metas[+mm[1]]);
       scheduleAutosave();
     });
 
@@ -5189,9 +5224,35 @@ function attachEditorHandlers() {
         nomes = nomes.filter(n => n !== nome);
       }
       row.membros = nomes.join(", ");
+      atualizarSituResumo(chk.closest(".situ-membros-dropdown"), nomes);
       scheduleAutosave();
     });
   });
+  const atualizarSituResumo = (det, nomes) => {
+    if (!det) return;
+    const r = det.querySelector(".situ-membros-resumo"); if (r) r.innerHTML = situResumoHTML(nomes);
+    const c = det.querySelector(".situ-membros-count"); if (c) c.textContent = nomes.length || "";
+    const s = det.querySelector("summary"); if (s) s.title = nomes.join(", ") || "Clique para selecionar os membros";
+  };
+  const marcarTodosSitu = (btn, todos) => {
+    const det = btn.closest(".situ-membros-dropdown");
+    const idx = parseInt(btn.dataset.situTodos ?? btn.dataset.situLimpar, 10);
+    const boxes = [...det.querySelectorAll("input[data-situ-nome]")];
+    boxes.forEach(b => { b.checked = todos; });
+    const nomes = todos ? boxes.map(b => b.dataset.situNome) : [];
+    state.current.situacoesSociais[idx].membros = nomes.join(", ");
+    atualizarSituResumo(det, nomes);
+    scheduleAutosave();
+  };
+  container.querySelectorAll("[data-situ-todos]").forEach(b => b.addEventListener("click", () => marcarTodosSitu(b, true)));
+  container.querySelectorAll("[data-situ-limpar]").forEach(b => b.addEventListener("click", () => marcarTodosSitu(b, false)));
+  // Fecha o seletor ao clicar fora dele (ou ao abrir outro)
+  if (!window.__situFora) {
+    window.__situFora = true;
+    document.addEventListener("mousedown", (e) => {
+      document.querySelectorAll(".situ-membros-dropdown[open]").forEach(d => { if (!d.contains(e.target)) d.removeAttribute("open"); });
+    });
+  }
 
   // Ações de Tabela Dinâmica (Membros da Família)
   container.querySelectorAll("[data-action='add-membro']").forEach(btn => {
@@ -5276,6 +5337,29 @@ function attachEditorHandlers() {
       state.current.atendimentos.unshift({ data: todayISO(), tipo: "", tecnico: state.current.tecnicoReferencia || "", evolucao: "", encaminhamentos: "" });
       savePAF(state.current, { silent: true });
       renderApp();
+    });
+  });
+
+  const rerenderMantendoScroll = () => {
+    const sc = document.getElementById("formScroll"); const y = sc ? sc.scrollTop : 0;
+    renderApp();
+    const sc2 = document.getElementById("formScroll"); if (sc2) sc2.scrollTop = y;
+  };
+  container.querySelectorAll("[data-action='add-meta-nota']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const m = state.current.metas[+btn.dataset.meta];
+      metaNotas(m).push({ data: todayISO(), texto: "" });
+      savePAF(state.current, { silent: true });
+      rerenderMantendoScroll();
+    });
+  });
+  container.querySelectorAll("[data-action='del-meta-nota']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const m = state.current.metas[+btn.dataset.meta];
+      const j = +btn.dataset.nota;
+      const apagar = () => { metaNotas(m).splice(j, 1); sincMetaResultados(m); savePAF(state.current, { silent: true }); rerenderMantendoScroll(); };
+      if ((metaNotas(m)[j].texto || "").trim()) confirmModal("Remover esta anotação?", "O texto desta anotação será apagado.", apagar);
+      else apagar();
     });
   });
 
@@ -5443,7 +5527,7 @@ async function exportPDF(paf) {
 
   const metasHTML = (paf.metas || [])
     .filter(m => m.prazo || m.resultados)
-    .map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`)
+    .map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados).replace(/\n/g, "<br>")}</td></tr>`)
     .join("") || "<tr><td colspan='3'>Nenhuma meta informada</td></tr>";
 
   const atendimentosOrdenados = [...(paf.atendimentos || [])].sort((a, b) => (b.data || "").localeCompare(a.data || ""));
@@ -6223,7 +6307,7 @@ async function exportWord(paf) {
 
   const metasWordHTML = rowsWithZebra(
     paf.metas || [],
-    m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados)}</td></tr>`
+    m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados).replace(/\n/g, "<br>")}</td></tr>`
   ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:normal;">Nenhuma meta informada</td></tr>`;
 
   const temMigracaoWord = paf.migracaoDataChegadaBrasil || (paf.migracaoDocumentacao || []).length || paf.migracaoDocumentacaoOutro || paf.migracaoInteriorizacao || paf.habitacaoAbrigoNome;
