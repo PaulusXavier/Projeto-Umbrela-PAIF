@@ -663,11 +663,12 @@ function diarioCampoHTML(paf, key, label, opts) {
   if (!paf.diario || !Array.isArray(paf.diario[key])) diarioMigrar(paf);
   const lista = paf.diario[key];
   const ordenada = lista.map((e, i) => ({ e, i }))
-    .sort((a, b) => (b.e.data || "").localeCompare(a.e.data || "") || b.i - a.i);
+    .sort((a, b) => (b.e.fixada ? 1 : 0) - (a.e.fixada ? 1 : 0) || (b.e.data || "").localeCompare(a.e.data || "") || b.i - a.i);
   const itens = ordenada.map(({ e, i }) => `
-    <div class="diario-item${e.data ? "" : " sem-data"}">
+    <div class="diario-item${e.data ? "" : " sem-data"}${e.fixada ? " fixada" : ""}">
       <div class="diario-data"><label>${e.data ? "Data" : "Registro anterior (sem data)"}</label><input type="date" aria-label="Data da anotação" data-field="diario.${key}.${i}.data" value="${escapeHtml(e.data)}"></div>
       <div class="diario-texto"><textarea rows="${opts.rows || 3}" aria-label="Anotação de ${e.data ? fmtDateBR(e.data) : "data não informada"}" data-field="diario.${key}.${i}.texto" placeholder="${escapeHtml(opts.placeholder || "Anotação deste dia...")}">${escapeHtml(e.texto)}</textarea></div>
+      <button type="button" class="diario-fixar${e.fixada ? " on" : ""}" data-diario-fixar="${key}" data-idx="${i}" aria-pressed="${e.fixada ? "true" : "false"}" title="${e.fixada ? "Desafixar" : "Fixar no topo (importante)"}" aria-label="${e.fixada ? "Desafixar esta anotação" : "Fixar esta anotação no topo"}">${e.fixada ? "★" : "☆"}</button>
       <button class="row-del" data-diario-del="${key}" data-idx="${i}" title="Remover esta anotação" aria-label="Remover esta anotação">${uiIconSvg("close", 12)}</button>
     </div>`).join("");
   return `
@@ -690,13 +691,31 @@ function attachDiarioHandlers(container) {
     const ta = document.querySelector(`[data-field="diario.${k}.${idx}.texto"]`);
     if (ta) { ta.focus(); ta.scrollIntoView({ block: "center" }); }
   }));
+  container.querySelectorAll("[data-diario-fixar]").forEach(btn => btn.addEventListener("click", () => {
+    const k = btn.dataset.diarioFixar, idx = parseInt(btn.dataset.idx, 10);
+    const item = state.current.diario[k][idx];
+    if (!item) return;
+    item.fixada = !item.fixada;
+    savePAF(state.current, { silent: true });
+    renderApp();
+  }));
   container.querySelectorAll("[data-diario-del]").forEach(btn => btn.addEventListener("click", () => {
     const k = btn.dataset.diarioDel, idx = parseInt(btn.dataset.idx, 10);
-    confirmModal("Remover esta anotação?", "A anotação deste dia será apagada.", () => {
-      state.current.diario[k].splice(idx, 1);
+    const lista = state.current.diario[k];
+    const item = lista[idx];
+    if (!item) return;
+    // Remove na hora e oferece "Desfazer" (mais rápido que confirmar, sem risco de perder o texto).
+    lista.splice(idx, 1);
+    savePAF(state.current, { silent: true });
+    renderApp();
+    const restaurar = () => {
+      const atual = state.current && state.current.diario && state.current.diario[k];
+      if (!atual) return;
+      atual.splice(Math.min(idx, atual.length), 0, item);
       savePAF(state.current, { silent: true });
       renderApp();
-    });
+    };
+    if (typeof window.__desfazer === "function" && String(item.texto || "").trim()) window.__desfazer("Anotação removida.", restaurar);
   }));
 }
 
@@ -711,15 +730,16 @@ function histDiarioHTML(paf, secaoFiltro) {
   DIARIO_CAMPOS.forEach(k => {
     if (secaoFiltro && histSecaoId(k) !== secaoFiltro) return;
     ((paf.diario || {})[k] || []).forEach(e => {
-      if (e && String(e.texto || "").trim()) todas.push({ k, data: e.data || "", texto: e.texto });
+      if (e && String(e.texto || "").trim()) todas.push({ k, data: e.data || "", texto: e.texto, fixada: !!e.fixada });
     });
   });
   if (!todas.length) return `<p class="hint">Nenhuma anotação por dia registrada${secaoFiltro ? " nesta seção" : ""}. Use "+ Anotação de hoje" nos campos de observação.</p>`;
-  todas.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
-  return `<div class="hist-diario">${todas.map(t => `
+  todas.sort((a, b) => (b.fixada ? 1 : 0) - (a.fixada ? 1 : 0) || (b.data || "").localeCompare(a.data || ""));
+  return `<div class="hist-diario-acoes"><button type="button" class="btn btn-ghost btn-sm" data-exportar-notas="copiar">Copiar todas as anotações</button><button type="button" class="btn btn-ghost btn-sm" data-exportar-notas="txt">Baixar (.txt)</button></div>
+  <div class="hist-diario">${todas.map(t => `
     <div class="hist-diario-item">
       <span class="hist-diario-data">${t.data ? fmtDateBR(t.data) : "sem data"}</span>
-      <span class="hist-secao-tag">${escapeHtml(DIARIO_ROTULOS[t.k] || t.k)}</span>
+      ${t.fixada ? '<span class="hist-fixada" title="Anotação fixada">★</span>' : ""}<span class="hist-secao-tag">${escapeHtml(DIARIO_ROTULOS[t.k] || t.k)}</span>
       <p>${diarioBr(t.texto)}</p>
     </div>`).join("")}</div>
   <p class="hint">Para editar uma anotação, volte ao campo correspondente (o texto aqui é só leitura).</p>`;
