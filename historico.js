@@ -112,7 +112,47 @@ const HIST_SECAO_REGRAS = [
 // Campos numéricos que ganham um minigráfico de evolução na visão "Por campo".
 const HIST_CAMPOS_NUMERICOS = /^(renda|habitacaoComodos|habitacaoDormitorios|eduForaEscola|eduAnalfabetismo)/;
 
-const HIST_UI = { view: "linha", secao: "" };
+const HIST_UI = { view: "linha", secao: "", periodo: "", tipo: "", busca: "" };
+try { Object.assign(HIST_UI, JSON.parse(sessionStorage.getItem("paif_hist_ui") || "{}")); } catch (e) { /* ignora */ }
+function histSalvarUI() { try { sessionStorage.setItem("paif_hist_ui", JSON.stringify(HIST_UI)); } catch (e) { /* ignora */ } }
+
+/* Texto do histórico (respeita seção, período, tipo e busca) para copiar ou baixar. */
+function histTextoExportacao(paf) {
+  const q = histNorm(HIST_UI.busca).trim();
+  const blocos = [];
+  histOrdenar(paf).forEach(({ e }) => {
+    if (!histPeriodoOk(e.data)) return;
+    const manual = e.tipo === "manual";
+    if (HIST_UI.tipo === "manual" && !manual) return;
+    if (HIST_UI.tipo === "auto" && manual) return;
+    let muds = e.mudancas || [];
+    if (HIST_UI.secao) { muds = muds.filter(m => m.secao === HIST_UI.secao); if (!muds.length) return; }
+    const linhas = [(e.data ? fmtDateBR(e.data) : "sem data") + " — " + (manual ? "Marco de evolução" : muds.length + (muds.length === 1 ? " alteração" : " alterações")) + (e.usuario ? " (" + e.usuario + ")" : "")];
+    muds.forEach(m => linhas.push("  • " + histSecaoLabel(m.secao) + " › " + histTextoMudanca(m)));
+    if (e.nota) linhas.push("  Anotação: " + e.nota);
+    const txt = linhas.join("\n");
+    if (q && !histNorm(txt).includes(q)) return;
+    blocos.push(txt);
+  });
+  const cab = "Histórico de evolução — " + (paf.responsavel || "família sem nome") + "\nGerado em " + new Date().toLocaleDateString("pt-BR") + "\nDocumento com informação sigilosa (sigilo profissional / LGPD).\n";
+  return cab + "\n" + (blocos.length ? blocos.join("\n\n") : "Nenhum registro para os filtros escolhidos.") + "\n";
+}
+
+/* Filtro de período (últimos N dias). Registros sem data ficam sempre visíveis. */
+function histPeriodoOk(data) {
+  const dias = Number(HIST_UI.periodo);
+  if (!dias || !data) return true;
+  const lim = new Date(); lim.setDate(lim.getDate() - dias);
+  const p = n => String(n).padStart(2, "0");
+  return data >= `${lim.getFullYear()}-${p(lim.getMonth() + 1)}-${p(lim.getDate())}`;
+}
+function histNorm(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+function histNomeMes(data) {
+  const m = /^(\d{4})-(\d{2})/.exec(data || "");
+  if (!m) return "Sem data";
+  const nomes = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  return nomes[Number(m[2]) - 1] + " de " + m[1];
+}
 
 /* ---------------------------- Utilitários ---------------------------- */
 
@@ -411,7 +451,7 @@ function histSparkSVG(vals) {
 
 function histPorCampoHTML(paf, secaoFiltro) {
   const cron = (paf.historico || [])
-    .filter(e => e.tipo === "auto")
+    .filter(e => e.tipo === "auto" && histPeriodoOk(e.data))
     .slice()
     .sort((a, b) => (a.data || "").localeCompare(b.data || "") || (a.criadoEm || "").localeCompare(b.criadoEm || ""));
   const grupos = new Map();
@@ -445,7 +485,11 @@ function histPorCampoHTML(paf, secaoFiltro) {
 
 function histLinhaTempoHTML(paf, secaoFiltro) {
   const ordenado = histOrdenar(paf);
+  let ultMes = null;
   const itens = ordenado.map(({ e, i }) => {
+    if (!histPeriodoOk(e.data)) return "";
+    if (HIST_UI.tipo === "manual" && e.tipo !== "manual") return "";
+    if (HIST_UI.tipo === "auto" && e.tipo === "manual") return "";
     let muds = e.mudancas || [];
     if (secaoFiltro) {
       muds = muds.filter(m => m.secao === secaoFiltro);
@@ -458,7 +502,10 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
     const corpo = Object.keys(grupos).map(s => `
       <div class="hist-grupo"><div class="hist-grupo-titulo">${escapeHtml(histSecaoLabel(s))}</div>${grupos[s].map(histMudancaHTML).join("")}</div>`).join("");
     const quem = [e.usuario, histHora(e.atualizadoEm || e.criadoEm)].filter(Boolean).join(" · ");
-    return `
+    const mesKey = (e.data || "").slice(0, 7);
+    const cab = mesKey !== ultMes ? `<div class="hist-mes">${escapeHtml(histNomeMes(e.data))}</div>` : "";
+    ultMes = mesKey;
+    return cab + `
     <div class="timeline-item hist-item ${manual ? "manual" : ""}" style="--tipo-cor:${manual ? "var(--gold)" : "var(--accent)"}">
       <div class="timeline-date-badge"><span class="dia">${escapeHtml(badge.dia)}</span><span class="mes">${escapeHtml(badge.mes)}</span></div>
       <div class="timeline-card">
@@ -517,17 +564,75 @@ function historicoSectionHTML(paf) {
         <select id="histFiltroSecao"><option value="">Todas</option>${secoes.map(s => `<option value="${s}" ${HIST_UI.secao === s ? "selected" : ""}>${escapeHtml(histSecaoLabel(s))}</option>`).join("")}</select>
       </div>
     </div>
-    ${HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}
+    <div class="hist-filtros">
+      <div class="f hist-busca"><label for="histBusca">Buscar no histórico</label><input type="search" id="histBusca" placeholder="Palavra, nome, valor…" value="${escapeHtml(HIST_UI.busca)}" autocomplete="off"></div>
+      <div class="f"><label for="histPeriodo">Período</label>
+        <select id="histPeriodo">${[["", "Todo o período"], ["7", "Últimos 7 dias"], ["30", "Últimos 30 dias"], ["90", "Últimos 90 dias"], ["365", "Último ano"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.periodo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      ${HIST_UI.view === "linha" ? `<div class="f"><label for="histTipo">Tipo de registro</label>
+        <select id="histTipo">${[["", "Todos"], ["auto", "Só alterações"], ["manual", "Só marcos manuais"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.tipo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>` : ""}
+      ${HIST_UI.view === "linha" ? `<span class="hist-acoes"><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="copiar">Copiar</button><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="txt">Baixar (.txt)</button></span>` : ""}
+      ${(HIST_UI.secao || HIST_UI.periodo || HIST_UI.tipo || HIST_UI.busca) ? `<button type="button" class="btn btn-ghost btn-sm" id="histLimpar">Limpar filtros</button>` : ""}
+      <span class="hist-contagem" id="histContagem" aria-live="polite"></span>
+    </div>
+    <div id="histConteudo">${HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}</div>
   </div>`;
 }
 
 function attachHistoricoHandlers(container) {
   container.querySelectorAll("[data-hist-view]").forEach(b => b.addEventListener("click", () => {
     HIST_UI.view = b.dataset.histView;
+    histSalvarUI();
     renderApp();
   }));
   const filtro = container.querySelector("#histFiltroSecao");
-  if (filtro) filtro.addEventListener("change", () => { HIST_UI.secao = filtro.value; renderApp(); });
+  if (filtro) filtro.addEventListener("change", () => { HIST_UI.secao = filtro.value; histSalvarUI(); renderApp(); });
+
+  const limpar = container.querySelector("#histLimpar");
+  if (limpar) limpar.addEventListener("click", () => { HIST_UI.secao = ""; HIST_UI.periodo = ""; HIST_UI.tipo = ""; HIST_UI.busca = ""; histSalvarUI(); renderApp(); });
+  container.querySelectorAll("[data-hist-exp]").forEach(b => b.addEventListener("click", () => {
+    const txt = histTextoExportacao(state.current);
+    if (b.dataset.histExp === "copiar") {
+      (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(
+        () => toast("Histórico copiado."), () => toast("Não foi possível copiar — use Baixar (.txt)."));
+    } else {
+      const nome = String(state.current.responsavel || "familia").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w]+/g, "_").slice(0, 40) || "familia";
+      baixarArquivoTexto("historico_" + nome + ".txt", txt, "text/plain;charset=utf-8");
+    }
+  }));
+  const per = container.querySelector("#histPeriodo");
+  if (per) per.addEventListener("change", () => { HIST_UI.periodo = per.value; histSalvarUI(); renderApp(); });
+  const tip = container.querySelector("#histTipo");
+  if (tip) tip.addEventListener("change", () => { HIST_UI.tipo = tip.value; histSalvarUI(); renderApp(); });
+
+  // Busca de texto: filtra na própria tela (sem redesenhar, para não perder o foco ao digitar)
+  const busca = container.querySelector("#histBusca");
+  const conteudo = container.querySelector("#histConteudo");
+  const aplicarBusca = () => {
+    if (!conteudo) return;
+    const q = histNorm(HIST_UI.busca).trim();
+    const cartoes = Array.from(conteudo.querySelectorAll(".hist-item, .hist-campo-card, .hist-diario-item"));
+    let vis = 0;
+    cartoes.forEach(c => {
+      if (!c.dataset.histTxt) c.dataset.histTxt = histNorm(c.textContent + " " + Array.from(c.querySelectorAll("textarea, input")).map(x => x.value).join(" "));
+      const ok = !q || c.dataset.histTxt.includes(q);
+      c.hidden = !ok;
+      if (ok) vis++;
+    });
+    conteudo.querySelectorAll(".hist-mes").forEach(h => {
+      let n = h.nextElementSibling, algum = false;
+      while (n && !n.classList.contains("hist-mes")) { if (n.classList.contains("hist-item") && !n.hidden) algum = true; n = n.nextElementSibling; }
+      h.hidden = !algum;
+    });
+    const ct = container.querySelector("#histContagem");
+    if (ct) ct.textContent = cartoes.length ? (q ? vis + " de " + cartoes.length + " registros" : cartoes.length + (cartoes.length === 1 ? " registro" : " registros")) : "";
+    let vazio = conteudo.querySelector(".hist-busca-vazio");
+    if (q && cartoes.length && !vis) {
+      if (!vazio) { vazio = document.createElement("p"); vazio.className = "hint hist-busca-vazio"; conteudo.appendChild(vazio); }
+      vazio.textContent = "Nada encontrado para essa busca.";
+    } else if (vazio) vazio.remove();
+  };
+  if (busca) busca.addEventListener("input", () => { HIST_UI.busca = busca.value; histSalvarUI(); aplicarBusca(); });
+  aplicarBusca();
 
   const add = container.querySelector("#histAddBtn");
   if (add) add.addEventListener("click", () => {
@@ -730,7 +835,7 @@ function histDiarioHTML(paf, secaoFiltro) {
   DIARIO_CAMPOS.forEach(k => {
     if (secaoFiltro && histSecaoId(k) !== secaoFiltro) return;
     ((paf.diario || {})[k] || []).forEach(e => {
-      if (e && String(e.texto || "").trim()) todas.push({ k, data: e.data || "", texto: e.texto, fixada: !!e.fixada });
+      if (e && String(e.texto || "").trim() && histPeriodoOk(e.data)) todas.push({ k, data: e.data || "", texto: e.texto, fixada: !!e.fixada });
     });
   });
   if (!todas.length) return `<p class="hint">Nenhuma anotação por dia registrada${secaoFiltro ? " nesta seção" : ""}. Use "+ Anotação de hoje" nos campos de observação.</p>`;
