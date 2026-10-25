@@ -1962,3 +1962,39 @@ main:has(> .footer-bar) .footer-bar { padding-right: 84px; } /* espaço para o m
 @media print { .hist-filtros { display: none !important; } }
 .hist-acoes { display: inline-flex; gap: 6px; }
 @media print { .hist-acoes { display: none !important; } }
+
+
+/* ===================== Gavetas: menu de seções e painéis recolhíveis ===================== */
+.rail-fechar { display: none; }
+@media (max-width: 860px) {
+  .tab-rail { width: min(300px, 86vw); left: -110%; visibility: hidden; overscroll-behavior: contain; transition: left .22s ease, visibility 0s linear .22s; }
+  .tab-rail.open { left: 0; visibility: visible; transition: left .22s ease, visibility 0s; }
+  .rail-overlay { transition: opacity .22s ease; }
+  .rail-fechar { display: block; margin: 0 14px 10px auto; border: 1px solid var(--line); background: var(--paper-soft); color: var(--ink-soft); border-radius: 999px; padding: 8px 16px; font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; min-height: 40px; }
+  .tab-item { min-height: 48px; }
+  .tab-rail::before { display: none; }
+  html.gaveta-aberta, html.gaveta-aberta body { overflow: hidden; }
+}
+
+/* Painéis recolhíveis: alvo de toque maior, foco visível e abertura suave */
+.apoio-mobile > summary { min-height: 48px; transition: background .12s; border-radius: var(--radius); }
+.apoio-mobile > summary:hover { background: var(--paper-soft); }
+.apoio-mobile > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.apoio-mobile[open] > summary { border-bottom: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0; margin-bottom: 10px; }
+.apoio-mobile[open] > .apoio-mobile-corpo { animation: gavetaAbre .18s ease-out; }
+@keyframes gavetaAbre { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tab-rail, .tab-rail.open, .rail-overlay { transition: none; } .apoio-mobile[open] > .apoio-mobile-corpo { animation: none; } }
+@media print { .rail-fechar { display: none !important; } }
+
+/* Ajuda de atalhos */
+.atalhos-tab { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
+.atalhos-tab td { padding: 8px 6px; border-bottom: 1px solid var(--line); color: var(--ink-soft); vertical-align: middle; }
+.atalhos-tab td:first-child { white-space: nowrap; width: 1%; padding-right: 16px; }
+.atalhos-tab kbd { font-family: var(--font-mono); font-size: var(--text-xs); background: var(--paper-soft); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 3px 8px; color: var(--ink); }
+@media print { #atalhosAjuda { display: none !important; } }
+
+/* Ordenação da lista de fichas */
+.ordem-lista { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--ink-faint); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.ordem-lista select { padding: 7px 10px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: var(--text-sm); text-transform: none; letter-spacing: 0; font-weight: 500; }
+.ordem-lista select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+@media (max-width: 640px) { .ordem-lista { width: 100%; justify-content: space-between; } .ordem-lista select { flex: 1; } }
