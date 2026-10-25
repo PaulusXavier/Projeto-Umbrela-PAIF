@@ -447,3 +447,174 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);
   else iniciar();
 })();
+
+
+/* Umbrela — gavetas (menu de seções no celular e painéis recolhíveis).
+   - menu de seções: botão Fechar, Esc, deslizar para a esquerda fecha, deslizar da borda esquerda abre,
+     tela de trás não rola enquanto aberto, a seção atual aparece já visível;
+   - painéis recolhíveis ("Resumo da ficha" etc.): lembram se estavam abertos ao trocar de seção. */
+(function () {
+  "use strict";
+  const CHAVE = "paif_gaveta_";
+  const celular = () => window.matchMedia("(max-width: 860px)").matches;
+  const rail = () => document.getElementById("tabRail");
+  const aberta = () => { const r = rail(); return !!(r && r.classList.contains("open")); };
+  function fechar() { const ov = document.getElementById("railOverlay"); if (aberta() && ov) ov.click(); }
+  function abrir() { const b = document.getElementById("railToggleBtn"); if (!aberta() && b && b.offsetParent !== null) b.click(); }
+
+  function sincronizar() {
+    const a = aberta();
+    document.documentElement.classList.toggle("gaveta-aberta", a && celular());
+    const b = document.getElementById("railToggleBtn");
+    if (b) { b.setAttribute("aria-expanded", a ? "true" : "false"); b.setAttribute("aria-controls", "tabRail"); }
+    const r = rail();
+    if (r && a) { const ativo = r.querySelector(".tab-item.active"); if (ativo && ativo.scrollIntoView) ativo.scrollIntoView({ block: "center" }); }
+  }
+
+  function preparar() {
+    const r = rail();
+    if (r && !r.querySelector(".rail-fechar")) {
+      const x = document.createElement("button");
+      x.type = "button"; x.className = "rail-fechar"; x.setAttribute("aria-label", "Fechar menu de seções"); x.textContent = "✕ Fechar";
+      x.addEventListener("click", fechar);
+      r.insertBefore(x, r.firstChild);
+    }
+    document.querySelectorAll("details.apoio-mobile").forEach((d) => {
+      const sum = d.querySelector("summary");
+      const k = CHAVE + (sum ? sum.textContent.trim() : "painel");
+      let v = null; try { v = sessionStorage.getItem(k); } catch (e) { /* ignora */ }
+      if (v === "1" && !d.open) d.open = true;
+      else if (v === "0" && d.open) d.open = false;
+    });
+    sincronizar();
+  }
+
+  // lembra o estado aberto/fechado dos painéis (o evento "toggle" não propaga: usa captura)
+  document.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (!d || !d.matches || !d.matches("details.apoio-mobile")) return;
+    const sum = d.querySelector("summary");
+    try { sessionStorage.setItem(CHAVE + (sum ? sum.textContent.trim() : "painel"), d.open ? "1" : "0"); } catch (err) { /* ignora */ }
+  }, true);
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest && e.target.closest("#railToggleBtn, #railOverlay, .tab-item")) setTimeout(sincronizar, 30);
+  }, true);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && aberta() && celular()) { e.preventDefault(); fechar(); }
+  });
+
+  // gestos: deslizar para a esquerda fecha; deslizar a partir da borda esquerda abre
+  let t0 = null;
+  document.addEventListener("touchstart", (e) => {
+    const t = e.touches[0]; t0 = { x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  document.addEventListener("touchend", (e) => {
+    if (!t0 || !celular()) { t0 = null; return; }
+    const t = e.changedTouches[0], dx = t.clientX - t0.x, dy = t.clientY - t0.y;
+    const de = t0; t0 = null;
+    if (Math.abs(dy) > 60 || Math.abs(dx) < 70) return;
+    if (dx < 0 && aberta()) fechar();
+    else if (dx > 0 && de.x < 24 && document.getElementById("formScroll")) abrir();
+  }, { passive: true });
+
+  let timer = null;
+  function agendar() { clearTimeout(timer); timer = setTimeout(preparar, 80); }
+  function iniciar() {
+    const main = document.getElementById("mainArea");
+    if (!main) return;
+    new MutationObserver(agendar).observe(main, { childList: true, subtree: true });
+    preparar();
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);
+  else iniciar();
+})();
+
+
+/* Umbrela — agilidade na escrita: data/hora com um atalho, ajuda de atalhos, Esc fecha menus
+   suspensos e campos que acompanham o teclado do celular. */
+(function () {
+  "use strict";
+
+  function campoAtivo() {
+    const a = document.activeElement;
+    if (!a || !a.matches) return null;
+    if (a.matches("textarea, input[type=text], input[type=search]") && a.closest("#mainArea, .nota-editor")) return a;
+    return null;
+  }
+
+  function inserir(el, texto) {
+    const ini = el.selectionStart == null ? el.value.length : el.selectionStart;
+    const fim = el.selectionEnd == null ? ini : el.selectionEnd;
+    el.value = el.value.slice(0, ini) + texto + el.value.slice(fim);
+    const pos = ini + texto.length;
+    try { el.setSelectionRange(pos, pos); } catch (e) { /* ignora */ }
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function dataHora() {
+    const d = new Date(), p = (n) => String(n).padStart(2, "0");
+    return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+
+  function ajuda() {
+    if (document.getElementById("atalhosAjuda")) return;
+    const ov = document.createElement("div");
+    ov.id = "atalhosAjuda"; ov.className = "modal-backdrop"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Atalhos de teclado");
+    const linhas = [
+      ["Ctrl + S", "Salvar a ficha"],
+      ["Alt + → / Alt + ←", "Próxima / anterior seção"],
+      ["Alt + N", "Nova anotação na seção aberta"],
+      ["Alt + D", "Inserir data e hora no campo"],
+      ["Alt + F", "Modo foco (tela inteira)"],
+      ["/", "Buscar na lista de fichas"],
+      ["Alt + H", "Mostrar esta ajuda"],
+      ["Esc", "Fechar menus e editor ampliado"]
+    ];
+    ov.innerHTML = '<div class="modal"><h3>Atalhos de teclado</h3><table class="atalhos-tab">' +
+      linhas.map((l) => "<tr><td><kbd>" + l[0] + "</kbd></td><td>" + l[1] + "</td></tr>").join("") +
+      '</table><div class="modal-actions"><button type="button" class="btn btn-primary">Fechar</button></div></div>';
+    const fechar = () => { document.removeEventListener("keydown", tecla, true); ov.remove(); };
+    const tecla = (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fechar(); } };
+    ov.addEventListener("click", (e) => { if (e.target === ov) fechar(); });
+    ov.querySelector("button").addEventListener("click", fechar);
+    document.addEventListener("keydown", tecla, true);
+    document.body.appendChild(ov);
+    ov.querySelector("button").focus();
+  }
+
+  document.addEventListener("keydown", (e) => {
+    // "/" na lista de fichas leva direto à busca (fora de campos de texto)
+    if (e.key === "/" && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      const a = document.activeElement, digitando = a && a.matches && a.matches("input, textarea, select, [contenteditable]");
+      const busca = document.getElementById("searchInput");
+      if (!digitando && busca) { e.preventDefault(); busca.focus(); busca.select(); }
+      return;
+    }
+    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      if (e.key === "d" || e.key === "D") {
+        const c = campoAtivo();
+        if (c) { e.preventDefault(); inserir(c, dataHora() + " — "); }
+      } else if (e.key === "h" || e.key === "H") {
+        e.preventDefault(); ajuda();
+      }
+    } else if (e.key === "Escape") {
+      // fecha seletores de membros e menus de exportação abertos
+      let fechou = false;
+      document.querySelectorAll(".situ-membros-dropdown[open]").forEach((d) => { d.removeAttribute("open"); fechou = true; });
+      document.querySelectorAll(".export-dropdown").forEach((d) => { if (d.style.display && d.style.display !== "none") { d.style.display = "none"; fechou = true; } });
+      if (fechou) e.stopPropagation();
+    }
+  });
+
+  // celular: letra maiúscula no início das frases e o campo sobe junto com o teclado
+  const toque = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  document.addEventListener("focusin", (e) => {
+    const t = e.target;
+    if (!t || !t.matches || !t.matches("#mainArea textarea")) return;
+    if (!t.hasAttribute("autocapitalize")) t.setAttribute("autocapitalize", "sentences");
+    if (!t.hasAttribute("lang")) t.setAttribute("lang", "pt-BR");
+    if (toque) setTimeout(() => { try { t.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (err) { /* ignora */ } }, 320);
+  });
+})();
