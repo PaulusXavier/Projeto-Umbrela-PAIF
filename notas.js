@@ -285,6 +285,38 @@
     }
   });
 
+
+  /* ------------------------- atalhos de teclado do editor ------------------------- */
+  // Alt+→ / Alt+← : próxima / anterior seção.  Alt+N : nova anotação.  Alt+F : modo foco.
+  document.addEventListener("keydown", (e) => {
+    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (!document.getElementById("formScroll")) return;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      const abas = Array.from(document.querySelectorAll(".tab-rail .tab-item[data-section]"));
+      const i = abas.findIndex((a) => a.classList.contains("active"));
+      const alvo = abas[i + (e.key === "ArrowRight" ? 1 : -1)];
+      if (alvo) { e.preventDefault(); alvo.click(); setTimeout(() => { const f = document.getElementById("formScroll"); if (f) f.scrollTop = 0; }, 60); }
+    } else if (e.key === "n" || e.key === "N") {
+      // Alt+N : nova anotação (de hoje) na seção aberta, já com o cursor pronta para escrever.
+      const sec = document.querySelector("#formScroll");
+      const btn = sec && (sec.querySelector("[data-diario-add]") || sec.querySelector('[data-action="add-atendimento"]') || sec.querySelector('[data-action="add-meta-nota"]'));
+      if (btn) {
+        e.preventDefault();
+        const antes = sec.querySelectorAll("textarea").length;
+        btn.click();
+        setTimeout(() => {
+          const tas = Array.from(document.querySelectorAll("#formScroll textarea"));
+          // a nova anotação aparece no topo da lista (mais recente primeiro)
+          const alvo = tas.find((t) => !t.value && (t.closest(".diario-item, .timeline-card, .meta-nota"))) || tas[Math.max(0, tas.length - 1)];
+          if (alvo && tas.length >= antes) { alvo.focus(); alvo.scrollIntoView({ block: "center", behavior: "smooth" }); }
+        }, 120);
+      }
+    } else if (e.key === "f" || e.key === "F") {
+      const b = document.getElementById("modoFocoBtn");
+      if (b) { e.preventDefault(); b.click(); }
+    }
+  });
+
   // Lembrete (no máximo 1 por dia) quando faz mais de 30 dias sem backup neste aparelho.
   function lembreteBackup() {
     try {
