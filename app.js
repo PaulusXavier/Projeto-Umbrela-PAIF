@@ -1087,6 +1087,7 @@ const state = {
   unsub: null,
   saveTimer: null,
   railOpen: false,
+  ordem: (() => { try { return sessionStorage.getItem("paif_ordem") || "recente"; } catch (e) { return "recente"; } })(),
   currentUser: null,         // usuário autenticado (Firebase Auth) ou null
   pendentes: false,          // há escritas ainda não enviadas ao servidor (fila offline do Firestore)
   authError: "",
@@ -3729,7 +3730,11 @@ function renderHomeHTML() {
       : p.situacaoPAF === state.statusFilter;
     if (matchesQ && matchesStatus && !nosDados) achadosSoNasAnotacoes++;
     return matchesQ && matchesStatus;
-  }).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+  }).sort((a, b) => {
+    if (state.ordem === "nome") return String(a.responsavel || "").localeCompare(String(b.responsavel || ""), "pt-BR", { sensitivity: "base" });
+    if (state.ordem === "parados") return (diasSemRegistro(b) || 0) - (diasSemRegistro(a) || 0);
+    return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+  });
 
   const qtdParados = state.pafs.filter(p => p.situacaoPAF === "andamento" && (diasSemRegistro(p) || 0) >= 30).length;
   const chips = ["ativos", "parados", "arquivados"].map(s => {
@@ -3838,6 +3843,8 @@ function renderHomeHTML() {
     <div class="search-row">
       <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF, CRAS ou texto das anotações…" value="${escapeHtml(state.search)}">
       <div class="filter-tabs">${chips}</div>
+      <label class="ordem-lista"><span>Ordenar por</span>
+        <select id="ordemLista" aria-label="Ordenar a lista de PAFs">${[["recente", "Mais recentes"], ["nome", "Nome (A–Z)"], ["parados", "Mais tempo sem registro"]].map(([v, l]) => `<option value="${v}" ${state.ordem === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
     </div>
     ${achadosSoNasAnotacoes ? `<p class="hint busca-notas-dica">${achadosSoNasAnotacoes} ficha(s) encontrada(s) pelo texto das anotações (observações, atendimentos).</p>` : ""}
     ${list.length ? `<div class="records-list">${recordsHead}${rows}</div>` : empty}
@@ -3852,6 +3859,11 @@ function attachHomeHandlers() {
   document.querySelectorAll("[data-apoio-prior]").forEach(b => b.addEventListener("click", goPrioridades));
   const search = document.getElementById("searchInput");
   search?.addEventListener("input", e => { state.search = e.target.value; renderApp(); focusSearchEnd(); });
+  document.getElementById("ordemLista")?.addEventListener("change", e => {
+    state.ordem = e.target.value;
+    try { sessionStorage.setItem("paif_ordem", state.ordem); } catch (err) { /* ignora */ }
+    renderApp();
+  });
 
   document.querySelectorAll("[data-status]").forEach(btn => {
     btn.addEventListener("click", () => { state.statusFilter = btn.dataset.status; renderApp(); });
