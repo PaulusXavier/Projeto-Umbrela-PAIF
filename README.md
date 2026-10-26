@@ -131,6 +131,11 @@ os registros só para si (não compartilha com os outros).
   responsável e telefone. Cada encaminhamento pode ser impresso individualmente no modelo
   de Formulário de Encaminhamento do SUAS, com canhoto de protocolo e espaço para anotar
   a contra-referência (retorno) recebida do outro órgão.
+- **Atalhos e leitura mais limpa**: as "Notas técnicas" de cada seção ficam num bloco recolhível
+  (fechado por padrão; o app lembra sua escolha); na lista, `/` vai direto para a busca; na ficha,
+  `Ctrl+S` (ou `⌘+S`) salva na hora e `Alt+←` / `Alt+→` troca de seção. "Excluir" agora fica dentro do menu
+  "Exportar ▾" de cada ficha (com a mesma confirmação), para não ser clicado sem querer.
+- **Sem perder a última digitação**: ao voltar para a lista, trocar de ficha, abrir Gráficos/Prioridades, bloquear o celular ou fechar a aba, o que ainda estava aguardando o salvamento automático é gravado na hora.
 - O preenchimento é salvo automaticamente (nuvem ou local, conforme o passo 1).
 - **Baixar PDF** / **Baixar Word (.doc)**: geram o arquivo preenchido pronto para
   impressão/assinatura, tanto na tela do formulário quanto no menu "Exportar" de cada
