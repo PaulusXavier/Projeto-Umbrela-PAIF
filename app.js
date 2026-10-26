@@ -1087,6 +1087,7 @@ const state = {
   unsub: null,
   saveTimer: null,
   railOpen: false,
+  tecnicoFiltro: "",
   ordem: (() => { try { return sessionStorage.getItem("paif_ordem") || "recente"; } catch (e) { return "recente"; } })(),
   currentUser: null,         // usuário autenticado (Firebase Auth) ou null
   pendentes: false,          // há escritas ainda não enviadas ao servidor (fila offline do Firestore)
@@ -3454,6 +3455,7 @@ function savePAF(paf, opts = {}) {
 }
 
 function deletePAFRecord(id) {
+  descartarSalvamentoPendente();
   const paf = state.pafs.find(p => p.id === id) || { id };
   if (state.mode === "cloud" && state.db) {
     excluirAnexosSubcolecao(id); // melhor esforço, roda em paralelo — não precisa aguardar
@@ -3470,10 +3472,24 @@ function deletePAFRecord(id) {
 
 function scheduleAutosave() {
   clearTimeout(state.saveTimer);
+  state.salvarPendente = true;
   state.saveTimer = setTimeout(() => {
+    state.salvarPendente = false;
     if (state.current) savePAF(state.current, { silent: true });
   }, 700);
 }
+
+// Grava na hora o que ainda está esperando o autosave (700 ms). Evita perder a última digitação
+// ao voltar para a lista, trocar de ficha, fechar a aba ou bloquear o celular.
+function salvarPendenteAgora() {
+  if (!state.salvarPendente) return;
+  clearTimeout(state.saveTimer);
+  state.salvarPendente = false;
+  if (state.current && state.view === "editor") savePAF(state.current, { silent: true });
+}
+function descartarSalvamentoPendente() { clearTimeout(state.saveTimer); state.salvarPendente = false; }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") salvarPendenteAgora(); });
+window.addEventListener("pagehide", salvarPendenteAgora);
 
 /* ---------------------------- Famílias desistentes ---------------------------- */
 
@@ -3498,6 +3514,7 @@ function criarStubDesistencia(paf) {
 }
 
 function registrarDesistencia(paf) {
+  descartarSalvamentoPendente();
   const stub = criarStubDesistencia(paf);
   stub.registradoPor = state.currentUser?.email || null;
   if (state.mode === "cloud" && state.db) {
@@ -3529,12 +3546,14 @@ function excluirDesistente(id) {
 /* ---------------------------- Navegação ---------------------------- */
 
 function goHome() {
+  salvarPendenteAgora();
   state.view = "home";
   state.current = null;
   renderApp();
 }
 
 function openPAF(id) {
+  salvarPendenteAgora();
   const paf = state.pafs.find(p => p.id === id);
   if (!paf) return;
   state.current = JSON.parse(JSON.stringify(paf));
@@ -3662,16 +3681,73 @@ function renderApp() {
   if (state.view === "home") attachHomeHandlers();
   else if (state.view === "dashboard") attachDashboardHandlers();
   else if (state.view === "prioridades") attachPrioridadesHandlers();
-  else attachEditorHandlers();
+  else { attachEditorHandlers(); agruparNotasTecnicas(); }
   updateTopbarTabs();
+  iniciarAtalhos();
+}
+
+// Várias "Notas técnicas" seguidas empurravam os campos para baixo (no celular, a tela inteira
+// era só texto de fundamentação). Agora ficam num bloco recolhível, fechado por padrão; a escolha
+// (aberto/fechado) é lembrada neste aparelho. O conteúdo das notas não muda.
+function agruparNotasTecnicas() {
+  const aberto = (() => { try { return localStorage.getItem("paif_notas_abertas") === "1"; } catch (e) { return false; } })();
+  const vistos = new Set();
+  document.querySelectorAll("#mainArea .nota-tecnica").forEach(n => {
+    if (vistos.has(n) || n.closest(".notas-grupo")) return;
+    const corrida = [n];
+    let prox = n.nextElementSibling;
+    while (prox && prox.classList.contains("nota-tecnica")) { corrida.push(prox); prox = prox.nextElementSibling; }
+    corrida.forEach(x => vistos.add(x));
+    if (corrida.length < 2) return;
+    const det = document.createElement("details");
+    det.className = "notas-grupo";
+    if (aberto) det.open = true;
+    const sum = document.createElement("summary");
+    sum.textContent = `Notas técnicas desta seção (${corrida.length}) — base normativa`;
+    det.appendChild(sum);
+    n.parentNode.insertBefore(det, n);
+    corrida.forEach(x => det.appendChild(x));
+    det.addEventListener("toggle", () => { try { localStorage.setItem("paif_notas_abertas", det.open ? "1" : "0"); } catch (e) { /* ignora */ } });
+  });
+}
+
+// Atalhos de teclado (registrados uma única vez):
+//  "/" na lista = ir para a busca · Ctrl/Cmd+S na ficha = salvar agora · Alt+←/→ = seção anterior/seguinte.
+function iniciarAtalhos() {
+  if (state._atalhosBound) return;
+  state._atalhosBound = true;
+  document.addEventListener("keydown", (e) => {
+    const alvo = e.target;
+    const digitando = alvo && (alvo.tagName === "INPUT" || alvo.tagName === "TEXTAREA" || alvo.tagName === "SELECT" || alvo.isContentEditable);
+    if (document.querySelector("#modalRoot .modal, #modalRoot [role=dialog]")) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && state.view === "editor" && state.current) {
+      e.preventDefault();
+      clearTimeout(state.saveTimer);
+      savePAF(state.current);
+      return;
+    }
+    if (e.key === "/" && !digitando && state.view === "home") {
+      const el = document.getElementById("searchInput");
+      if (el) { e.preventDefault(); el.focus(); el.select(); }
+      return;
+    }
+    if (e.altKey && (e.key === "ArrowRight" || e.key === "ArrowLeft") && state.view === "editor" && state.current) {
+      const ids = Array.from(document.querySelectorAll("[data-section]")).map(x => x.dataset.section).filter((v, i, a) => a.indexOf(v) === i);
+      const i = ids.indexOf(state.activeSection);
+      const novo = ids[i + (e.key === "ArrowRight" ? 1 : -1)];
+      if (novo) { e.preventDefault(); state.activeSection = novo; renderApp(); window.scrollTo({ top: 0 }); }
+    }
+  });
 }
 
 function goDashboard() {
+  salvarPendenteAgora();
   state.view = "dashboard";
   renderApp();
 }
 
 function goPrioridades() {
+  salvarPendenteAgora();
   state.view = "prioridades";
   renderApp();
 }
@@ -3705,6 +3781,16 @@ function anotarRapido(id) {
   if (btn) btn.click();
 }
 
+// Abre a ficha direto em "Registro de Atendimentos" com um atendimento novo (data de hoje) pronto para preencher.
+function atenderRapido(id) {
+  openPAF(id);
+  if (!state.current) return;
+  state.activeSection = "metas";
+  renderApp();
+  document.querySelector("[data-action='add-atendimento']")?.click();
+  document.getElementById("formScroll")?.scrollTo({ top: 0 });
+}
+
 function normBusca(t) {
   return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
@@ -3724,18 +3810,22 @@ function renderHomeHTML() {
     const nosDados = !q || normBusca(p.responsavel).includes(qn) || (p.cpf || "").includes(q) || (p.nis || "").includes(q) || normBusca(p.apelido).includes(qn) || normBusca(p.crasNome).includes(qn);
     const nasNotas = !nosDados && qn.length >= 3 && textoAnotacoesPAF(p).includes(qn);
     const matchesQ = nosDados || nasNotas;
-    const matchesStatus = state.statusFilter === "ativos" ? p.situacaoPAF === "andamento"
+    const matchesStatus = state.statusFilter === "todos" ? true
+      : state.statusFilter === "ativos" ? p.situacaoPAF === "andamento"
       : state.statusFilter === "arquivados" ? (p.situacaoPAF === "encaminhado" || p.situacaoPAF === "concluido")
       : state.statusFilter === "parados" ? (p.situacaoPAF === "andamento" && (diasSemRegistro(p) || 0) >= 30)
       : p.situacaoPAF === state.statusFilter;
-    if (matchesQ && matchesStatus && !nosDados) achadosSoNasAnotacoes++;
-    return matchesQ && matchesStatus;
+    const matchesTec = !state.tecnicoFiltro || (p.tecnicoReferencia || "").trim() === state.tecnicoFiltro;
+    if (matchesQ && matchesStatus && matchesTec && !nosDados) achadosSoNasAnotacoes++;
+    return matchesQ && matchesStatus && matchesTec;
   }).sort((a, b) => {
     if (state.ordem === "nome") return String(a.responsavel || "").localeCompare(String(b.responsavel || ""), "pt-BR", { sensitivity: "base" });
     if (state.ordem === "parados") return (diasSemRegistro(b) || 0) - (diasSemRegistro(a) || 0);
     return (b.updatedAt || "").localeCompare(a.updatedAt || "");
   });
 
+  const tecnicos = Array.from(new Set(state.pafs.map(p => (p.tecnicoReferencia || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  if (state.tecnicoFiltro && !tecnicos.includes(state.tecnicoFiltro)) state.tecnicoFiltro = "";
   const qtdParados = state.pafs.filter(p => p.situacaoPAF === "andamento" && (diasSemRegistro(p) || 0) >= 30).length;
   const chips = ["ativos", "parados", "arquivados"].map(s => {
     const label = s === "ativos" ? "Ativos" : s === "parados" ? `Sem registro há 30+ dias${qtdParados ? " (" + qtdParados + ")" : ""}` : "Arquivados (Encaminhados/Concluídos)";
@@ -3747,19 +3837,19 @@ function renderHomeHTML() {
   const statsGeral = state.pafs.length ? computeResumoGeral(state.pafs) : null;
   const kpiStripHTML = statsGeral ? `
     <div class="home-stats-grid">
-      <div class="stat-card stat-total">
+      <div class="stat-card stat-total" data-kpi-filtro="todos" role="button" tabindex="0" title="Filtrar a lista">
         <span class="stat-icon">${sectionIconSvg("cabecalho", 19)}</span>
         <div class="stat-text"><span class="stat-value">${statsGeral.total}</span><span class="stat-label">Total de PAFs</span></div>
       </div>
-      <div class="stat-card stat-andamento">
+      <div class="stat-card stat-andamento" data-kpi-filtro="ativos" role="button" tabindex="0" title="Filtrar a lista">
         <span class="stat-icon">${sectionIconSvg("diagnostico", 19)}</span>
         <div class="stat-text"><span class="stat-value">${statsGeral.porStatus.andamento || 0}</span><span class="stat-label">Em andamento</span></div>
       </div>
-      <div class="stat-card stat-encaminhado">
+      <div class="stat-card stat-encaminhado" data-kpi-filtro="encaminhado" role="button" tabindex="0" title="Filtrar a lista">
         <span class="stat-icon">${sectionIconSvg("encaminhamentos", 19)}</span>
         <div class="stat-text"><span class="stat-value">${statsGeral.porStatus.encaminhado || 0}</span><span class="stat-label">Encaminhados</span></div>
       </div>
-      <div class="stat-card stat-concluido">
+      <div class="stat-card stat-concluido" data-kpi-filtro="concluido" role="button" tabindex="0" title="Filtrar a lista">
         <span class="stat-icon">${sectionIconSvg("encerramento", 19)}</span>
         <div class="stat-text"><span class="stat-value">${statsGeral.porStatus.concluido || 0}</span><span class="stat-label">Concluídos</span></div>
       </div>
@@ -3794,13 +3884,14 @@ function renderHomeHTML() {
         <button class="btn btn-ghost btn-sm" data-open="${p.id}">Abrir</button>
         <button class="btn btn-ghost btn-sm" data-anotar="${p.id}" title="Abrir a ficha e começar uma anotação de hoje">+ Anotar</button>
         <div class="export-menu">
-          <button class="btn btn-ghost btn-sm" data-export-toggle="${p.id}">Exportar ▾</button>
+          <button class="btn btn-ghost btn-sm" data-export-toggle="${p.id}">Mais ▾</button>
           <div class="export-dropdown" id="exp-${p.id}" style="display:none">
+            <button data-atender="${p.id}">+ Registrar atendimento</button>
             <button data-export-pdf="${p.id}">Baixar PDF</button>
             <button data-export-word="${p.id}">Baixar Word (.doc)</button>
+            <button class="danger" data-del="${p.id}">Excluir este PAF…</button>
           </div>
         </div>
-        <button class="btn btn-danger btn-sm" data-del="${p.id}">Excluir</button>
       </div>
     </div>`;
   }).join("");
@@ -3839,10 +3930,11 @@ function renderHomeHTML() {
       </div>
     </div>
     ${kpiStripHTML}
-    ${pilaresPaifStripHTML()}
+    <details class="home-pilares-toggle" ${(() => { try { return localStorage.getItem("paif_pilares") === "1" ? "open" : ""; } catch (e) { return ""; } })()}><summary>Pilares do PAIF (acolhida · convívio · autonomia)</summary>${pilaresPaifStripHTML()}</details>
     <div class="search-row">
       <input type="search" id="searchInput" placeholder="Buscar por responsável, CPF, CRAS ou texto das anotações…" value="${escapeHtml(state.search)}">
       <div class="filter-tabs">${chips}</div>
+      ${tecnicos.length ? `<label class="ordem-lista"><span>Técnico</span><select id="filtroTecnico" aria-label="Filtrar a lista por técnico de referência"><option value="">Todos</option>${tecnicos.map(t => `<option value="${escapeHtml(t)}" ${state.tecnicoFiltro === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select></label>` : ""}
       <label class="ordem-lista"><span>Ordenar por</span>
         <select id="ordemLista" aria-label="Ordenar a lista de PAFs">${[["recente", "Mais recentes"], ["nome", "Nome (A–Z)"], ["parados", "Mais tempo sem registro"]].map(([v, l]) => `<option value="${v}" ${state.ordem === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
     </div>
@@ -3852,6 +3944,7 @@ function renderHomeHTML() {
 }
 
 function attachHomeHandlers() {
+  document.querySelector(".home-pilares-toggle")?.addEventListener("toggle", e => { try { localStorage.setItem("paif_pilares", e.target.open ? "1" : "0"); } catch (err) { /* ignora */ } });
   document.getElementById("newPafBtn")?.addEventListener("click", newPAF);
   document.getElementById("emptyNewBtn")?.addEventListener("click", newPAF);
   document.getElementById("resumoMensalBtn")?.addEventListener("click", goDashboard);
@@ -3859,12 +3952,18 @@ function attachHomeHandlers() {
   document.querySelectorAll("[data-apoio-prior]").forEach(b => b.addEventListener("click", goPrioridades));
   const search = document.getElementById("searchInput");
   search?.addEventListener("input", e => { state.search = e.target.value; renderApp(); focusSearchEnd(); });
+  document.getElementById("filtroTecnico")?.addEventListener("change", e => { state.tecnicoFiltro = e.target.value; renderApp(); });
   document.getElementById("ordemLista")?.addEventListener("change", e => {
     state.ordem = e.target.value;
     try { sessionStorage.setItem("paif_ordem", state.ordem); } catch (err) { /* ignora */ }
     renderApp();
   });
 
+  document.querySelectorAll("[data-kpi-filtro]").forEach(card => {
+    const ir = () => { state.statusFilter = card.dataset.kpiFiltro; renderApp(); document.getElementById("searchInput")?.scrollIntoView({ behavior: "smooth", block: "center" }); };
+    card.addEventListener("click", ir);
+    card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ir(); } });
+  });
   document.querySelectorAll("[data-status]").forEach(btn => {
     btn.addEventListener("click", () => { state.statusFilter = btn.dataset.status; renderApp(); });
   });
@@ -3873,6 +3972,9 @@ function attachHomeHandlers() {
   });
   document.querySelectorAll("[data-anotar]").forEach(el => {
     el.addEventListener("click", (e) => { e.stopPropagation(); anotarRapido(el.dataset.anotar); });
+  });
+  document.querySelectorAll("[data-atender]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); atenderRapido(el.dataset.atender); });
   });
   document.querySelectorAll("[data-del]").forEach(el => {
     el.addEventListener("click", (e) => {
