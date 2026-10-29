@@ -3059,16 +3059,20 @@ function setSyncPill(kind, label) {
 
 /* ---------------------------- Autenticação (Firebase Auth) ---------------------------- */
 
-/* Animações de guarda-chuva da tela de login: guarda-chuvas flutuando devagar como
-   paraquedas (queda lenta + balanço), chuva fina ao fundo e gotas escorrendo na faixa
-   do cartão. Ao focar o campo de senha os guarda-chuvas se fecham (privacidade) e se
-   reabrem ao sair do campo. Tudo é decorativo (aria-hidden, sem eventos de ponteiro) e
-   é desligado por prefers-reduced-motion (ficam parados, sem queda). */
+/* Animações de guarda-chuva da tela de login: guarda-chuvas descendo devagar como
+   paraquedas, em três camadas de profundidade (longe/meio/perto). Cada um segue uma
+   trajetória em "S" (deriva lateral suave), inclina como um pêndulo, "respira" a copa e
+   abre em cascata ao entrar. Ao focar o campo de senha eles se fecham (privacidade) e
+   se reabrem ao sair do campo. Tudo é decorativo (aria-hidden, sem eventos de ponteiro)
+   e é desligado por prefers-reduced-motion (ficam parados, sem queda). */
 function umbrellaSvg() {
-  return `<svg viewBox="0 0 48 60" width="100%" fill="none" aria-hidden="true">
-    <g class="u-canopy">
-      <path d="M3 26C3 12 12 3 24 3s21 9 21 23a7 6 0 0 1-14 0a7 6 0 0 1-14 0a7 6 0 0 1-14 0z" fill="currentColor"/>
-      <path d="M24 3V29M24 3 11 27M24 3l13 24" stroke="#fff" stroke-opacity=".35" stroke-width="1.2" stroke-linecap="round"/>
+  return `<svg class="u-svg" viewBox="0 0 48 60" width="100%" fill="none" aria-hidden="true">
+    <g class="u-open">
+      <g class="u-canopy">
+        <path d="M3 26C3 12 12 3 24 3s21 9 21 23a7 6 0 0 1-14 0a7 6 0 0 1-14 0a7 6 0 0 1-14 0z" fill="currentColor"/>
+        <path d="M24 3C17 8 13 16 13 26a7 6 0 0 1-10 0C3 12 12 3 24 3z" fill="#fff" fill-opacity=".14"/>
+        <path d="M24 3V29M24 3 11 27M24 3l13 24" stroke="#fff" stroke-opacity=".35" stroke-width="1.2" stroke-linecap="round"/>
+      </g>
     </g>
     <path d="M24 26V51q0 7-6.5 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
     <path d="M24 3V0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -3081,42 +3085,46 @@ function initLoginUmbrellas() {
   if (!sky || !wrap || sky.dataset.pronto) return;
   sky.dataset.pronto = "1";
 
-  // [x%, largura px, duração da queda s, atraso s (negativo = já em curso), cor, balanço graus, deriva px, y% estático p/ movimento reduzido]
   const navy = "#1F3A5F", gold = "#B98A34", green = "#2E7D6B", red = "#A63D33";
+  // Camadas de profundidade: opacidade, desfoque e intensidade da paralaxe
+  const camadas = {
+    longe: { op: .10, blur: 1,   z: .4 },
+    meio:  { op: .17, blur: 0,   z: 1 },
+    perto: { op: .12, blur: 2.5, z: 2.2 }
+  };
+  // [x%, largura px, camada, duração da queda s, atraso s (negativo = já em curso), cor,
+  //  inclinação máx. graus, amplitude da deriva px, período da deriva s, y% estático p/ movimento reduzido]
   const guardaChuvas = [
-    [6,  58, 34, -4,  navy,  9,  40, 18],
-    [17, 36, 26, -17, gold,  12, -30, 62],
-    [29, 74, 40, -26, green, 7,  50, 38],
-    [41, 30, 24, -9,  red,   13, -20, 80],
-    [55, 52, 32, -21, navy,  10, 36, 12],
-    [66, 40, 28, -2,  gold,  11, -44, 70],
-    [77, 80, 42, -33, green, 7,  28, 28],
-    [87, 34, 25, -13, navy,  12, -26, 86],
-    [94, 56, 36, -29, red,   9,  -36, 48],
-    [48, 26, 22, -19, green, 14, 24, 92]
+    [8,  28, "longe", 52, -11, navy,  8, 16, 7.5, 22],
+    [24, 32, "longe", 58, -37, gold,  9, 14, 8.5, 70],
+    [47, 26, "longe", 48, -5,  green, 10, 18, 6.5, 40],
+    [62, 30, "longe", 55, -29, red,   8, 16, 9,   88],
+    [83, 34, "longe", 60, -44, navy,  9, 15, 7,   10],
+    [14, 50, "meio",  36, -20, green, 8, 28, 7,   52],
+    [36, 58, "meio",  40, -3,  navy,  7, 34, 8.5, 16],
+    [56, 46, "meio",  34, -26, gold,  9, 26, 6.5, 78],
+    [74, 54, "meio",  38, -14, red,   8, 32, 7.8, 34],
+    [93, 44, "meio",  33, -31, green, 9, 24, 6.8, 60],
+    [3,  88, "perto", 26, -9,  gold,  6, 46, 9,   44],
+    [30, 78, "perto", 30, -22, navy,  5, 52, 10,  84],
+    [68, 94, "perto", 28, -2,  green, 6, 50, 9.5, 26]
   ];
-  let html = guardaChuvas.map(([x, w, dur, dl, cor, r, dx, y]) => `
-    <span class="u-fall" style="left:${x}%;--w:${w}px;--dur:${dur}s;--dl:${dl}s;--dx:${dx}px;--ry:${y}%">
-      <span class="u-sway" style="--r:${r}deg;--sd:${(3.6 + (w % 5) * .5).toFixed(1)}s;color:${cor}">${umbrellaSvg()}</span>
-    </span>`).join("");
+  sky.innerHTML = guardaChuvas.map(([x, w, camada, dur, dl, cor, r, amp, sd, y], i) => {
+    const c = camadas[camada];
+    const dd = -((i * 1.7) % sd).toFixed(2);          // fase da deriva/balanço (em sintonia)
+    const od = (i * 0.09).toFixed(2);                 // abertura em cascata
+    const bd = (4.4 + (i % 4) * 0.6).toFixed(1);      // período da "respiração" da copa
+    return `
+    <span class="u-fall" style="left:${x}%;--w:${w}px;--dur:${dur}s;--dl:${dl}s;--op:${c.op};--blur:${c.blur}px;--z:${c.z};--ry:${y}%">
+      <span class="u-drift" style="--amp:${amp}px;--sd:${sd}s;--dd:${dd}s">
+        <span class="u-sway" style="--r:${r}deg;color:${cor};--od:${od}s;--bd:${bd}s;--bdl:${-(i * 0.7).toFixed(1)}s">${umbrellaSvg()}</span>
+      </span>
+    </span>`;
+  }).join("");
 
-  // Chuva fina ao fundo (posições espalhadas de forma determinística)
-  for (let i = 0; i < 26; i++) {
-    const x = (i * 37 + 11) % 100;
-    const dur = (0.9 + ((i * 7) % 9) / 10).toFixed(2);
-    const dl = -((i * 13) % 17) / 10;
-    html += `<i class="u-drop" style="left:${x}%;--dur:${dur}s;--dl:${dl}s;--ry:${(i * 29) % 100}%"></i>`;
-  }
-  // Ondulações de poças no pé da tela
-  for (let i = 0; i < 6; i++) {
-    html += `<b class="u-ripple" style="left:${8 + i * 17}%;bottom:${10 + ((i * 23) % 40)}px;--dl:${-i * 0.9}s"></b>`;
-  }
-  sky.innerHTML = html;
-
-  // Guarda-chuva principal sobre o selo: abre ao entrar e recebe a chuva (respingos na copa)
+  // Guarda-chuva principal sobre o selo: abre ao entrar e flutua suavemente
   const hero = document.getElementById("heroUmbrella");
   if (hero) {
-    const pontos = [[22, 12], [44, 5], [66, 2], [88, 5], [110, 12]];
     hero.innerHTML = `
       <svg viewBox="0 0 132 46" width="132" height="46" fill="none" aria-hidden="true">
         <g class="hero-canopy">
@@ -3125,20 +3133,7 @@ function initLoginUmbrellas() {
         </g>
         <path d="M66 30V46" stroke="#F3E7D0" stroke-opacity=".75" stroke-width="1.5" stroke-linecap="round"/>
         <path d="M66 2V0" stroke="#F3E7D0" stroke-opacity=".75" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>` + pontos.map(([x, y], i) =>
-        `<i class="hero-splash" style="left:${x}px;top:${y}px;--sx:${x < 66 ? -7 : x > 66 ? 7 : 0}px;--dl:${(i * 0.37).toFixed(2)}s"></i>`).join("");
-  }
-
-  const faixa = document.getElementById("bandDrops");
-  if (faixa) {
-    let g = "";
-    for (let i = 0; i < 14; i++) {
-      const x = 4 + ((i * 53) % 93);
-      const dur = (1.4 + ((i * 5) % 8) / 5).toFixed(2);
-      const dl = -((i * 11) % 20) / 8;
-      g += `<span style="left:${x}%;--dur:${dur}s;--dl:${dl}s;--ry:${(i * 31) % 90}%"></span>`;
-    }
-    faixa.innerHTML = g;
+      </svg>`;
   }
 
   // Senha em foco → guarda-chuvas fechados
