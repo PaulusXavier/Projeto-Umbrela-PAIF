@@ -1347,6 +1347,166 @@ main { flex: 1; display: flex; min-height: 0; }
   50% { opacity: .55; }
 }
 .login-card-body { padding: 26px 30px 30px; }
+
+/* ---------- Login: animações de guarda-chuva ---------- */
+.login-card { z-index: 1; }
+.umbrella-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.u-fall {
+  position: absolute; top: -20vh; width: var(--w, 50px);
+  animation: uFall var(--dur, 30s) linear var(--dl, 0s) infinite;
+  will-change: transform; opacity: .2;
+}
+.u-sway {
+  display: block; transform-origin: 50% 0;
+  animation: uSway var(--sd, 4s) ease-in-out infinite;
+}
+.u-canopy {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  transition: transform .6s cubic-bezier(.3,1.5,.5,1);
+  animation: uBreathe 5s ease-in-out infinite;
+}
+.login-wrap.u-closed:not(.u-peek) .u-canopy { transform: scaleX(.3) scaleY(1.06); animation: none; }
+.login-wrap.u-closed:not(.u-peek) .u-fall { animation-duration: calc(var(--dur, 30s) * 1.8); }
+
+/* Paralaxe (ponteiro) — o céu é maior que a tela para não mostrar bordas ao deslocar */
+.umbrella-sky {
+  inset: -24px;
+  transform: translate3d(calc(var(--px, 0) * -14px), calc(var(--py, 0) * -10px), 0);
+  transition: transform .5s ease-out, opacity .5s ease-in;
+}
+
+/* Ondulações de poça */
+.u-ripple {
+  position: absolute; width: 8px; height: 3px; border-radius: 50%;
+  border: 1px solid rgba(31,58,95,.28); opacity: 0;
+  animation: uRipple 3.6s ease-out var(--dl, 0s) infinite;
+}
+@keyframes uRipple {
+  0%   { transform: scale(.4); opacity: 0; }
+  15%  { opacity: .9; }
+  100% { transform: scale(9); opacity: 0; }
+}
+
+/* Guarda-chuva principal sobre o selo */
+.login-card-band { padding-top: 46px; }
+.login-scene { position: relative; }
+.hero-umbrella {
+  position: absolute; left: 50%; top: -42px; width: 132px; height: 46px; margin-left: -66px;
+  pointer-events: none; z-index: 2;
+  animation: heroRise .9s cubic-bezier(.2,.9,.3,1.2) .25s backwards;
+}
+.hero-canopy {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  transition: transform .6s cubic-bezier(.3,1.5,.5,1);
+  animation: heroOpen 1s cubic-bezier(.2,1.4,.4,1) .35s backwards;
+}
+.login-wrap.u-closed:not(.u-peek) .hero-canopy { transform: scaleX(.22) scaleY(1.05); }
+@keyframes heroRise {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@keyframes heroOpen {
+  from { transform: scaleX(.12) scaleY(1.12); }
+  to   { transform: scaleX(1) scaleY(1); }
+}
+.hero-splash {
+  position: absolute; width: 3px; height: 3px; margin: -2px 0 0 -1px; border-radius: 50%;
+  background: #F3E7D0; opacity: 0;
+  animation: heroSplash 1.9s ease-out var(--dl, 0s) infinite;
+}
+@keyframes heroSplash {
+  0%, 55% { transform: translate(0, 0) scale(1); opacity: 0; }
+  58%     { opacity: .9; }
+  100%    { transform: translate(var(--sx, 0), -9px) scale(.2); opacity: 0; }
+}
+.login-wrap.u-closed:not(.u-peek) .hero-splash { display: none; }
+
+/* Senha: botão de mostrar/ocultar + aviso de Caps Lock */
+.pw-wrap { position: relative; }
+.pw-wrap input { width: 100%; }
+#authPassword { padding-right: 40px !important; }
+.pw-toggle {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  background: none; border: 0; border-radius: var(--radius-sm); color: var(--ink-faint); padding: 0;
+  transition: color .15s, background .15s;
+}
+.pw-toggle:hover { color: var(--accent-dark); background: var(--accent-soft); }
+.pw-toggle .pw-eye-off { display: none; }
+.pw-toggle.on { color: var(--accent-dark); }
+.pw-toggle.on .pw-eye { display: none; }
+.pw-toggle.on .pw-eye-off { display: block; }
+.pw-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.caps-warn {
+  margin-top: 6px; font-size: var(--text-xs); font-weight: 600; color: var(--gold-dark);
+  display: flex; align-items: center; gap: 6px;
+  animation: loginErrorIn .2s ease-out;
+}
+.caps-warn::before { content: "⇪"; font-size: var(--text-base); line-height: 1; }
+
+/* Erro: rajada de vento */
+.login-wrap.u-gust .login-card { animation: cardShake .55s cubic-bezier(.36,.07,.19,.97); }
+.login-wrap.u-gust .u-sway { animation-duration: .9s; }
+@keyframes cardShake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+}
+
+/* Sucesso: cartão sobe, guarda-chuvas voam para cima, tela some */
+.login-wrap.u-saindo { pointer-events: none; animation: loginOut .5s ease-in forwards; }
+.login-wrap.u-saindo .login-card { animation: none; opacity: 0; transform: translateY(-18px) scale(.97); transition: transform .45s ease-in, opacity .4s ease-in; }
+.login-wrap.u-saindo .umbrella-sky { transform: translate3d(0, -35vh, 0); opacity: 0; }
+@keyframes loginOut { to { opacity: 0; } }
+@keyframes uFall {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(var(--dx, 0px), 130vh, 0); }
+}
+@keyframes uSway {
+  0%, 100% { transform: rotate(calc(var(--r, 10deg) * -1)); }
+  50%      { transform: rotate(var(--r, 10deg)); }
+}
+@keyframes uBreathe {
+  0%, 100% { transform: scaleX(1); }
+  50%      { transform: scaleX(.94); }
+}
+.u-drop {
+  position: absolute; top: -40px; width: 1.5px; height: 16px; border-radius: 2px;
+  background: linear-gradient(180deg, transparent, rgba(31,58,95,.28));
+  transform: rotate(8deg);
+  animation: uRain var(--dur, 1.2s) linear var(--dl, 0s) infinite;
+}
+@keyframes uRain {
+  from { transform: translate3d(0, 0, 0) rotate(8deg); }
+  to   { transform: translate3d(-14vh, 115vh, 0) rotate(8deg); }
+}
+.band-drops { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.band-drops span {
+  position: absolute; top: -14px; width: 1.5px; height: 11px; border-radius: 2px;
+  background: linear-gradient(180deg, transparent, rgba(243,231,208,.5));
+  animation: bandRain var(--dur, 1.6s) linear var(--dl, 0s) infinite;
+}
+@keyframes bandRain {
+  from { transform: translateY(0); opacity: 0; }
+  12%  { opacity: 1; }
+  to   { transform: translateY(300px); opacity: .2; }
+}
+.login-card-band { overflow: hidden; }
+.login-card .seal-lg svg { transform-origin: 50% 90%; animation: sealSway 6s ease-in-out infinite; }
+@keyframes sealSway {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .u-fall, .u-sway, .u-canopy, .u-drop, .band-drops span, .login-card .seal-lg svg,
+  .hero-umbrella, .hero-canopy, .hero-splash, .u-ripple, .login-wrap.u-gust .login-card { animation: none !important; transition: none !important; }
+  .hero-splash, .u-ripple { display: none; }
+  .umbrella-sky { transform: none; }
+  .u-fall { top: var(--ry, 30%); }
+  .u-drop { top: var(--ry, 30%); opacity: .5; }
+  .band-drops span { top: var(--ry, 30%); opacity: .5; }
+}
 .login-card .seal-lg {
   width: 54px; height: 54px; border-radius: 50%; border: 1.5px solid var(--gold-soft); position: relative;
   background: rgba(255,255,255,.08);
