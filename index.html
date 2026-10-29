@@ -115,9 +115,12 @@
 </div>
 
 <div id="authScreen" class="login-wrap" style="display:none">
+  <div class="umbrella-sky" id="umbrellaSky" aria-hidden="true"></div>
   <div class="login-card">
     <div class="login-card-band">
+      <div class="band-drops" id="bandDrops" aria-hidden="true"></div>
       <div class="login-scene">
+        <div class="hero-umbrella" id="heroUmbrella" aria-hidden="true"></div>
         <span class="login-scene-side" id="loginSceneLeft" aria-hidden="true"></span>
         <div class="seal-lg" id="loginIllustration"></div>
         <span class="login-scene-side" id="loginSceneRight" aria-hidden="true"></span>
@@ -131,7 +134,16 @@
       <p class="sub">Entre com sua conta para acessar os registros do PAF/PAIF.</p>
       <div class="login-error" id="authError" style="display:none"></div>
       <div class="f"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username" placeholder="seu.email@exemplo.com"></div>
-      <div class="f"><label>Senha</label><input type="password" id="authPassword" autocomplete="current-password" placeholder="••••••••"></div>
+      <div class="f"><label for="authPassword">Senha</label>
+        <div class="pw-wrap">
+          <input type="password" id="authPassword" autocomplete="current-password" placeholder="••••••••">
+          <button type="button" class="pw-toggle" id="authPwToggle" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
+            <svg class="pw-eye" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="pw-eye-off" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>
+          </button>
+        </div>
+        <div class="caps-warn" id="authCaps" role="status" aria-live="polite" style="display:none">Caps Lock está ativado</div>
+      </div>
       <button class="btn btn-primary" id="authSubmitBtn">Entrar</button>
       <p class="login-hint"><a href="#" id="forgotPasswordLink">Esqueci minha senha</a></p>
       <p class="login-hint">Não tem uma conta? Peça ao administrador do sistema para criá-la.</p>
