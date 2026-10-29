@@ -1350,41 +1350,68 @@ main { flex: 1; display: flex; min-height: 0; }
 
 /* ---------- Login: animações de guarda-chuva ---------- */
 .login-card { z-index: 1; }
-.umbrella-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
-.u-fall {
-  position: absolute; top: -20vh; width: var(--w, 50px);
-  animation: uFall var(--dur, 30s) linear var(--dl, 0s) infinite;
-  will-change: transform; opacity: .2;
+.umbrella-sky {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
+  animation: skyIn 1.4s ease-out;
+  transition: transform .5s ease-in, opacity .5s ease-in;
 }
+@keyframes skyIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Camada 1 — queda lenta e reta, com fade nas bordas; a paralaxe usa a propriedade
+   individual "translate" (soma-se ao transform da animação) e depende da profundidade (--z) */
+.u-fall {
+  position: absolute; top: -24vh; width: var(--w, 50px);
+  opacity: var(--op, .17); filter: blur(var(--blur, 0px));
+  translate: calc(var(--px, 0) * var(--z, 1) * -16px) calc(var(--py, 0) * var(--z, 1) * -10px);
+  transition: translate .6s ease-out;
+  animation: uFall var(--dur, 30s) linear var(--dl, 0s) infinite;
+  will-change: transform;
+}
+/* Camada 2 — deriva lateral em "S" (vai e volta, desacelerando nas pontas) */
+.u-drift {
+  display: block;
+  animation: uDrift var(--sd, 7s) ease-in-out var(--dd, 0s) infinite alternate;
+}
+/* Camada 3 — balanço de pêndulo, um pouco atrasado em relação à deriva */
 .u-sway {
   display: block; transform-origin: 50% 0;
-  animation: uSway var(--sd, 4s) ease-in-out infinite;
+  animation: uSway var(--sd, 7s) ease-in-out calc(var(--dd, 0s) - .7s) infinite alternate;
 }
-.u-canopy {
+.u-svg { display: block; transform-origin: 50% 0; }
+/* Abertura em cascata ao entrar; fecha ao focar a senha */
+.u-open {
   transform-box: fill-box; transform-origin: 50% 100%;
   transition: transform .6s cubic-bezier(.3,1.5,.5,1);
-  animation: uBreathe 5s ease-in-out infinite;
+  animation: uOpen 1.1s cubic-bezier(.2,1.4,.4,1) var(--od, 0s) backwards;
 }
-.login-wrap.u-closed:not(.u-peek) .u-canopy { transform: scaleX(.3) scaleY(1.06); animation: none; }
-.login-wrap.u-closed:not(.u-peek) .u-fall { animation-duration: calc(var(--dur, 30s) * 1.8); }
+/* "Respiração" da copa: achata e estica de leve, como tecido pegando ar */
+.u-canopy {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  animation: uBreathe var(--bd, 5s) ease-in-out var(--bdl, 0s) infinite;
+}
+.login-wrap.u-closed:not(.u-peek) .u-open { transform: scaleX(.3) scaleY(1.06); }
 
-/* Paralaxe (ponteiro) — o céu é maior que a tela para não mostrar bordas ao deslocar */
-.umbrella-sky {
-  inset: -24px;
-  transform: translate3d(calc(var(--px, 0) * -14px), calc(var(--py, 0) * -10px), 0);
-  transition: transform .5s ease-out, opacity .5s ease-in;
+@keyframes uFall {
+  0%   { transform: translate3d(0, 0, 0); opacity: 0; }
+  7%   { opacity: var(--op, .17); }
+  93%  { opacity: var(--op, .17); }
+  100% { transform: translate3d(0, 130vh, 0); opacity: 0; }
 }
-
-/* Ondulações de poça */
-.u-ripple {
-  position: absolute; width: 8px; height: 3px; border-radius: 50%;
-  border: 1px solid rgba(31,58,95,.28); opacity: 0;
-  animation: uRipple 3.6s ease-out var(--dl, 0s) infinite;
+@keyframes uDrift {
+  from { transform: translate3d(calc(var(--amp, 30px) * -1), 0, 0); }
+  to   { transform: translate3d(var(--amp, 30px), 0, 0); }
 }
-@keyframes uRipple {
-  0%   { transform: scale(.4); opacity: 0; }
-  15%  { opacity: .9; }
-  100% { transform: scale(9); opacity: 0; }
+@keyframes uSway {
+  from { transform: rotate(calc(var(--r, 8deg) * -1)); }
+  to   { transform: rotate(var(--r, 8deg)); }
+}
+@keyframes uOpen {
+  from { transform: scaleX(.12) scaleY(1.12); }
+  to   { transform: scaleX(1) scaleY(1); }
+}
+@keyframes uBreathe {
+  0%, 100% { transform: scale(1, 1); }
+  50%      { transform: scale(.93, 1.035); }
 }
 
 /* Guarda-chuva principal sobre o selo */
@@ -1395,6 +1422,7 @@ main { flex: 1; display: flex; min-height: 0; }
   pointer-events: none; z-index: 2;
   animation: heroRise .9s cubic-bezier(.2,.9,.3,1.2) .25s backwards;
 }
+.hero-umbrella svg { transform-origin: 50% 100%; animation: heroBob 6s ease-in-out 1.4s infinite; }
 .hero-canopy {
   transform-box: fill-box; transform-origin: 50% 100%;
   transition: transform .6s cubic-bezier(.3,1.5,.5,1);
@@ -1409,17 +1437,10 @@ main { flex: 1; display: flex; min-height: 0; }
   from { transform: scaleX(.12) scaleY(1.12); }
   to   { transform: scaleX(1) scaleY(1); }
 }
-.hero-splash {
-  position: absolute; width: 3px; height: 3px; margin: -2px 0 0 -1px; border-radius: 50%;
-  background: #F3E7D0; opacity: 0;
-  animation: heroSplash 1.9s ease-out var(--dl, 0s) infinite;
+@keyframes heroBob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-2px) rotate(1.2deg); }
 }
-@keyframes heroSplash {
-  0%, 55% { transform: translate(0, 0) scale(1); opacity: 0; }
-  58%     { opacity: .9; }
-  100%    { transform: translate(var(--sx, 0), -9px) scale(.2); opacity: 0; }
-}
-.login-wrap.u-closed:not(.u-peek) .hero-splash { display: none; }
 
 /* Senha: botão de mostrar/ocultar + aviso de Caps Lock */
 .pw-wrap { position: relative; }
@@ -1446,7 +1467,6 @@ main { flex: 1; display: flex; min-height: 0; }
 
 /* Erro: rajada de vento */
 .login-wrap.u-gust .login-card { animation: cardShake .55s cubic-bezier(.36,.07,.19,.97); }
-.login-wrap.u-gust .u-sway { animation-duration: .9s; }
 @keyframes cardShake {
   10%, 90% { transform: translateX(-2px); }
   20%, 80% { transform: translateX(4px); }
@@ -1459,53 +1479,26 @@ main { flex: 1; display: flex; min-height: 0; }
 .login-wrap.u-saindo .login-card { animation: none; opacity: 0; transform: translateY(-18px) scale(.97); transition: transform .45s ease-in, opacity .4s ease-in; }
 .login-wrap.u-saindo .umbrella-sky { transform: translate3d(0, -35vh, 0); opacity: 0; }
 @keyframes loginOut { to { opacity: 0; } }
-@keyframes uFall {
-  from { transform: translate3d(0, 0, 0); }
-  to   { transform: translate3d(var(--dx, 0px), 130vh, 0); }
+/* Erro: rajada de vento — cada guarda-chuva é chacoalhado (animação própria, sem mexer na queda) */
+.login-wrap.u-gust .u-svg { animation: uGust .9s ease-out; }
+@keyframes uGust {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(calc(var(--r, 8deg) * 2.4)); }
+  55%  { transform: rotate(calc(var(--r, 8deg) * -1.6)); }
+  80%  { transform: rotate(calc(var(--r, 8deg) * .6)); }
+  100% { transform: rotate(0deg); }
 }
-@keyframes uSway {
-  0%, 100% { transform: rotate(calc(var(--r, 10deg) * -1)); }
-  50%      { transform: rotate(var(--r, 10deg)); }
-}
-@keyframes uBreathe {
-  0%, 100% { transform: scaleX(1); }
-  50%      { transform: scaleX(.94); }
-}
-.u-drop {
-  position: absolute; top: -40px; width: 1.5px; height: 16px; border-radius: 2px;
-  background: linear-gradient(180deg, transparent, rgba(31,58,95,.28));
-  transform: rotate(8deg);
-  animation: uRain var(--dur, 1.2s) linear var(--dl, 0s) infinite;
-}
-@keyframes uRain {
-  from { transform: translate3d(0, 0, 0) rotate(8deg); }
-  to   { transform: translate3d(-14vh, 115vh, 0) rotate(8deg); }
-}
-.band-drops { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.band-drops span {
-  position: absolute; top: -14px; width: 1.5px; height: 11px; border-radius: 2px;
-  background: linear-gradient(180deg, transparent, rgba(243,231,208,.5));
-  animation: bandRain var(--dur, 1.6s) linear var(--dl, 0s) infinite;
-}
-@keyframes bandRain {
-  from { transform: translateY(0); opacity: 0; }
-  12%  { opacity: 1; }
-  to   { transform: translateY(300px); opacity: .2; }
-}
-.login-card-band { overflow: hidden; }
+
 .login-card .seal-lg svg { transform-origin: 50% 90%; animation: sealSway 6s ease-in-out infinite; }
 @keyframes sealSway {
   0%, 100% { transform: rotate(-3deg); }
-  50%      { transform: rotate(3deg); }
+  50% { transform: rotate(3deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .u-fall, .u-sway, .u-canopy, .u-drop, .band-drops span, .login-card .seal-lg svg,
-  .hero-umbrella, .hero-canopy, .hero-splash, .u-ripple, .login-wrap.u-gust .login-card { animation: none !important; transition: none !important; }
-  .hero-splash, .u-ripple { display: none; }
+  .umbrella-sky, .u-fall, .u-drift, .u-sway, .u-open, .u-canopy, .u-svg, .login-card .seal-lg svg,
+  .hero-umbrella, .hero-umbrella svg, .hero-canopy, .login-wrap.u-gust .login-card { animation: none !important; transition: none !important; }
   .umbrella-sky { transform: none; }
-  .u-fall { top: var(--ry, 30%); }
-  .u-drop { top: var(--ry, 30%); opacity: .5; }
-  .band-drops span { top: var(--ry, 30%); opacity: .5; }
+  .u-fall { top: var(--ry, 30%); translate: none; }
 }
 .login-card .seal-lg {
   width: 54px; height: 54px; border-radius: 50%; border: 1.5px solid var(--gold-soft); position: relative;
