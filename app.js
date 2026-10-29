@@ -3059,14 +3059,167 @@ function setSyncPill(kind, label) {
 
 /* ---------------------------- Autenticação (Firebase Auth) ---------------------------- */
 
-function showAuthScreen() {
-  const el = document.getElementById("authScreen");
-  if (el) el.style.display = "flex";
+/* Animações de guarda-chuva da tela de login: guarda-chuvas flutuando devagar como
+   paraquedas (queda lenta + balanço), chuva fina ao fundo e gotas escorrendo na faixa
+   do cartão. Ao focar o campo de senha os guarda-chuvas se fecham (privacidade) e se
+   reabrem ao sair do campo. Tudo é decorativo (aria-hidden, sem eventos de ponteiro) e
+   é desligado por prefers-reduced-motion (ficam parados, sem queda). */
+function umbrellaSvg() {
+  return `<svg viewBox="0 0 48 60" width="100%" fill="none" aria-hidden="true">
+    <g class="u-canopy">
+      <path d="M3 26C3 12 12 3 24 3s21 9 21 23a7 6 0 0 1-14 0a7 6 0 0 1-14 0a7 6 0 0 1-14 0z" fill="currentColor"/>
+      <path d="M24 3V29M24 3 11 27M24 3l13 24" stroke="#fff" stroke-opacity=".35" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+    <path d="M24 26V51q0 7-6.5 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M24 3V0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
 }
 
+function initLoginUmbrellas() {
+  const sky = document.getElementById("umbrellaSky");
+  const wrap = document.getElementById("authScreen");
+  if (!sky || !wrap || sky.dataset.pronto) return;
+  sky.dataset.pronto = "1";
+
+  // [x%, largura px, duração da queda s, atraso s (negativo = já em curso), cor, balanço graus, deriva px, y% estático p/ movimento reduzido]
+  const navy = "#1F3A5F", gold = "#B98A34", green = "#2E7D6B", red = "#A63D33";
+  const guardaChuvas = [
+    [6,  58, 34, -4,  navy,  9,  40, 18],
+    [17, 36, 26, -17, gold,  12, -30, 62],
+    [29, 74, 40, -26, green, 7,  50, 38],
+    [41, 30, 24, -9,  red,   13, -20, 80],
+    [55, 52, 32, -21, navy,  10, 36, 12],
+    [66, 40, 28, -2,  gold,  11, -44, 70],
+    [77, 80, 42, -33, green, 7,  28, 28],
+    [87, 34, 25, -13, navy,  12, -26, 86],
+    [94, 56, 36, -29, red,   9,  -36, 48],
+    [48, 26, 22, -19, green, 14, 24, 92]
+  ];
+  let html = guardaChuvas.map(([x, w, dur, dl, cor, r, dx, y]) => `
+    <span class="u-fall" style="left:${x}%;--w:${w}px;--dur:${dur}s;--dl:${dl}s;--dx:${dx}px;--ry:${y}%">
+      <span class="u-sway" style="--r:${r}deg;--sd:${(3.6 + (w % 5) * .5).toFixed(1)}s;color:${cor}">${umbrellaSvg()}</span>
+    </span>`).join("");
+
+  // Chuva fina ao fundo (posições espalhadas de forma determinística)
+  for (let i = 0; i < 26; i++) {
+    const x = (i * 37 + 11) % 100;
+    const dur = (0.9 + ((i * 7) % 9) / 10).toFixed(2);
+    const dl = -((i * 13) % 17) / 10;
+    html += `<i class="u-drop" style="left:${x}%;--dur:${dur}s;--dl:${dl}s;--ry:${(i * 29) % 100}%"></i>`;
+  }
+  // Ondulações de poças no pé da tela
+  for (let i = 0; i < 6; i++) {
+    html += `<b class="u-ripple" style="left:${8 + i * 17}%;bottom:${10 + ((i * 23) % 40)}px;--dl:${-i * 0.9}s"></b>`;
+  }
+  sky.innerHTML = html;
+
+  // Guarda-chuva principal sobre o selo: abre ao entrar e recebe a chuva (respingos na copa)
+  const hero = document.getElementById("heroUmbrella");
+  if (hero) {
+    const pontos = [[22, 12], [44, 5], [66, 2], [88, 5], [110, 12]];
+    hero.innerHTML = `
+      <svg viewBox="0 0 132 46" width="132" height="46" fill="none" aria-hidden="true">
+        <g class="hero-canopy">
+          <path d="M4 30C4 12 30 2 66 2s62 10 62 28a15.5 5 0 0 1-31 0a15.5 5 0 0 1-31 0a15.5 5 0 0 1-31 0a15.5 5 0 0 1-31 0z" fill="rgba(243,231,208,.12)" stroke="#F3E7D0" stroke-opacity=".75" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M66 2V32M66 2 35 31M66 2l31 29" stroke="#F3E7D0" stroke-opacity=".3" stroke-width="1" stroke-linecap="round"/>
+        </g>
+        <path d="M66 30V46" stroke="#F3E7D0" stroke-opacity=".75" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M66 2V0" stroke="#F3E7D0" stroke-opacity=".75" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>` + pontos.map(([x, y], i) =>
+        `<i class="hero-splash" style="left:${x}px;top:${y}px;--sx:${x < 66 ? -7 : x > 66 ? 7 : 0}px;--dl:${(i * 0.37).toFixed(2)}s"></i>`).join("");
+  }
+
+  const faixa = document.getElementById("bandDrops");
+  if (faixa) {
+    let g = "";
+    for (let i = 0; i < 14; i++) {
+      const x = 4 + ((i * 53) % 93);
+      const dur = (1.4 + ((i * 5) % 8) / 5).toFixed(2);
+      const dl = -((i * 11) % 20) / 8;
+      g += `<span style="left:${x}%;--dur:${dur}s;--dl:${dl}s;--ry:${(i * 31) % 90}%"></span>`;
+    }
+    faixa.innerHTML = g;
+  }
+
+  // Senha em foco → guarda-chuvas fechados
+  const senha = document.getElementById("authPassword");
+  const caps = document.getElementById("authCaps");
+  if (senha) {
+    senha.addEventListener("focus", () => wrap.classList.add("u-closed"));
+    senha.addEventListener("blur", () => {
+      wrap.classList.remove("u-closed");
+      if (caps) caps.style.display = "none";
+    });
+    // Aviso de Caps Lock
+    const checarCaps = e => {
+      if (!caps || !e.getModifierState) return;
+      caps.style.display = e.getModifierState("CapsLock") ? "block" : "none";
+    };
+    senha.addEventListener("keydown", checarCaps);
+    senha.addEventListener("keyup", checarCaps);
+  }
+
+  // Mostrar/ocultar senha — com a senha visível, os guarda-chuvas "espiam" (reabrem)
+  const olho = document.getElementById("authPwToggle");
+  if (olho && senha) {
+    olho.addEventListener("mousedown", e => e.preventDefault());   // mantém o foco no campo
+    olho.addEventListener("click", () => {
+      const mostrar = senha.type === "password";
+      senha.type = mostrar ? "text" : "password";
+      olho.setAttribute("aria-pressed", String(mostrar));
+      olho.setAttribute("aria-label", mostrar ? "Ocultar senha" : "Mostrar senha");
+      olho.title = mostrar ? "Ocultar senha" : "Mostrar senha";
+      olho.classList.toggle("on", mostrar);
+      wrap.classList.toggle("u-peek", mostrar);
+      senha.focus();
+    });
+    // Ao sair da tela de login a senha volta a ficar oculta
+    wrap.addEventListener("authreset", () => {
+      senha.type = "password"; olho.classList.remove("on"); wrap.classList.remove("u-peek");
+      olho.setAttribute("aria-pressed", "false"); olho.title = "Mostrar senha";
+    });
+  }
+
+  // Paralaxe suave: o céu de guarda-chuvas acompanha o ponteiro (só com mouse)
+  const reduzido = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduzido && window.matchMedia && matchMedia("(hover: hover)").matches) {
+    let quadro = 0, px = 0, py = 0;
+    wrap.addEventListener("pointermove", e => {
+      px = (e.clientX / window.innerWidth - 0.5) * 2;
+      py = (e.clientY / window.innerHeight - 0.5) * 2;
+      if (quadro) return;
+      quadro = requestAnimationFrame(() => {
+        quadro = 0;
+        sky.style.setProperty("--px", px.toFixed(3));
+        sky.style.setProperty("--py", py.toFixed(3));
+      });
+    }, { passive: true });
+  }
+}
+
+let authHideTimer = 0;
+
+function showAuthScreen() {
+  const el = document.getElementById("authScreen");
+  if (!el) return;
+  clearTimeout(authHideTimer);
+  el.classList.remove("u-saindo");
+  el.style.display = "flex";
+}
+
+// Ao entrar: o cartão sobe, os guarda-chuvas voam para cima e a tela some em ~0,5 s.
 function hideAuthScreen() {
   const el = document.getElementById("authScreen");
-  if (el) el.style.display = "none";
+  if (!el || el.style.display === "none") return;
+  const reduzido = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  clearTimeout(authHideTimer);
+  if (reduzido) { el.style.display = "none"; el.dispatchEvent(new Event("authreset")); return; }
+  el.classList.add("u-saindo");
+  authHideTimer = setTimeout(() => {
+    el.style.display = "none";
+    el.classList.remove("u-saindo");
+    el.dispatchEvent(new Event("authreset"));
+  }, 520);
 }
 
 function authError(msg) {
@@ -3075,6 +3228,14 @@ function authError(msg) {
   if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
   el.textContent = msg;
   el.style.display = "block";
+  // Rajada de vento: o cartão balança e os guarda-chuvas se inclinam
+  const wrap = document.getElementById("authScreen");
+  if (wrap) {
+    wrap.classList.remove("u-gust");
+    void wrap.offsetWidth;   // reinicia a animação se o erro se repetir
+    wrap.classList.add("u-gust");
+    setTimeout(() => wrap.classList.remove("u-gust"), 800);
+  }
 }
 
 function translateAuthError(code) {
@@ -6708,6 +6869,7 @@ window.addEventListener("DOMContentLoaded", () => {
       <span class="login-pilar-item">${pilarIconSvg(id, 14)}<em>${id === "acolhida" ? "Acolhida" : id === "convivio" ? "Convívio" : "Autonomia"}</em></span>
     `).join("");
   }
+  initLoginUmbrellas();
   initMascote();
   initAuth();
 });
