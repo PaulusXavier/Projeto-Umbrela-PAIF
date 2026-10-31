@@ -113,8 +113,79 @@ const HIST_SECAO_REGRAS = [
 const HIST_CAMPOS_NUMERICOS = /^(renda|habitacaoComodos|habitacaoDormitorios|eduForaEscola|eduAnalfabetismo)/;
 
 // Anotações abertas pelo usuário (sobrevivem ao redesenho da tela)
+/* Sentido de um marco de evolução: permite separar avanços, retrocessos e simples observações. */
+const HIST_SENTIDOS = {
+  avanco: { label: "Avanço", icone: "▲" },
+  retrocesso: { label: "Retrocesso", icone: "▼" },
+  observacao: { label: "Observação", icone: "●" }
+};
+function histSentido(e) { return e && e.tipo === "manual" ? (HIST_SENTIDOS[e.sentido] ? e.sentido : "observacao") : ""; }
+function histRotuloMarco(e) { return "Marco de evolução (" + HIST_SENTIDOS[histSentido(e)].label.toLowerCase() + ")"; }
+function histDuracao(iso) {
+  if (!iso) return "";
+  const dias = Math.round((Date.now() - new Date(iso + "T12:00:00").getTime()) / 86400000);
+  if (isNaN(dias) || dias < 1) return "hoje";
+  if (dias < 60) return dias + (dias === 1 ? " dia" : " dias");
+  if (dias < 730) return Math.round(dias / 30.4) + " meses";
+  const anos = Math.floor(dias / 365), meses = Math.round((dias - anos * 365) / 30.4);
+  return anos + (anos === 1 ? " ano" : " anos") + (meses ? " e " + meses + (meses === 1 ? " mês" : " meses") : "");
+}
+
+/* Só entram no histórico (tela e exportação) as mudanças nos DADOS da família e os marcos.
+   Ações como imprimir/exportar/anexar e campos internos (ex.: tamanho dos anexos) ficam de fora. */
+function histMudVisivel(m) { return !HIST_IGNORAR.has(String((m && m.k) || "").split("|")[0]); }
+function histVisivel(e) {
+  if (!e || e.tipo === "acao") return false;
+  if (e.tipo === "manual") return true;
+  return !!(e.nota || (e.mudancas || []).some(histMudVisivel));
+}
+function histH(paf) { return (paf.historico || []).filter(histVisivel); }
+
+/* Junta as mudanças de uma mesma pessoa/situação numa só (ex.: um membro novo vira "Membro: NOME — incluído(a)"
+   com seus dados, em vez de uma linha para cada campo). */
+function histAgrupar(muds) {
+  const itens = [], grupos = new Map();
+  (muds || []).filter(histMudVisivel).forEach(m => {
+    const partes = String(m.k || "").split("|");
+    if (m.tipo === "valor" && partes.length >= 3 && partes[1] !== "+" && partes[1] !== "-") {
+      const gk = partes.slice(0, -1).join("|");
+      const cut = String(m.rotulo).lastIndexOf(" — ");
+      const titulo = cut > -1 ? m.rotulo.slice(0, cut) : m.rotulo;
+      let g = grupos.get(gk);
+      if (!g) { g = { kind: "alterado", secao: m.secao, titulo, detalhes: [] }; grupos.set(gk, g); itens.push(g); }
+      else if (!/ nº \d+$/.test(titulo)) g.titulo = titulo;
+      g.detalhes.push({ campo: cut > -1 ? m.rotulo.slice(cut + 3) : m.rotulo, antes: m.antes, depois: m.depois });
+      return;
+    }
+    itens.push({ kind: "campo", secao: m.secao, titulo: m.rotulo, m });
+  });
+  grupos.forEach(g => { if (g.detalhes.every(d => histVazio(d.antes))) g.kind = "incluido"; });
+  return itens;
+}
+
+function histItemTexto(it) {
+  if (it.kind === "campo") {
+    const m = it.m;
+    if (m.tipo === "valor") return { campo: m.rotulo, linhas: [`${histFmt(m.antes)} → ${histFmt(m.depois)}`] };
+    if (m.tipo === "lista") { const d = histListaDelta(m); return { campo: m.rotulo, linhas: [...d.add.map(x => "+ " + x), ...d.rem.map(x => "− " + x)] }; }
+    if (m.tipo === "linha+") return { campo: m.depois + " — incluído(a)", linhas: [] };
+    return { campo: m.antes + " — removido(a)", linhas: [] };
+  }
+  if (it.kind === "incluido") return { campo: it.titulo + " — incluído(a)", linhas: it.detalhes.filter(d => !histVazio(d.depois) && d.campo !== "Nome").map(d => `${d.campo}: ${histFmt(d.depois)}`) };
+  return { campo: it.titulo, linhas: it.detalhes.map(d => `${d.campo}: ${histFmt(d.antes)} → ${histFmt(d.depois)}`) };
+}
+
+function histItemHTML(it) {
+  if (it.kind === "campo") return histMudancaHTML(it.m);
+  const cab = `<span class="hist-campo">${escapeHtml(it.titulo)}</span>${it.kind === "incluido" ? '<span class="hist-chip add">incluído(a)</span>' : ""}`;
+  const det = it.kind === "incluido"
+    ? it.detalhes.filter(d => !histVazio(d.depois) && d.campo !== "Nome").map(d => `<span class="hist-det"><b>${escapeHtml(d.campo)}</b> ${escapeHtml(histFmt(d.depois))}</span>`).join("")
+    : it.detalhes.map(d => `<span class="hist-det"><b>${escapeHtml(d.campo)}</b> <span class="hist-de-para"><span class="hist-antes">${escapeHtml(histFmt(d.antes))}</span><span class="hist-seta">→</span><span class="hist-depois">${escapeHtml(histFmt(d.depois))}</span></span></span>`).join("");
+  return `<div class="hist-mud hist-mud-grupo">${cab}<div class="hist-dets">${det}</div></div>`;
+}
+
 const HIST_ABERTOS = new Map(); // id -> aberto (true/false); sem entrada = padrão
-const HIST_UI = { view: "linha", secao: "", periodo: "", tipo: "", busca: "", usuario: "" };
+const HIST_UI = { view: "linha", secao: "", periodo: "", tipo: "", busca: "", usuario: "", de: "", ate: "" };
 try { Object.assign(HIST_UI, JSON.parse(sessionStorage.getItem("paif_hist_ui") || "{}")); } catch (e) { /* ignora */ }
 function histSalvarUI() { try { sessionStorage.setItem("paif_hist_ui", JSON.stringify(HIST_UI)); } catch (e) { /* ignora */ } }
 
@@ -126,11 +197,11 @@ function histTextoExportacao(paf) {
     if (!histPeriodoOk(e.data)) return;
     const manual = e.tipo === "manual", acao = e.tipo === "acao";
     if (!histTipoUsuarioOk(e)) return;
-    let muds = e.mudancas || [];
+    let muds = (e.mudancas || []).filter(histMudVisivel);
     if (HIST_UI.secao) { muds = muds.filter(m => m.secao === HIST_UI.secao); if (!muds.length) return; }
     const hora = histHora(e.atualizadoEm || e.criadoEm);
-    const linhas = [(e.data ? fmtDateBR(e.data) : "sem data") + (hora ? " " + hora : "") + " — " + (manual ? "Marco de evolução" : acao ? "Ação: " + (e.descricao || e.acao) : muds.length + (muds.length === 1 ? " alteração" : " alterações")) + (e.usuario ? " (" + e.usuario + ")" : "")];
-    muds.forEach(m => linhas.push("  • " + histSecaoLabel(m.secao) + " › " + histTextoMudanca(m)));
+    const linhas = [(e.data ? fmtDateBR(e.data) : "sem data") + (hora ? " " + hora : "") + " — " + (manual ? histRotuloMarco(e) : histAgrupar(muds).length + (histAgrupar(muds).length === 1 ? " alteração" : " alterações")) + (e.usuario ? " (" + e.usuario + ")" : "")];
+    histAgrupar(muds).forEach(it => { const t = histItemTexto(it); linhas.push("  • " + histSecaoLabel(it.secao) + " › " + t.campo + (t.linhas.length ? ": " + t.linhas.join("; ") : "")); });
     if (e.nota) linhas.push("  Anotação: " + e.nota);
     const txt = linhas.join("\n");
     if (q && !histNorm(txt).includes(q)) return;
@@ -154,7 +225,11 @@ function histNomeUsuario(email) {
 }
 // Um registro passa pelos filtros de tipo (alterações / marcos / ações) e de usuário?
 function histTipoUsuarioOk(e) {
-  if (HIST_UI.tipo && e.tipo !== HIST_UI.tipo) return false;
+  if (HIST_UI.tipo) {
+    const [t, sent] = HIST_UI.tipo.split(":");
+    if (e.tipo !== t) return false;
+    if (sent && histSentido(e) !== sent) return false;
+  }
   if (HIST_UI.usuario && (e.usuario || "") !== HIST_UI.usuario) return false;
   return true;
 }
@@ -374,12 +449,13 @@ function histRegistrar(paf) {
   histLimitar(paf);
 }
 
-function histAdicionarMarco(paf, data, nota) {
+function histAdicionarMarco(paf, data, nota, sentido) {
   if (!Array.isArray(paf.historico)) paf.historico = [];
   const agora = new Date().toISOString();
   paf.historico.push({
     id: histId(), tipo: "manual", data: data || histHoje(), criadoEm: agora, atualizadoEm: agora,
-    usuario: (state.currentUser && state.currentUser.email) || null, estrutural: true, nota, mudancas: []
+    usuario: (state.currentUser && state.currentUser.email) || null, estrutural: true, nota, mudancas: [],
+    sentido: HIST_SENTIDOS[sentido] ? sentido : "observacao"
   });
   histLimitar(paf);
 }
@@ -387,6 +463,7 @@ function histAdicionarMarco(paf, data, nota) {
 /* Ações que não alteram campos do PAF (anexos, exportações, impressões, remoções no histórico).
    Ficam no mesmo histórico, com tipo "acao", para saber quem fez o quê e quando. */
 function histAdicionarAcao(paf, acao, descricao) {
+  return; // o histórico guarda só mudanças nos dados da família e marcos — ações (imprimir, exportar, anexar) não entram
   if (!paf) return;
   if (!Array.isArray(paf.historico)) paf.historico = [];
   const agora = new Date().toISOString();
@@ -401,8 +478,7 @@ function histAdicionarAcao(paf, acao, descricao) {
 
 // Registra a ação e grava o PAF sem mexer na data de "última atualização" (exportar não é editar).
 function histRegistrarAcao(paf, acao, descricao) {
-  histAdicionarAcao(paf, acao, descricao);
-  if (typeof savePAF === "function") savePAF(paf, { silent: true, semAtualizarData: true });
+  // Imprimir/exportar não altera os dados da família: não entra no histórico e não precisa regravar o PAF.
 }
 
 /* ---------------------------- Apresentação ---------------------------- */
@@ -452,6 +528,7 @@ function histMudancaHTML(m) {
 function histOrdenar(paf) {
   return (paf.historico || [])
     .map((e, i) => ({ e, i }))
+    .filter(x => histVisivel(x.e))
     .sort((a, b) => (b.e.data || "").localeCompare(a.e.data || "") || (b.e.criadoEm || "").localeCompare(a.e.criadoEm || ""));
 }
 
@@ -462,16 +539,18 @@ function histHora(iso) {
 }
 
 function histEstatisticas(paf) {
-  const h = paf.historico || [];
+  const h = histH(paf);
   const datas = h.map(e => e.data).filter(Boolean).sort();
   const campos = new Set();
-  h.forEach(e => (e.mudancas || []).forEach(m => campos.add(m.k)));
+  h.forEach(e => (e.mudancas || []).filter(histMudVisivel).forEach(m => campos.add(m.k)));
   return {
     registros: h.length,
     campos: campos.size,
     primeira: datas[0] || "",
     ultima: datas[datas.length - 1] || "",
     marcos: h.filter(e => e.tipo === "manual").length,
+    avancos: h.filter(e => histSentido(e) === "avanco").length,
+    retrocessos: h.filter(e => histSentido(e) === "retrocesso").length,
     acoes: h.filter(e => e.tipo === "acao").length
   };
 }
@@ -491,7 +570,7 @@ function histSparkSVG(vals) {
 
 // Visão geral do histórico: atividade por mês (alterações x marcos) e onde as alterações se concentram.
 function histAtividadeMesesSVG(paf) {
-  const h = paf.historico || [];
+  const h = histH(paf);
   const porMes = {};
   h.forEach(e => {
     const ym = (e.data || "").slice(0, 7);
@@ -529,11 +608,90 @@ function histAtividadeMesesSVG(paf) {
     + svgGrafico(width, height, "hist-atividade-chart", "Atividade do histórico por mês", gradeEixoY(eixo, padL, width - padR, padT, chartH) + barras);
 }
 
+// Resumo da trajetória: há quanto tempo há registro, balanço dos marcos e o que mais mudou (inicial → atual).
+function histTrajetoriaHTML(paf) {
+  const h = histH(paf);
+  if (!h.length) return "";
+  const st = histEstatisticas(paf);
+  const sint = histSinteseExportacao(paf).slice().sort((a, b) => b.n - a.n).slice(0, 4);
+  const marcos = h.filter(e => e.tipo === "manual");
+  if (!sint.length && !marcos.length) return "";
+  const corta = (t, n) => { t = String(t == null ? "" : t); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
+  const ult = marcos.slice().sort((a, b) => (b.data || "").localeCompare(a.data || "") || (b.criadoEm || "").localeCompare(a.criadoEm || ""))[0];
+  const balanco = marcos.length ? `<div class="hist-balanco" role="group" aria-label="Balanço dos marcos de evolução">
+      <span class="hist-sent avanco">${HIST_SENTIDOS.avanco.icone} ${st.avancos} ${st.avancos === 1 ? "avanço" : "avanços"}</span>
+      <span class="hist-sent retrocesso">${HIST_SENTIDOS.retrocesso.icone} ${st.retrocessos} ${st.retrocessos === 1 ? "retrocesso" : "retrocessos"}</span>
+      <span class="hist-sent observacao">${HIST_SENTIDOS.observacao.icone} ${st.marcos - st.avancos - st.retrocessos} ${st.marcos - st.avancos - st.retrocessos === 1 ? "observação" : "observações"}</span>
+    </div>` : "";
+  const mudancas = sint.length ? `<ul class="hist-resumo-lista">${sint.map(r => `<li><span class="hist-campo">${escapeHtml(r.campo)}</span><span class="hist-de-para"><span class="hist-antes">${escapeHtml(corta(r.inicial, 60))}</span><span class="hist-seta">→</span><span class="hist-depois">${escapeHtml(corta(r.atual, 60))}</span></span><em>${r.n} ${r.n === 1 ? "alteração" : "alterações"}</em></li>`).join("")}</ul>` : "";
+  const datasAtiv = h.filter(e => e.tipo !== "acao" && e.data).map(e => e.data).sort();
+  const diasParado = datasAtiv.length ? Math.round((Date.now() - new Date(datasAtiv[datasAtiv.length - 1] + "T12:00:00").getTime()) / 86400000) : 0;
+  const alerta = diasParado >= 90 ? `<p class="hist-alerta" role="status">Sem atualização do acompanhamento há ${diasParado >= 180 ? Math.round(diasParado / 30) + " meses" : diasParado + " dias"} (último registro em ${fmtDateBR(datasAtiv[datasAtiv.length - 1])}). Considere registrar um marco ou revisar o plano.</p>` : "";
+  const ultimo = ult && ult.nota ? `<p class="hist-resumo-ult"><strong>Último marco</strong> (${ult.data ? fmtDateBR(ult.data) : "sem data"} · ${HIST_SENTIDOS[histSentido(ult)].label}): ${escapeHtml(corta(ult.nota, 220))}</p>` : "";
+  return `<div class="hist-trajetoria">
+    <strong class="hist-trajetoria-titulo">Resumo da trajetória</strong>
+    <p class="hist-resumo-txt">${st.primeira ? `Histórico registrado desde <b>${fmtDateBR(st.primeira)}</b> (${escapeHtml(histDuracao(st.primeira))}), com ${st.registros} ${st.registros === 1 ? "registro" : "registros"}.` : `${st.registros} ${st.registros === 1 ? "registro" : "registros"} no histórico.`}</p>
+    ${alerta}${balanco}${mudancas}${ultimo}
+  </div>`;
+}
+
+// Valor de um campo numa data: último "depois" registrado até ela (ou o valor inicial, se nada mudou ainda).
+// inclusivo=true  -> situação no fim do dia; false -> situação no início do dia.
+function histValorEm(itens, data, inclusivo) {
+  let v, achou = false;
+  itens.forEach(it => { const d = it.data || ""; if (inclusivo ? d <= data : d < data) { v = it.m.depois; achou = true; } });
+  return achou ? v : itens[0].m.antes;
+}
+
+// Compara a família entre duas datas: campos que mudaram e linhas incluídas/removidas no intervalo.
+function histComparar(paf, de, ate, secaoFiltro) {
+  const cron = (paf.historico || []).filter(e => e.tipo === "auto").slice()
+    .sort((a, b) => (a.data || "").localeCompare(b.data || "") || (a.criadoEm || "").localeCompare(b.criadoEm || ""));
+  const grupos = new Map(), estrut = [];
+  cron.forEach(e => (e.mudancas || []).filter(histMudVisivel).forEach(m => {
+    if (secaoFiltro && m.secao !== secaoFiltro) return;
+    if (m.tipo === "linha+" || m.tipo === "linha-") { if ((e.data || "") >= de && (e.data || "") <= ate) estrut.push({ data: e.data, m }); return; }
+    if (!grupos.has(m.k)) grupos.set(m.k, { m, itens: [] });
+    const g = grupos.get(m.k); g.m = m; g.itens.push({ data: e.data || "", m });
+  }));
+  const linhas = [];
+  grupos.forEach(g => {
+    const a = histValorEm(g.itens, de, false), b = histValorEm(g.itens, ate, true);
+    const igual = g.m.tipo === "lista" ? histIgual([...(a || [])].sort(), [...(b || [])].sort()) : a === b;
+    if (!igual) linhas.push({ m: g.m, a, b });
+  });
+  return { linhas, estrut };
+}
+
+function histCompararHTML(paf, secaoFiltro) {
+  const st = histEstatisticas(paf);
+  const de = HIST_UI.de || st.primeira || histHoje(), ate = HIST_UI.ate || histHoje();
+  const [d1, d2] = de <= ate ? [de, ate] : [ate, de];
+  const r = histComparar(paf, d1, d2, secaoFiltro);
+  const itens = histAgrupar(r.linhas.map(x => ({ ...x.m, antes: x.a, depois: x.b }))), porSecao = {};
+  itens.forEach(it => { (porSecao[it.secao] = porSecao[it.secao] || []).push(it); });
+  const corpo = Object.keys(porSecao).map(sec => `<div class="hist-grupo"><div class="hist-grupo-titulo">${escapeHtml(histSecaoLabel(sec))}</div>${porSecao[sec].map(histItemHTML).join("")}</div>`).join("");
+  const estrut = r.estrut.length ? `<div class="hist-grupo"><div class="hist-grupo-titulo">Itens incluídos ou removidos no período</div>${r.estrut.map(x => `<div class="hist-linha-tempo"><em>${x.data ? fmtDateBR(x.data) : "sem data"}</em>${histMudancaHTML(x.m)}</div>`).join("")}</div>` : "";
+  return `<div class="hist-comparar">
+    <div class="hist-comparar-barra">
+      <div class="f"><label for="histCompDe">De</label><input type="date" id="histCompDe" value="${escapeHtml(d1)}"></div>
+      <div class="f"><label for="histCompAte">Até</label><input type="date" id="histCompAte" value="${escapeHtml(d2)}"></div>
+      <span class="hist-acoes">
+        <button type="button" class="btn btn-ghost btn-sm" data-hist-comp="inicio">Desde o início</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-hist-comp="30">Últimos 30 dias</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-hist-comp="90">Últimos 90 dias</button>
+      </span>
+    </div>
+    <p class="hint">Compara a situação da família no <b>início do dia ${fmtDateBR(d1)}</b> com a do <b>fim do dia ${fmtDateBR(d2)}</b>. Só aparecem os campos que mudaram.</p>
+    ${corpo || estrut ? corpo + estrut : `<p class="hint">Nenhuma diferença registrada entre essas datas${secaoFiltro ? " nesta seção" : ""}.</p>`}
+  </div>`;
+}
+
 function histVisaoGeralHTML(paf) {
-  const h = paf.historico || [];
+  const h = histH(paf);
   if (h.length < 2) return "";
   const porSecao = {};
-  h.forEach(e => (e.mudancas || []).forEach(mu => { const l = histSecaoLabel(mu.secao); porSecao[l] = (porSecao[l] || 0) + 1; }));
+  h.forEach(e => (e.mudancas || []).filter(histMudVisivel).forEach(mu => { const l = histSecaoLabel(mu.secao); porSecao[l] = (porSecao[l] || 0) + 1; }));
   const atividade = histAtividadeMesesSVG(paf);
   const secoes = Object.keys(porSecao).length ? barrasHTML(porSecao, { top: 6 }) : "";
   if (!atividade && !secoes) return "";
@@ -549,7 +707,7 @@ function histPorCampoHTML(paf, secaoFiltro) {
     .slice()
     .sort((a, b) => (a.data || "").localeCompare(b.data || "") || (a.criadoEm || "").localeCompare(b.criadoEm || ""));
   const grupos = new Map();
-  cron.forEach(e => (e.mudancas || []).forEach(m => {
+  cron.forEach(e => (e.mudancas || []).filter(histMudVisivel).forEach(m => {
     if (secaoFiltro && m.secao !== secaoFiltro) return;
     if (!grupos.has(m.k)) grupos.set(m.k, { m, itens: [] });
     const g = grupos.get(m.k);
@@ -583,17 +741,18 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
   const itens = ordenado.map(({ e, i }, pos) => {
     if (!histPeriodoOk(e.data)) return "";
     if (!histTipoUsuarioOk(e)) return "";
-    let muds = e.mudancas || [];
+    let muds = (e.mudancas || []).filter(histMudVisivel);
     if (secaoFiltro) {
       muds = muds.filter(m => m.secao === secaoFiltro);
       if (!muds.length) return "";
     }
     const badge = dateBadgeParts(e.data);
     const manual = e.tipo === "manual", acao = e.tipo === "acao";
-    const grupos = {};
-    muds.forEach(m => { (grupos[m.secao] = grupos[m.secao] || []).push(m); });
+    const sent = histSentido(e);
+    const itensAg = histAgrupar(muds), grupos = {};
+    itensAg.forEach(it => { (grupos[it.secao] = grupos[it.secao] || []).push(it); });
     const corpo = Object.keys(grupos).map(s => `
-      <div class="hist-grupo"><div class="hist-grupo-titulo">${escapeHtml(histSecaoLabel(s))}</div>${grupos[s].map(histMudancaHTML).join("")}</div>`).join("");
+      <div class="hist-grupo"><div class="hist-grupo-titulo">${escapeHtml(histSecaoLabel(s))}</div>${grupos[s].map(histItemHTML).join("")}</div>`).join("");
     const quem = [e.usuario ? `<span class="hist-usuario" title="${escapeHtml(e.usuario)}">${escapeHtml(histNomeUsuario(e.usuario))}</span>` : "", histHora(e.atualizadoEm || e.criadoEm) ? `<span>${escapeHtml(histHora(e.atualizadoEm || e.criadoEm))}</span>` : ""].filter(Boolean).join(" · ");
     const anterior = ordenado[pos + 1] && ordenado[pos + 1].e.data;
     const dias = anterior && e.data ? Math.round((new Date(e.data + "T12:00:00") - new Date(anterior + "T12:00:00")) / 86400000) : 0;
@@ -602,12 +761,12 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
     const cab = mesKey !== ultMes ? `<div class="hist-mes">${escapeHtml(histNomeMes(e.data))}</div>` : "";
     ultMes = mesKey;
     return cab + `
-    <div class="timeline-item hist-item ${manual ? "manual" : acao ? "acao" : ""}" style="--tipo-cor:${manual ? "var(--gold)" : acao ? "var(--slate, #52667C)" : "var(--accent)"}">
+    <div class="timeline-item hist-item ${manual ? "manual" : acao ? "acao" : ""}" style="--tipo-cor:${manual ? (sent === "avanco" ? "var(--accent)" : sent === "retrocesso" ? "var(--danger)" : "var(--gold)") : acao ? "var(--slate, #52667C)" : "var(--accent)"}">
       <div class="timeline-date-badge"><span class="dia">${escapeHtml(badge.dia)}</span><span class="mes">${escapeHtml(badge.mes)}</span></div>
       <div class="timeline-card">
         <button class="row-del" data-hist-del="${escapeHtml(e.id)}" title="Remover este registro do histórico" aria-label="Remover este registro do histórico">${uiIconSvg("close", 12)}</button>
         <div class="hist-topo">
-          <span class="hist-tipo ${manual ? "manual" : acao ? "acao" : ""}">${manual ? "Marco de evolução" : acao ? "Ação" : (muds.length + (muds.length === 1 ? " alteração" : " alterações"))}</span>
+          <span class="hist-tipo ${manual ? "manual sentido-" + sent : acao ? "acao" : ""}">${manual ? HIST_SENTIDOS[sent].icone + " " + HIST_SENTIDOS[sent].label : acao ? "Ação" : (itensAg.length ? itensAg.length + (itensAg.length === 1 ? " alteração" : " alterações") : "Anotação")}</span>
           <span class="hist-quem">${quem}</span>${gap}
         </div>
         ${acao ? `<p class="hist-acao-desc">${escapeHtml(e.descricao || e.acao || "")}</p>` : corpo}
@@ -616,6 +775,7 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
         <summary>${e.nota ? "Editar data e anotação" : "Adicionar anotação ou corrigir a data"}</summary>
         <div class="timeline-row hist-edit">
           <div class="f"><label>Data da evolução</label><input type="date" data-field="historico.${i}.data" value="${escapeHtml(e.data)}"></div>
+          ${manual ? `<div class="f"><label>Sentido da evolução</label><select data-field="historico.${i}.sentido">${Object.keys(HIST_SENTIDOS).map(k => `<option value="${k}" ${sent === k ? "selected" : ""}>${HIST_SENTIDOS[k].label}</option>`).join("")}</select></div>` : ""}
           <div class="f" style="grid-column: span 2"><label>${manual ? "Anotação técnica" : "Anotação técnica sobre esta evolução (opcional)"}</label><textarea data-field="historico.${i}.nota" rows="${manual ? 3 : 2}" placeholder="${manual ? "Descreva a evolução observada na família..." : "Ex.: motivo da mudança, contexto, quem informou..."}">${escapeHtml(e.nota || "")}</textarea></div>
         </div>
         </details>`}
@@ -628,11 +788,11 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
 function historicoSectionHTML(paf) {
   const st = histEstatisticas(paf);
   const secoes = [...new Set([
-    ...(paf.historico || []).flatMap(e => (e.mudancas || []).map(m => m.secao)),
+    ...histH(paf).flatMap(e => (e.mudancas || []).filter(histMudVisivel).map(m => m.secao)),
     ...DIARIO_CAMPOS.filter(k => ((paf.diario || {})[k] || []).some(e => e.texto)).map(k => histSecaoId(k))
   ])];
   if (HIST_UI.secao && !secoes.includes(HIST_UI.secao)) HIST_UI.secao = "";
-  const usuarios = [...new Set((paf.historico || []).map(e => e.usuario).filter(Boolean))].sort();
+  const usuarios = [...new Set(histH(paf).map(e => e.usuario).filter(Boolean))].sort();
   if (HIST_UI.usuario && !usuarios.includes(HIST_UI.usuario)) HIST_UI.usuario = "";
   const carregando = typeof histCarregado === "function" && !histCarregado(paf);
   const vazio = !st.registros && !carregando;
@@ -644,14 +804,16 @@ function historicoSectionHTML(paf) {
       <div class="stat-box"><span class="stat-num">${st.registros}</span><span class="stat-label">Registros</span></div>
       <div class="stat-box"><span class="stat-num">${st.campos}</span><span class="stat-label">Campos alterados</span></div>
       <div class="stat-box"><span class="stat-num">${st.marcos}</span><span class="stat-label">Marcos manuais</span></div>
-      <div class="stat-box"><span class="stat-num">${st.acoes}</span><span class="stat-label">Ações registradas</span></div>
+      <div class="stat-box"><span class="stat-num" style="font-size:14px">${st.primeira ? escapeHtml(histDuracao(st.primeira)) : "—"}</span><span class="stat-label">Tempo de histórico</span></div>
       <div class="stat-box"><span class="stat-num" style="font-size:14px">${st.ultima ? fmtDateBR(st.ultima) : "—"}</span><span class="stat-label">Última evolução</span></div>
     </div>
+    ${histTrajetoriaHTML(paf)}
     ${histVisaoGeralHTML(paf)}
     <div class="hist-novo">
       <h3>Registrar marco de evolução</h3>
       <div class="timeline-row">
         <div class="f"><label>Data</label><input type="date" id="histNovaData" value="${histHoje()}"></div>
+        <div class="f"><label for="histNovoSentido">Sentido</label><select id="histNovoSentido">${Object.keys(HIST_SENTIDOS).map(k => `<option value="${k}">${HIST_SENTIDOS[k].icone} ${HIST_SENTIDOS[k].label}</option>`).join("")}</select></div>
         <div class="f" style="grid-column: span 2"><label>O que mudou ou foi observado</label><textarea id="histNovaNota" rows="2" placeholder="Ex.: família passou a frequentar o SCFV; responsável conseguiu emprego formal; vínculo com a escola retomado..."></textarea></div>
       </div>
       <button class="btn btn-primary btn-sm" id="histAddBtn" style="margin-top:10px">${uiIconSvg("plus", 13)} Registrar marco</button>
@@ -663,6 +825,7 @@ function historicoSectionHTML(paf) {
       <div class="status-picker">
         <button class="status-opt ${HIST_UI.view === "linha" ? "selected andamento" : ""}" data-hist-view="linha">Linha do tempo</button>
         <button class="status-opt ${HIST_UI.view === "campo" ? "selected andamento" : ""}" data-hist-view="campo">Por campo</button>
+        <button class="status-opt ${HIST_UI.view === "comparar" ? "selected andamento" : ""}" data-hist-view="comparar">Comparar datas</button>
         <button class="status-opt ${HIST_UI.view === "diario" ? "selected andamento" : ""}" data-hist-view="diario">Anotações por dia</button>
       </div>
       <div class="f hist-filtro"><label for="histFiltroSecao">Seção</label>
@@ -670,22 +833,22 @@ function historicoSectionHTML(paf) {
       </div>
     </div>
     ${secoes.length > 1 ? `<div class="hist-chips" role="group" aria-label="Filtrar por seção">${secoes.map(sec => {
-      const n = (paf.historico || []).reduce((a, e) => a + (e.mudancas || []).filter(m => m.secao === sec).length, 0);
+      const n = histH(paf).reduce((a, e) => a + histAgrupar((e.mudancas || []).filter(m => m.secao === sec)).length, 0);
       return `<button type="button" class="hist-chip-sec${HIST_UI.secao === sec ? " on" : ""}" data-hist-chip="${sec}" aria-pressed="${HIST_UI.secao === sec}">${escapeHtml(histSecaoLabel(sec))}${n ? ` <em>${n}</em>` : ""}</button>`;
     }).join("")}</div>` : ""}
-    <div class="hist-filtros">
+    <div class="hist-filtros${HIST_UI.view === "comparar" ? " so-comparar" : ""}">
       <div class="f hist-busca"><label for="histBusca">Buscar no histórico</label><input type="search" id="histBusca" placeholder="Palavra, nome, valor…" value="${escapeHtml(HIST_UI.busca)}" autocomplete="off"></div>
       <div class="f"><label for="histPeriodo">Período</label>
         <select id="histPeriodo">${[["", "Todo o período"], ["7", "Últimos 7 dias"], ["30", "Últimos 30 dias"], ["90", "Últimos 90 dias"], ["365", "Último ano"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.periodo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
       ${HIST_UI.view === "linha" ? `<div class="f"><label for="histTipo">Tipo de registro</label>
-        <select id="histTipo">${[["", "Todos"], ["auto", "Só alterações"], ["manual", "Só marcos manuais"], ["acao", "Só ações (anexos, exportações…)"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.tipo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>` : ""}
+        <select id="histTipo">${[["", "Todos"], ["auto", "Só alterações"], ["manual", "Só marcos manuais"], ["manual:avanco", "Só avanços"], ["manual:retrocesso", "Só retrocessos"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.tipo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>` : ""}
       ${HIST_UI.view === "linha" && usuarios.length > 1 ? `<div class="f"><label for="histUsuario">Usuário</label>
         <select id="histUsuario"><option value="">Todos</option>${usuarios.map(u => `<option value="${escapeHtml(u)}" ${HIST_UI.usuario === u ? "selected" : ""}>${escapeHtml(histNomeUsuario(u))}</option>`).join("")}</select></div>` : ""}
       ${HIST_UI.view === "linha" ? `<span class="hist-acoes"><button type="button" class="btn btn-ghost btn-sm" data-hist-todos="abrir" title="Abrir todos os campos de anotação">Abrir anotações</button><button type="button" class="btn btn-ghost btn-sm" data-hist-todos="fechar">Recolher</button><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="copiar">Copiar</button><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="txt">Baixar (.txt)</button></span>` : ""}
       ${(HIST_UI.secao || HIST_UI.periodo || HIST_UI.tipo || HIST_UI.busca || HIST_UI.usuario) ? `<button type="button" class="btn btn-ghost btn-sm" id="histLimpar">Limpar filtros</button>` : ""}
       <span class="hist-contagem" id="histContagem" aria-live="polite"></span>
     </div>
-    <div id="histConteudo">${carregando && !st.registros ? `<p class="hint" style="margin:10px 0 0">Carregando o histórico…</p>` : HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}</div>
+    <div id="histConteudo">${carregando && !st.registros ? `<p class="hint" style="margin:10px 0 0">Carregando o histórico…</p>` : HIST_UI.view === "comparar" ? histCompararHTML(paf, HIST_UI.secao) : HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}</div>
   </div>`;
 }
 
@@ -709,6 +872,15 @@ function attachHistoricoHandlers(container) {
       const nome = String(state.current.responsavel || "familia").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w]+/g, "_").slice(0, 40) || "familia";
       baixarArquivoTexto("historico_" + nome + ".txt", txt, "text/plain;charset=utf-8");
     }
+  }));
+  const cDe = container.querySelector("#histCompDe"), cAte = container.querySelector("#histCompAte");
+  if (cDe) cDe.addEventListener("change", () => { HIST_UI.de = cDe.value; histSalvarUI(); renderApp(); });
+  if (cAte) cAte.addEventListener("change", () => { HIST_UI.ate = cAte.value; histSalvarUI(); renderApp(); });
+  container.querySelectorAll("[data-hist-comp]").forEach(b => b.addEventListener("click", () => {
+    const v = b.dataset.histComp;
+    if (v === "inicio") { HIST_UI.de = ""; HIST_UI.ate = ""; }
+    else { const d = new Date(); d.setDate(d.getDate() - Number(v)); const z = n => String(n).padStart(2, "0"); HIST_UI.de = `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`; HIST_UI.ate = ""; }
+    histSalvarUI(); renderApp();
   }));
   const per = container.querySelector("#histPeriodo");
   if (per) per.addEventListener("change", () => { HIST_UI.periodo = per.value; histSalvarUI(); renderApp(); });
@@ -785,7 +957,8 @@ function attachHistoricoHandlers(container) {
     const nota = (container.querySelector("#histNovaNota").value || "").trim();
     const data = container.querySelector("#histNovaData").value || histHoje();
     if (!nota) { toast("Descreva o marco de evolução antes de registrar."); return; }
-    histAdicionarMarco(state.current, data, nota);
+    const selSent = container.querySelector("#histNovoSentido");
+    histAdicionarMarco(state.current, data, nota, selSent ? selSent.value : "observacao");
     savePAF(state.current, { silent: true });
     renderApp();
     toast("Marco de evolução registrado.");
@@ -811,35 +984,88 @@ function attachHistoricoHandlers(container) {
 function histLinhasExportacao(paf, max) {
   const linhas = [];
   histOrdenar(paf).forEach(({ e }) => {
-    if (e.tipo === "manual") linhas.push({ data: e.data, campo: "Marco de evolução", detalhe: e.nota || "" });
-    if (e.tipo === "acao") linhas.push({ data: e.data, campo: "Ação", detalhe: (e.descricao || e.acao || "") + (e.usuario ? " — " + histNomeUsuario(e.usuario) : "") });
-    (e.mudancas || []).forEach(m => {
-      linhas.push({
-        data: e.data,
-        campo: m.rotulo,
-        detalhe: m.tipo === "valor" ? `${histFmt(m.antes)} → ${histFmt(m.depois)}` : histTextoMudanca(m).replace(m.rotulo + ": ", "")
-      });
-    });
-    if (e.tipo === "auto" && e.nota) linhas.push({ data: e.data, campo: "Anotação técnica", detalhe: e.nota });
+    if (e.tipo === "manual") linhas.push({ data: e.data, secao: "", campo: histRotuloMarco(e), linhas: e.nota ? [e.nota] : [] });
+    histAgrupar(e.mudancas).forEach(it => { const t = histItemTexto(it); linhas.push({ data: e.data, secao: histSecaoLabel(it.secao), campo: t.campo, linhas: t.linhas }); });
+    if (e.tipo === "auto" && e.nota) linhas.push({ data: e.data, secao: "", campo: "Anotação técnica", linhas: [e.nota] });
   });
-  return linhas.slice(0, max || 150);
+  return linhas.slice(0, max || 300);
 }
 
-// Síntese para impressão: situação inicial x situação atual de cada campo que mudou ao longo do acompanhamento.
+const histLinhasHTML = (arr) => arr.map(escapeHtml).join("<br>");
+
+// Registro cronológico: a data aparece só na primeira linha de cada dia; o campo traz a seção em cinza.
+function histLinhasTabelaHTML(paf, classeDetalhe) {
+  let dataAnt = null;
+  return histLinhasExportacao(paf).map(r => {
+    const mostra = r.data !== dataAnt; dataAnt = r.data;
+    return `<tr><td style="vertical-align:top;white-space:nowrap">${mostra ? fmtDateBR(r.data) : ""}</td><td style="vertical-align:top"><strong>${escapeHtml(r.campo)}</strong>${r.secao && r.secao !== r.campo ? `<br><span style="color:#667788;font-size:90%">${escapeHtml(r.secao)}</span>` : ""}</td><td${classeDetalhe ? ` class="${classeDetalhe}"` : ""} style="vertical-align:top">${histLinhasHTML(r.linhas)}</td></tr>`;
+  }).join("");
+}
+
+// Síntese para impressão: situação inicial x atual, agrupada por seção. Pessoas/situações viram uma linha só.
 function histSinteseExportacao(paf) {
-  const cron = (paf.historico || []).filter(e => e.tipo === "auto").slice()
+  const cron = histH(paf).filter(e => e.tipo === "auto").slice()
     .sort((a, b) => (a.data || "").localeCompare(b.data || "") || (a.criadoEm || "").localeCompare(b.criadoEm || ""));
-  const grupos = new Map();
-  cron.forEach(e => (e.mudancas || []).forEach(m => {
-    if (m.tipo !== "valor" && m.tipo !== "lista") return;
-    if (!grupos.has(m.k)) grupos.set(m.k, { rotulo: m.rotulo, tipo: m.tipo, ini: m.antes, fim: m.depois, d1: e.data, d2: e.data, n: 0 });
-    const g = grupos.get(m.k);
-    g.rotulo = m.rotulo; g.fim = m.depois; g.d2 = e.data; g.n++;
+  const simples = new Map(), ents = new Map(), extras = [];
+  const ord = a => (Array.isArray(a) ? [...a].sort() : a);
+  cron.forEach(e => (e.mudancas || []).filter(histMudVisivel).forEach(m => {
+    const partes = String(m.k || "").split("|");
+    if (m.tipo === "valor" && partes.length >= 3 && partes[1] !== "+" && partes[1] !== "-") {
+      const gk = partes.slice(0, -1).join("|"), f = partes[partes.length - 1];
+      const cut = String(m.rotulo).lastIndexOf(" — ");
+      const titulo = cut > -1 ? m.rotulo.slice(0, cut) : m.rotulo;
+      if (!ents.has(gk)) ents.set(gk, { secao: m.secao, titulo, campos: new Map(), d1: e.data, d2: e.data, n: 0 });
+      const g = ents.get(gk);
+      if (!/ nº \d+$/.test(titulo)) g.titulo = titulo;
+      if (!g.campos.has(f)) g.campos.set(f, { rotulo: cut > -1 ? m.rotulo.slice(cut + 3) : m.rotulo, ini: m.antes, fim: m.depois });
+      g.campos.get(f).fim = m.depois;
+      g.d2 = e.data; g.n++;
+    } else if (m.tipo === "valor" || m.tipo === "lista") {
+      if (!simples.has(m.k)) simples.set(m.k, { secao: m.secao, rotulo: m.rotulo, tipo: m.tipo, ini: m.antes, fim: m.depois, d1: e.data, d2: e.data, n: 0 });
+      const g = simples.get(m.k); g.rotulo = m.rotulo; g.fim = m.depois; g.d2 = e.data; g.n++;
+    } else {
+      extras.push({ secao: m.secao, tipo: m.tipo, texto: m.tipo === "linha+" ? m.depois : m.antes, data: e.data });
+    }
   }));
-  const txt = (g, v) => g.tipo === "lista" ? ((v || []).join("; ") || "(vazio)") : histFmt(v);
-  return [...grupos.values()]
-    .filter(g => !histIgual(g.tipo === "lista" ? [...g.ini].sort() : g.ini, g.tipo === "lista" ? [...g.fim].sort() : g.fim))
-    .map(g => ({ campo: g.rotulo, inicial: txt(g, g.ini), atual: txt(g, g.fim), periodo: g.d1 === g.d2 ? fmtDateBR(g.d1) : `${fmtDateBR(g.d1)} a ${fmtDateBR(g.d2)}`, n: g.n }));
+  const per = (a, b) => (a === b ? fmtDateBR(a) : `${fmtDateBR(a)} a ${fmtDateBR(b)}`);
+  const rows = [];
+  simples.forEach(g => {
+    if (histIgual(ord(g.ini), ord(g.fim))) return;
+    if (g.tipo === "lista") {
+      const a = new Set(g.ini || []), b = new Set(g.fim || []);
+      rows.push({ secao: g.secao, campo: g.rotulo, d1: g.d1,
+        inicial: (g.ini || []).length ? g.ini.map(x => "• " + x) : ["(vazio)"],
+        atual: [...(g.fim || []).map(x => a.has(x) ? "• " + x : "+ " + x + " (novo)"), ...(g.ini || []).filter(x => !b.has(x)).map(x => "− " + x + " (removido)")],
+        periodo: per(g.d1, g.d2), n: g.n });
+    } else {
+      rows.push({ secao: g.secao, campo: g.rotulo, d1: g.d1, inicial: [histFmt(g.ini)], atual: [histFmt(g.fim)], periodo: per(g.d1, g.d2), n: g.n });
+    }
+  });
+  const titulos = new Set();
+  ents.forEach(g => {
+    const mud = [...g.campos.values()].filter(c => !histIgual(c.ini, c.fim));
+    if (!mud.length) return;
+    titulos.add(g.titulo);
+    const nova = mud.every(c => histVazio(c.ini));
+    rows.push({ secao: g.secao, campo: g.titulo, d1: g.d1,
+      inicial: nova ? ["Não constava"] : mud.map(c => `${c.rotulo}: ${histFmt(c.ini)}`),
+      atual: nova ? mud.filter(c => !histVazio(c.fim) && c.rotulo !== "Nome").map(c => `${c.rotulo}: ${histFmt(c.fim)}`) : mud.map(c => `${c.rotulo}: ${histFmt(c.fim)}`),
+      periodo: per(g.d1, g.d2), n: g.n });
+  });
+  extras.forEach(x => {
+    if (x.tipo === "linha+" && titulos.has(x.texto)) return;
+    rows.push({ secao: x.secao, campo: x.texto, d1: x.data, inicial: [x.tipo === "linha+" ? "Não constava" : "Constava no plano"], atual: [x.tipo === "linha+" ? "Incluído(a)" : "Removido(a)"], periodo: fmtDateBR(x.data), n: 1 });
+  });
+  return rows.sort((a, b) => histSecaoLabel(a.secao).localeCompare(histSecaoLabel(b.secao)) || (a.d1 || "").localeCompare(b.d1 || ""));
+}
+
+function histSinteseLinhasHTML(sint, estiloCelula) {
+  let secAnt = null;
+  return sint.map(r => {
+    const cab = r.secao !== secAnt ? `<tr><td colspan="5" style="background:#E8EDF3;font-weight:bold;color:#1F3A5F">${escapeHtml(histSecaoLabel(r.secao))}</td></tr>` : "";
+    secAnt = r.secao;
+    return cab + `<tr><td style="vertical-align:top"><strong>${escapeHtml(r.campo)}</strong></td><td style="vertical-align:top">${histLinhasHTML(r.inicial)}</td><td style="vertical-align:top">${histLinhasHTML(r.atual)}</td><td style="vertical-align:top;white-space:nowrap">${r.periodo}</td><td style="text-align:center;vertical-align:top">${r.n}</td></tr>`;
+  }).join("");
 }
 
 function historicoPdfHTML(paf) {
@@ -849,20 +1075,20 @@ function historicoPdfHTML(paf) {
   return `
       <h2>Evolução da Família</h2>
       ${sint.length ? `
-      <p style="margin:0 0 6px;"><strong>Síntese:</strong> situação inicial e situação atual dos campos que mudaram durante o acompanhamento.</p>
+      <p style="margin:0 0 6px;"><strong>Síntese:</strong> situação inicial e situação atual dos dados que mudaram durante o acompanhamento, por seção.</p>
       <table>
-        <thead><tr><th style="width:30%">Campo</th><th>Situação inicial</th><th>Situação atual</th><th style="width:16%">Período</th><th style="width:8%">Alterações</th></tr></thead>
-        <tbody>${sint.map(r => `<tr><td>${escapeHtml(r.campo)}</td><td>${escapeHtml(r.inicial)}</td><td>${escapeHtml(r.atual)}</td><td>${r.periodo}</td><td style="text-align:center">${r.n}</td></tr>`).join("")}</tbody>
+        <thead><tr><th style="width:24%">Campo</th><th style="width:28%">Situação inicial</th><th style="width:30%">Situação atual</th><th style="width:12%">Período</th><th style="width:6%">Alterações</th></tr></thead>
+        <tbody>${histSinteseLinhasHTML(sint)}</tbody>
       </table>` : ""}
-      <p style="margin:10px 0 6px;"><strong>Registro cronológico:</strong></p>
+      <p style="margin:10px 0 6px;"><strong>Registro cronológico:</strong> o que foi alterado nos dados da família, do mais recente para o mais antigo.</p>
       <table>
-        <thead><tr><th style="width:12%">Data</th><th style="width:34%">Campo</th><th>Alteração / anotação</th></tr></thead>
-        <tbody>${l.map(r => `<tr><td>${fmtDateBR(r.data)}</td><td>${escapeHtml(r.campo)}</td><td>${escapeHtml(r.detalhe)}</td></tr>`).join("")}</tbody>
+        <thead><tr><th style="width:11%">Data</th><th style="width:34%">Campo</th><th>Alteração / anotação</th></tr></thead>
+        <tbody>${histLinhasTabelaHTML(paf)}</tbody>
       </table>`;
 }
 
 function historicoWordLinhas(paf) {
-  return histLinhasExportacao(paf).map(r => `<tr><td>${fmtDateBR(r.data)}</td><td>${escapeHtml(r.campo)}</td><td class="anotacao">${escapeHtml(r.detalhe)}</td></tr>`).join("");
+  return histLinhasTabelaHTML(paf, "anotacao");
 }
 
 function historicoWordSintese(paf) {
@@ -870,7 +1096,7 @@ function historicoWordSintese(paf) {
   if (!sint.length) return "";
   return `<table class="dados">
         <tr><th>Campo</th><th>Situação inicial</th><th>Situação atual</th><th>Período</th><th>Alterações</th></tr>
-        ${sint.map(r => `<tr><td>${escapeHtml(r.campo)}</td><td>${escapeHtml(r.inicial)}</td><td>${escapeHtml(r.atual)}</td><td>${r.periodo}</td><td style="text-align:center;">${r.n}</td></tr>`).join("")}
+        ${histSinteseLinhasHTML(sint)}
       </table><p>&nbsp;</p>`;
 }
 
