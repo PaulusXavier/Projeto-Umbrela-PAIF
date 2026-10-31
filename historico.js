@@ -112,6 +112,8 @@ const HIST_SECAO_REGRAS = [
 // Campos numéricos que ganham um minigráfico de evolução na visão "Por campo".
 const HIST_CAMPOS_NUMERICOS = /^(renda|habitacaoComodos|habitacaoDormitorios|eduForaEscola|eduAnalfabetismo)/;
 
+// Anotações abertas pelo usuário (sobrevivem ao redesenho da tela)
+const HIST_ABERTOS = new Map(); // id -> aberto (true/false); sem entrada = padrão
 const HIST_UI = { view: "linha", secao: "", periodo: "", tipo: "", busca: "" };
 try { Object.assign(HIST_UI, JSON.parse(sessionStorage.getItem("paif_hist_ui") || "{}")); } catch (e) { /* ignora */ }
 function histSalvarUI() { try { sessionStorage.setItem("paif_hist_ui", JSON.stringify(HIST_UI)); } catch (e) { /* ignora */ } }
@@ -449,6 +451,60 @@ function histSparkSVG(vals) {
   return `<svg class="hist-spark" width="${w}" height="${hgt}" viewBox="0 0 ${w} ${hgt}" role="img" aria-label="Evolução numérica: de ${vals[0]} para ${vals[vals.length - 1]}"><polyline fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p => p.join(",")).join(" ")}"/><circle cx="${ult[0]}" cy="${ult[1]}" r="2.6" fill="currentColor"/></svg>`;
 }
 
+// Visão geral do histórico: atividade por mês (alterações x marcos) e onde as alterações se concentram.
+function histAtividadeMesesSVG(paf) {
+  const h = paf.historico || [];
+  const porMes = {};
+  h.forEach(e => {
+    const ym = (e.data || "").slice(0, 7);
+    if (ym.length !== 7) return;
+    const o = porMes[ym] || (porMes[ym] = { alt: 0, marco: 0 });
+    if (e.tipo === "manual") o.marco++; else o.alt += (e.mudancas || []).length || 1;
+  });
+  const chaves = Object.keys(porMes).sort();
+  if (!chaves.length) return "";
+  // preenche meses sem atividade entre o primeiro e o último, limitado aos 12 mais recentes
+  const meses = [];
+  let [y, m] = chaves[0].split("-").map(Number);
+  const [yf, mf] = chaves[chaves.length - 1].split("-").map(Number);
+  while ((y < yf || (y === yf && m <= mf)) && meses.length < 120) {
+    meses.push(y + "-" + String(m).padStart(2, "0"));
+    if (++m > 12) { m = 1; y++; }
+  }
+  const lista = meses.slice(-12).map(ym => ({ ym, ...(porMes[ym] || { alt: 0, marco: 0 }) }));
+  if (lista.length < 2) return "";
+  const eixo = eixoY(Math.max(...lista.map(v => v.alt + v.marco), 1));
+  const colW = 44, barW = 22, padT = 20, chartH = 110, padB = 26, padL = margemEixoNum(eixo.topo), padR = 10;
+  const width = padL + lista.length * colW + padR, height = chartH + padT + padB;
+  const barras = lista.map((v, i) => {
+    const xc = padL + i * colW + colW / 2, x = xc - barW / 2;
+    const hAlt = Math.round(v.alt / eixo.topo * chartH), hMar = Math.round(v.marco / eixo.topo * chartH);
+    const yAlt = padT + chartH - hAlt, yMar = yAlt - hMar;
+    const mes = labelYmCurto(v.ym), tot = v.alt + v.marco;
+    return `<g>
+      ${hAlt ? `<rect x="${x}" y="${yAlt}" width="${barW}" height="${hAlt}" rx="${hMar ? 0 : 3}" fill="var(--accent, #2E7D6B)" class="evo-bar" tabindex="0"><title>${mes}: ${v.alt} alteraç${v.alt === 1 ? "ão" : "ões"}</title></rect>` : ""}
+      ${hMar ? `<rect x="${x}" y="${yMar}" width="${barW}" height="${hMar}" rx="3" fill="var(--gold, #B98A34)" class="evo-bar" tabindex="0"><title>${mes}: ${v.marco} marco${v.marco === 1 ? "" : "s"} manua${v.marco === 1 ? "l" : "is"}</title></rect>` : ""}
+      ${tot ? `<text x="${xc}" y="${padT + chartH - Math.round(tot / eixo.topo * chartH) - 4}" text-anchor="middle" class="chart-bar-num">${tot}</text>` : ""}
+      <text x="${xc}" y="${padT + chartH + 16}" text-anchor="middle" class="chart-bar-mes">${mes}</text></g>`;
+  }).join("");
+  return `<div class="chart-legend-inline"><span><i style="background:var(--accent, #2E7D6B)"></i> Alterações</span><span><i style="background:var(--gold, #B98A34)"></i> Marcos manuais</span></div>`
+    + svgGrafico(width, height, "hist-atividade-chart", "Atividade do histórico por mês", gradeEixoY(eixo, padL, width - padR, padT, chartH) + barras);
+}
+
+function histVisaoGeralHTML(paf) {
+  const h = paf.historico || [];
+  if (h.length < 2) return "";
+  const porSecao = {};
+  h.forEach(e => (e.mudancas || []).forEach(mu => { const l = histSecaoLabel(mu.secao); porSecao[l] = (porSecao[l] || 0) + 1; }));
+  const atividade = histAtividadeMesesSVG(paf);
+  const secoes = Object.keys(porSecao).length ? barrasHTML(porSecao, { top: 6 }) : "";
+  if (!atividade && !secoes) return "";
+  return `<div class="hist-visao">
+    ${atividade ? `<div class="hist-visao-bloco"><strong>Atividade por mês</strong>${atividade}</div>` : ""}
+    ${secoes ? `<div class="hist-visao-bloco"><strong>Onde a família mais mudou</strong>${secoes}</div>` : ""}
+  </div>`;
+}
+
 function histPorCampoHTML(paf, secaoFiltro) {
   const cron = (paf.historico || [])
     .filter(e => e.tipo === "auto" && histPeriodoOk(e.data))
@@ -486,7 +542,7 @@ function histPorCampoHTML(paf, secaoFiltro) {
 function histLinhaTempoHTML(paf, secaoFiltro) {
   const ordenado = histOrdenar(paf);
   let ultMes = null;
-  const itens = ordenado.map(({ e, i }) => {
+  const itens = ordenado.map(({ e, i }, pos) => {
     if (!histPeriodoOk(e.data)) return "";
     if (HIST_UI.tipo === "manual" && e.tipo !== "manual") return "";
     if (HIST_UI.tipo === "auto" && e.tipo === "manual") return "";
@@ -502,6 +558,9 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
     const corpo = Object.keys(grupos).map(s => `
       <div class="hist-grupo"><div class="hist-grupo-titulo">${escapeHtml(histSecaoLabel(s))}</div>${grupos[s].map(histMudancaHTML).join("")}</div>`).join("");
     const quem = [e.usuario, histHora(e.atualizadoEm || e.criadoEm)].filter(Boolean).join(" · ");
+    const anterior = ordenado[pos + 1] && ordenado[pos + 1].e.data;
+    const dias = anterior && e.data ? Math.round((new Date(e.data + "T12:00:00") - new Date(anterior + "T12:00:00")) / 86400000) : 0;
+    const gap = dias > 0 ? `<span class="hist-gap" title="Tempo desde o registro anterior (${fmtDateBR(anterior)})">+${dias >= 60 ? Math.round(dias / 30) + " meses" : dias + (dias === 1 ? " dia" : " dias")}</span>` : "";
     const mesKey = (e.data || "").slice(0, 7);
     const cab = mesKey !== ultMes ? `<div class="hist-mes">${escapeHtml(histNomeMes(e.data))}</div>` : "";
     ultMes = mesKey;
@@ -512,13 +571,17 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
         <button class="row-del" data-hist-del="${escapeHtml(e.id)}" title="Remover este registro do histórico" aria-label="Remover este registro do histórico">${uiIconSvg("close", 12)}</button>
         <div class="hist-topo">
           <span class="hist-tipo ${manual ? "manual" : ""}">${manual ? "Marco de evolução" : (muds.length + (muds.length === 1 ? " alteração" : " alterações"))}</span>
-          <span class="hist-quem">${escapeHtml(quem)}</span>
+          <span class="hist-quem">${escapeHtml(quem)}</span>${gap}
         </div>
         ${corpo}
+        ${e.nota ? `<p class="hist-nota-previa">${escapeHtml(e.nota)}</p>` : ""}
+        <details class="hist-editar" data-hist-det="${escapeHtml(e.id)}"${(HIST_ABERTOS.has(e.id) ? HIST_ABERTOS.get(e.id) : (manual && !e.nota)) ? " open" : ""}>
+        <summary>${e.nota ? "Editar data e anotação" : "Adicionar anotação ou corrigir a data"}</summary>
         <div class="timeline-row hist-edit">
           <div class="f"><label>Data da evolução</label><input type="date" data-field="historico.${i}.data" value="${escapeHtml(e.data)}"></div>
           <div class="f" style="grid-column: span 2"><label>${manual ? "Anotação técnica" : "Anotação técnica sobre esta evolução (opcional)"}</label><textarea data-field="historico.${i}.nota" rows="${manual ? 3 : 2}" placeholder="${manual ? "Descreva a evolução observada na família..." : "Ex.: motivo da mudança, contexto, quem informou..."}">${escapeHtml(e.nota || "")}</textarea></div>
         </div>
+        </details>
       </div>
     </div>`;
   }).join("");
@@ -543,6 +606,7 @@ function historicoSectionHTML(paf) {
       <div class="stat-box"><span class="stat-num">${st.marcos}</span><span class="stat-label">Marcos manuais</span></div>
       <div class="stat-box"><span class="stat-num" style="font-size:14px">${st.ultima ? fmtDateBR(st.ultima) : "—"}</span><span class="stat-label">Última evolução</span></div>
     </div>
+    ${histVisaoGeralHTML(paf)}
     <div class="hist-novo">
       <h3>Registrar marco de evolução</h3>
       <div class="timeline-row">
@@ -564,13 +628,17 @@ function historicoSectionHTML(paf) {
         <select id="histFiltroSecao"><option value="">Todas</option>${secoes.map(s => `<option value="${s}" ${HIST_UI.secao === s ? "selected" : ""}>${escapeHtml(histSecaoLabel(s))}</option>`).join("")}</select>
       </div>
     </div>
+    ${secoes.length > 1 ? `<div class="hist-chips" role="group" aria-label="Filtrar por seção">${secoes.map(sec => {
+      const n = (paf.historico || []).reduce((a, e) => a + (e.mudancas || []).filter(m => m.secao === sec).length, 0);
+      return `<button type="button" class="hist-chip-sec${HIST_UI.secao === sec ? " on" : ""}" data-hist-chip="${sec}" aria-pressed="${HIST_UI.secao === sec}">${escapeHtml(histSecaoLabel(sec))}${n ? ` <em>${n}</em>` : ""}</button>`;
+    }).join("")}</div>` : ""}
     <div class="hist-filtros">
       <div class="f hist-busca"><label for="histBusca">Buscar no histórico</label><input type="search" id="histBusca" placeholder="Palavra, nome, valor…" value="${escapeHtml(HIST_UI.busca)}" autocomplete="off"></div>
       <div class="f"><label for="histPeriodo">Período</label>
         <select id="histPeriodo">${[["", "Todo o período"], ["7", "Últimos 7 dias"], ["30", "Últimos 30 dias"], ["90", "Últimos 90 dias"], ["365", "Último ano"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.periodo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
       ${HIST_UI.view === "linha" ? `<div class="f"><label for="histTipo">Tipo de registro</label>
         <select id="histTipo">${[["", "Todos"], ["auto", "Só alterações"], ["manual", "Só marcos manuais"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.tipo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>` : ""}
-      ${HIST_UI.view === "linha" ? `<span class="hist-acoes"><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="copiar">Copiar</button><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="txt">Baixar (.txt)</button></span>` : ""}
+      ${HIST_UI.view === "linha" ? `<span class="hist-acoes"><button type="button" class="btn btn-ghost btn-sm" data-hist-todos="abrir" title="Abrir todos os campos de anotação">Abrir anotações</button><button type="button" class="btn btn-ghost btn-sm" data-hist-todos="fechar">Recolher</button><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="copiar">Copiar</button><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="txt">Baixar (.txt)</button></span>` : ""}
       ${(HIST_UI.secao || HIST_UI.periodo || HIST_UI.tipo || HIST_UI.busca) ? `<button type="button" class="btn btn-ghost btn-sm" id="histLimpar">Limpar filtros</button>` : ""}
       <span class="hist-contagem" id="histContagem" aria-live="polite"></span>
     </div>
@@ -625,6 +693,23 @@ function attachHistoricoHandlers(container) {
     });
     const ct = container.querySelector("#histContagem");
     if (ct) ct.textContent = cartoes.length ? (q ? vis + " de " + cartoes.length + " registros" : cartoes.length + (cartoes.length === 1 ? " registro" : " registros")) : "";
+    if (window.CSS && CSS.highlights && typeof Highlight !== "undefined") {
+      CSS.highlights.delete("hist-busca");
+      if (q) {
+        const ranges = [];
+        conteudo.querySelectorAll(".hist-item:not([hidden]), .hist-campo-card:not([hidden]), .hist-diario-item:not([hidden])").forEach(c => {
+          const w = document.createTreeWalker(c, NodeFilter.SHOW_TEXT);
+          let n;
+          while ((n = w.nextNode())) {
+            const t = histNorm(n.nodeValue);
+            for (let i = t.indexOf(q); i !== -1 && ranges.length < 500; i = t.indexOf(q, i + q.length)) {
+              const r = new Range(); r.setStart(n, i); r.setEnd(n, Math.min(i + q.length, n.nodeValue.length)); ranges.push(r);
+            }
+          }
+        });
+        if (ranges.length) CSS.highlights.set("hist-busca", new Highlight(...ranges));
+      }
+    }
     let vazio = conteudo.querySelector(".hist-busca-vazio");
     if (q && cartoes.length && !vis) {
       if (!vazio) { vazio = document.createElement("p"); vazio.className = "hint hist-busca-vazio"; conteudo.appendChild(vazio); }
@@ -633,6 +718,22 @@ function attachHistoricoHandlers(container) {
   };
   if (busca) busca.addEventListener("input", () => { HIST_UI.busca = busca.value; histSalvarUI(); aplicarBusca(); });
   aplicarBusca();
+
+  container.querySelectorAll("details[data-hist-det]").forEach(d => d.addEventListener("toggle", () => {
+    HIST_ABERTOS.set(d.dataset.histDet, d.open);
+  }));
+
+  // Chips de seção (atalho para o filtro "Seção")
+  container.querySelectorAll("[data-hist-chip]").forEach(b => b.addEventListener("click", () => {
+    HIST_UI.secao = b.dataset.histChip === HIST_UI.secao ? "" : b.dataset.histChip;
+    histSalvarUI(); renderApp();
+  }));
+
+  // Expandir/recolher todas as anotações
+  container.querySelectorAll("[data-hist-todos]").forEach(b => b.addEventListener("click", () => {
+    const abrir = b.dataset.histTodos === "abrir";
+    container.querySelectorAll("details[data-hist-det]").forEach(d => { d.open = abrir; });
+  }));
 
   const add = container.querySelector("#histAddBtn");
   if (add) add.addEventListener("click", () => {
