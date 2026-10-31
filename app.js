@@ -543,36 +543,75 @@ function mascoteDicaDaSecao(secaoId) {
   mascoteFalar(dica, "pensativo", 8000);
 }
 
-// Corpo do mascote (guarda-chuva com pernas) — só o rosto muda por humor.
-// As cores usam os mesmos tons do tema (--ink, --accent, --gold, --paper),
-// mas em hexadecimal fixo em vez de var(): atributos de apresentação de SVG
-// (fill/stroke como atributo, não como style) nem sempre resolvem custom
-// properties de forma confiável em todos os navegadores — o valor fixo
-// garante que o mascote sempre apareça com as cores certas.
+// Corpo do mascote: guarda-chuva de duas cores (verde e azul-marinho, como o ícone do app)
+// com o rosto desenhado na própria cúpula. Só o rosto muda por humor; os olhos piscam e as
+// pupilas acompanham o ponteiro (ver CSS e mascoteSeguirPonteiro). Cores em hexadecimal fixo:
+// atributos de apresentação de SVG nem sempre resolvem var() de forma confiável.
 function mascoteSvg(mood) {
-  const COR_INK = "#1F3A5F", COR_ACCENT = "#2E7D6B", COR_GOLD = "#B98A34", COR_PAPEL = "#FFFEFA";
-  const olhos = mood === "preocupado"
-    ? `<path d="M25 39.5q5-4.5 10 0M49 39.5q5-4.5 10 0" stroke="${COR_INK}" stroke-width="2.3" stroke-linecap="round" fill="none"/>
-       <circle cx="30" cy="46" r="3.1" fill="${COR_INK}"/><circle cx="54" cy="46" r="3.1" fill="${COR_INK}"/>`
-    : `<circle cx="30" cy="45" r="3.4" fill="${COR_INK}"/><circle cx="54" cy="45" r="3.4" fill="${COR_INK}"/>`;
-  const boca = mood === "feliz"
-    ? `<path d="M28 54q14 12 28 0" stroke="${COR_INK}" stroke-width="2.6" stroke-linecap="round" fill="none"/>`
-    : mood === "preocupado"
-    ? `<path d="M30 59q12 -7 24 0" stroke="${COR_INK}" stroke-width="2.3" stroke-linecap="round" fill="none"/>`
-    : mood === "pensativo"
-    ? `<circle cx="42" cy="55" r="2.4" fill="${COR_INK}"/>`
-    : `<path d="M31 55q11 6.5 22 0" stroke="${COR_INK}" stroke-width="2.3" stroke-linecap="round" fill="none"/>`;
+  const INK = "#1F3A5F", ESCURO = "#14263F", GOLD = "#B98A34", PAPEL = "#FFFEFA";
+  const brilho = (cx, cy) => `<circle cx="${cx}" cy="${cy}" r="1.3" fill="#fff"/>`;
+  // olhos: esclera branca + pupila (que se move) + brilho; no humor "feliz" viram arcos fechados
+  const olho = (cx, bx, by) => `<circle cx="${cx}" cy="31" r="5.6" fill="${PAPEL}"/>
+      <g class="mascote-pupila" style="--bx:${bx};--by:${by}"><circle cx="${cx}" cy="31" r="3.1" fill="${ESCURO}"/>${brilho(cx + 1.1, 29.8)}</g>`;
+  let olhos, sobrancelhas = "", boca, extra = "";
+  if (mood === "feliz") {
+    olhos = `<path d="M26 32q5.5 -7 11 0M47 32q5.5 -7 11 0" stroke="${PAPEL}" stroke-width="2.6" stroke-linecap="round" fill="none"/>`;
+    boca = `<path d="M33 38.5q9 10 18 0z" fill="${ESCURO}" stroke="${PAPEL}" stroke-width="1.6" stroke-linejoin="round"/><path d="M37 42.6q5 3 10 0" stroke="#F08A8A" stroke-width="1.6" stroke-linecap="round" fill="none"/>`;
+  } else if (mood === "preocupado") {
+    olhos = `<g class="mascote-olhos">${olho(31.5, 0, 0.6)}${olho(52.5, 0, 0.6)}</g>`;
+    sobrancelhas = `<path d="M25.5 22.5 36 25M58.5 22.5 48 25" stroke="${PAPEL}" stroke-width="2.2" stroke-linecap="round"/>`;
+    boca = `<path d="M34 42.5q8 -5 16 0" stroke="${PAPEL}" stroke-width="2.4" stroke-linecap="round" fill="none"/>`;
+    extra = `<path d="M67 17q4 6 0 9.5q-4 -3.5 0 -9.5z" fill="#8FD3F4" stroke="#fff" stroke-width=".8" class="mascote-suor"/>`;
+  } else if (mood === "pensativo") {
+    olhos = `<g class="mascote-olhos">${olho(31.5, 1.3, -1.6)}${olho(52.5, 1.3, -1.6)}</g>`;
+    sobrancelhas = `<path d="M26 23.5q5 -3 10 -.5M48 21.5q5 -3.5 10 -.5" stroke="${PAPEL}" stroke-width="2.2" stroke-linecap="round" fill="none"/>`;
+    boca = `<ellipse cx="44" cy="41.5" rx="2.6" ry="2.2" fill="${ESCURO}" stroke="${PAPEL}" stroke-width="1.5"/>`;
+    extra = `<circle cx="66" cy="14" r="1.4" fill="${GOLD}"/><circle cx="70" cy="9.5" r="2" fill="${GOLD}"/><circle cx="75" cy="4.5" r="2.8" fill="${GOLD}" opacity=".9"/>`;
+  } else {
+    olhos = `<g class="mascote-olhos">${olho(31.5, 0, 0)}${olho(52.5, 0, 0)}</g>`;
+    boca = `<path d="M35 39.5q7 6.5 14 0" stroke="${PAPEL}" stroke-width="2.4" stroke-linecap="round" fill="none"/>`;
+  }
+  const bochechas = mood === "preocupado" ? "" : `<ellipse cx="22.5" cy="38" rx="3.6" ry="2.3" fill="#F2A18F" opacity=".55"/><ellipse cx="61.5" cy="38" rx="3.6" ry="2.3" fill="#F2A18F" opacity=".55"/>`;
   return `<svg viewBox="0 0 84 84" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <ellipse cx="30" cy="75" rx="4.6" ry="2.6" fill="${COR_INK}" opacity=".8"/>
-    <ellipse cx="54" cy="75" rx="4.6" ry="2.6" fill="${COR_INK}" opacity=".8"/>
-    <path class="mascote-braco" d="M20 50q-11 -3 -13 -14" stroke="${COR_INK}" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-    <path d="M42 46v18q0 6 -6 6" stroke="${COR_INK}" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-    <path d="M8 46 A34 34 0 0 1 76 46 Q69.5 55 63 46 Q56.5 55 50 46 Q43.5 55 37 46 Q30.5 55 24 46 Q17.5 55 11 46 Q9 48.5 8 46 Z" fill="${COR_ACCENT}"/>
-    <path d="M42 12 A34 34 0 0 1 76 46 Q69.5 55 63 46 Q56.5 55 50 46 Q46 51.5 42 46 Z" fill="${COR_INK}"/>
-    <path d="M11 46 20 46 30 22 42 46 M20 46 42 12 M63 46 50 46" stroke="${COR_PAPEL}" stroke-width="1.1" opacity=".4" fill="none"/>
-    <circle cx="42" cy="10.5" r="2.6" fill="${COR_GOLD}"/>
-    ${olhos}${boca}
+    <defs>
+      <linearGradient id="mascVerde" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#47AE96"/><stop offset=".55" stop-color="#2E7D6B"/><stop offset="1" stop-color="#1F5C4E"/></linearGradient>
+      <linearGradient id="mascAzul" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34608F"/><stop offset=".55" stop-color="#1F3A5F"/><stop offset="1" stop-color="#162B47"/></linearGradient>
+    </defs>
+    <ellipse class="mascote-sombra" cx="42" cy="81" rx="15" ry="2.4" fill="${INK}" opacity=".16"/>
+    <g class="mascote-corpo">
+      <path d="M42 48V68q0 7 -6.5 7" stroke="${INK}" stroke-width="3" stroke-linecap="round" fill="none"/>
+      <path class="mascote-braco" d="M12 48q-6 3 -6 10" stroke="${INK}" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+      <circle class="mascote-braco" cx="6" cy="59.5" r="3.2" fill="${PAPEL}" stroke="${INK}" stroke-width="1.8"/>
+      <path d="M72 48q6 3 6 10" stroke="${INK}" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+      <circle cx="78" cy="59.5" r="3.2" fill="${PAPEL}" stroke="${INK}" stroke-width="1.8"/>
+      <path d="M6 46A36 36 0 0 1 42 10V46Q33 54 24 46Q15 54 6 46Z" fill="url(#mascVerde)"/>
+      <path d="M42 10A36 36 0 0 1 78 46Q69 54 60 46Q51 54 42 46Z" fill="url(#mascAzul)"/>
+      <path d="M42 10Q30 27 24 46M42 10Q54 27 60 46M42 10V46" stroke="${PAPEL}" stroke-width="1" opacity=".28" fill="none"/>
+      <ellipse cx="26" cy="19" rx="9" ry="3.6" transform="rotate(-38 26 19)" fill="#fff" opacity=".26"/>
+      <path d="M42 7.5V11" stroke="${GOLD}" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="42" cy="6.4" r="2.9" fill="${GOLD}"/>
+      ${bochechas}${sobrancelhas}${olhos}${boca}${extra}
+    </g>
   </svg>`;
+}
+
+// Pupilas seguem o ponteiro de leve (até ~1,6 unidade do desenho). Só atualiza variáveis CSS.
+function mascoteSeguirPonteiro() {
+  const wrap = document.getElementById("mascoteUmbrella");
+  if (!wrap || wrap.dataset.segue) return;
+  wrap.dataset.segue = "1";
+  let raf = 0;
+  document.addEventListener("pointermove", (e) => {
+    if (raf || wrap.classList.contains("minimizado")) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const r = wrap.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      const d = Math.hypot(dx, dy) || 1, f = Math.min(d / 160, 1) * 1.6;
+      wrap.style.setProperty("--px", (dx / d * f).toFixed(2));
+      wrap.style.setProperty("--py", (dy / d * f).toFixed(2));
+    });
+  }, { passive: true });
 }
 
 function mascoteMoodParaTexto(msg) {
@@ -636,6 +675,7 @@ function initMascote() {
   try { minimizado = localStorage.getItem(MASCOTE_CHAVE_MINIMIZADO) === "1"; } catch (err) { /* ignora */ }
   if (minimizado) wrap.classList.add("minimizado");
   mascoteRenderizar("normal");
+  mascoteSeguirPonteiro();
   btn.addEventListener("click", () => {
     if (mascotePressLongo) { mascotePressLongo = false; return; }
     if (wrap.classList.contains("minimizado")) { mascoteAlternarMinimizado(); return; }
@@ -2000,7 +2040,32 @@ function labelYmCurto(ym) {
   return `${nome.slice(0, 3)}/${y.slice(2)}`;
 }
 
-function kpiCardHTML(valor, label, iconId, delta) {
+// Minigráfico de tendência (área + linha + ponto final) para os cartões de indicadores.
+function sparklineSVG(serie, cor) {
+  if (!serie || serie.length < 2 || Math.max(...serie) === Math.min(...serie) && serie.every((v) => v === 0)) return "";
+  const W = 100, H = 26, pad = 3;
+  const mn = Math.min(...serie), mx = Math.max(...serie), amp = (mx - mn) || 1;
+  const pts = serie.map((v, i) => [pad + (i / (serie.length - 1)) * (W - pad * 2), H - pad - ((v - mn) / amp) * (H - pad * 2)]);
+  const linha = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [ux, uy] = pts[pts.length - 1];
+  const c = cor || "#2E7D6B";
+  return `<svg viewBox="0 0 ${W} ${H}" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
+    <polygon points="${pad},${H} ${linha} ${W - pad},${H}" fill="${c}" opacity=".12"></polygon>
+    <polyline points="${linha}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>
+    <circle cx="${ux.toFixed(1)}" cy="${uy.toFixed(1)}" r="2.2" fill="${c}"></circle>
+  </svg>`;
+}
+
+// Série acumulada (últimos 12 meses) de PAFs iniciados, opcionalmente só de uma situação.
+function serieKpiAcumulada(grupos, situacao) {
+  const meses = Object.keys(grupos).sort();
+  if (meses.length < 2) return null;
+  let ac = 0;
+  const todos = meses.map((ym) => { ac += situacao ? (grupos[ym].status[situacao] || 0) : grupos[ym].quantidade; return ac; });
+  return todos.slice(-12);
+}
+
+function kpiCardHTML(valor, label, iconId, delta, spark) {
   let deltaHTML = "";
   if (delta && typeof delta.diff === "number" && delta.diff !== 0) {
     const positivo = delta.diff > 0;
@@ -2010,86 +2075,43 @@ function kpiCardHTML(valor, label, iconId, delta) {
   } else if (delta && typeof delta.diff === "number") {
     deltaHTML = `<span class="kpi-delta kpi-delta-neutro" title="Comparado ao período anterior equivalente">= estável</span>`;
   }
-  return `<div class="kpi-card">${iconId ? `<span class="kpi-icon">${sectionIconSvg(iconId, 15)}</span>` : ""}<span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span>${deltaHTML}</div>`;
+  return `<div class="kpi-card">${iconId ? `<span class="kpi-icon">${sectionIconSvg(iconId, 15)}</span>` : ""}<span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span>${deltaHTML}${spark ? `<span class="kpi-spark-wrap" title="Evolução acumulada por mês de início do PAF (últimos 12 meses)">${spark}</span>` : ""}</div>`;
 }
 
-function barrasHTML(obj, opts) {
-  opts = opts || {};
-  const entradas = Object.entries(obj).sort((a, b) => b[1] - a[1]).filter(([, v]) => v > 0);
-  const lista = opts.top ? entradas.slice(0, opts.top) : entradas;
-  if (!lista.length) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
-  const total = entradas.reduce((a, [, v]) => a + v, 0) || 1;
-  const max = Math.max(...entradas.map(([, v]) => v), 1);
-  return `<div class="stat-bars">` + lista.map(([k, v]) => {
-    const pct = Math.round(v / total * 100);
-    return `
-    <div class="stat-bar-row" title="${escapeHtml(k)}: ${v} (${pct}%)">
-      <span class="stat-bar-label">${escapeHtml(k)}</span>
-      <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${Math.round(v / max * 100)}%"></div></div>
-      <span class="stat-bar-value">${v} <em>(${pct}%)</em></span>
-    </div>`;
-  }).join("") + `</div>`;
+// ===================== GRÁFICOS (SVG feitos à mão, sem bibliotecas) =====================
+// Princípios: (1) escalam com o contêiner e, em telas estreitas, rolam na horizontal em vez de
+// espremer o texto; (2) cores semânticas (verde = positivo, dourado = atenção, vermelho = saída);
+// (3) valores sempre visíveis + tooltip; (4) margens se adaptam a números grandes e rótulos longos;
+// (5) funcionam no PDF/impressão (todos os atributos têm cor de reserva, sem depender de variáveis CSS).
+
+const RESUMO_PALETA = ["#2E7D6B", "#B98A34", "#52667C", "#A63D33", "#8B6BAE", "#3D8FA0", "#C97B4A", "#1F5C4E"];
+const COR_NEUTRA = "#A9B5BF";
+// Cores fixas para rótulos com significado (o resto usa a paleta em ordem).
+const COR_SEMANTICA = {
+  "Em andamento": "#2E7D6B", "Encaminhado": "#B98A34", "Concluído": "#52667C", "Cancelado": "#A63D33",
+  "Superadas": "#2E7D6B", "Em acompanhamento": "#B98A34",
+  "Sim": "#2E7D6B", "Não": COR_NEUTRA, "Outras": COR_NEUTRA,
+  "Não informado": COR_NEUTRA, "Não informada": COR_NEUTRA
+};
+
+function encurtarTexto(s, n) {
+  s = String(s == null ? "" : s);
+  return s.length > n ? s.slice(0, Math.max(n - 1, 1)).trimEnd() + "…" : s;
 }
 
-const RESUMO_PALETA = ["#2E7D6B", "#1F5C4E", "#B98A34", "#A63D33", "#52667C", "#8B6BAE", "#3D8FA0", "#C97B4A"];
-
-function donutChartSVG(obj, opts) {
-  opts = opts || {};
-  const entradasBrutas = Object.entries(obj).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-  if (!entradasBrutas.length) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
-
-  const top = opts.top || 6;
-  let entradas = entradasBrutas;
-  if (entradasBrutas.length > top) {
-    const principais = entradasBrutas.slice(0, top - 1);
-    const outrosTotal = entradasBrutas.slice(top - 1).reduce((a, [, v]) => a + v, 0);
-    entradas = [...principais, ["Outras", outrosTotal]];
-  }
-
-  const total = entradas.reduce((a, [, v]) => a + v, 0) || 1;
-  const size = opts.size || 128;
-  const stroke = opts.stroke || 20;
-  const r = (size - stroke) / 2;
-  const cx = size / 2, cy = size / 2;
-  const circunferencia = 2 * Math.PI * r;
-
-  let acumulado = 0;
-  const arcos = entradas.map(([k, v], i) => {
-    const fracao = v / total;
-    const pct = Math.round(fracao * 100);
-    const gap = entradas.length > 1 ? 1.6 : 0;
-    const traco = Math.max(fracao * circunferencia - gap, 0);
-    const svg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${RESUMO_PALETA[i % RESUMO_PALETA.length]}" stroke-width="${stroke}" stroke-linecap="${entradas.length > 1 ? "round" : "butt"}" stroke-dasharray="${traco} ${circunferencia - traco}" stroke-dashoffset="${-acumulado}" transform="rotate(-90 ${cx} ${cy})" class="donut-arc" tabindex="0"><title>${escapeHtml(k)}: ${v} (${pct}%)</title></circle>`;
-    acumulado += fracao * circunferencia;
-    return svg;
-  }).join("");
-
-  const legenda = entradas.map(([k, v], i) => `
-    <div class="donut-legend-item" title="${escapeHtml(k)}: ${v} (${Math.round(v / total * 100)}%)">
-      <span class="donut-legend-dot" style="background:${RESUMO_PALETA[i % RESUMO_PALETA.length]}"></span>
-      <span class="donut-legend-label">${escapeHtml(k)}</span>
-      <span class="donut-legend-value">${v} <em>(${Math.round(v / total * 100)}%)</em></span>
-    </div>`).join("");
-
-  // legendaLinear: dispõe os itens em uma única linha horizontal (em vez da
-  // lista empilhada padrão) — útil para legendas curtas, como a de situação
-  // do PAF, onde o alinhamento em linha fica mais limpo e ocupa menos altura.
-  const legendaClass = opts.legendaLinear ? "donut-legend donut-legend-linear" : "donut-legend";
-
-  return `<div class="donut-wrap">
-    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="donut-svg" role="img" aria-label="Gráfico de rosca: ${escapeHtml(opts.centro || "total")}, total ${total}">
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line,#e4e9ec)" stroke-width="${stroke}" opacity=".35"></circle>
-      ${arcos}
-      <text x="${cx}" y="${cy - 3}" text-anchor="middle" class="donut-total-num">${total}</text>
-      <text x="${cx}" y="${cy + 13}" text-anchor="middle" class="donut-total-label">${escapeHtml(opts.centro || "total")}</text>
-    </svg>
-    <div class="${legendaClass}">${legenda}</div>
-  </div>`;
+// Largura reservada para os números de um eixo (cresce com a quantidade de dígitos: 5 → 2000).
+function margemEixoNum(maiorValor) {
+  return Math.max(28, Math.ceil(String(Math.round(maiorValor)).length * 6.4 + 14));
 }
 
-// Escolhe um "degrau" redondo e legível para o eixo Y (1, 2, 5, 10, 20, 50...),
-// do jeito que qualquer livro de estatística introdutória recomenda para não
-// deixar o eixo com números quebrados.
+// Retângulo com cantos superiores arredondados (barras "de pé").
+function barraArredondadaPath(x, y, w, h, r) {
+  if (h <= 0 || w <= 0) return "";
+  r = Math.min(r, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+
+// Escolhe um "degrau" redondo e legível para o eixo Y (1, 2, 5, 10, 20, 50...).
 function degrauEixoY(max) {
   if (max <= 5) return 1;
   if (max <= 10) return 2;
@@ -2099,193 +2121,349 @@ function degrauEixoY(max) {
   return Math.ceil(max / 5 / 50) * 50;
 }
 
+// Calcula o eixo Y: topo arredondado + lista de marcas.
+function eixoY(max) {
+  const passo = degrauEixoY(Math.max(max, 1));
+  const topo = Math.ceil(Math.max(max, 1) / passo) * passo;
+  const marcas = Array.from({ length: Math.round(topo / passo) + 1 }, (_, i) => i * passo);
+  return { passo, topo, marcas };
+}
+
+function semDadosHTML(msg) {
+  return `<p class="muted chart-vazio">${msg || "Sem dados registrados."}</p>`;
+}
+
+// Envolve o SVG num contêiner que rola na horizontal quando a tela é mais estreita que o gráfico.
+function svgGrafico(largura, altura, classe, rotulo, conteudo) {
+  return `<div class="chart-scroll"><svg viewBox="0 0 ${largura} ${altura}" class="chart-svg ${classe}" style="--w:${largura}px" role="img" aria-label="${escapeHtml(rotulo)}">${conteudo}</svg></div>`;
+}
+
+function gradeEixoY(eixo, padL, xFim, padT, chartH, estiloNum) {
+  return eixo.marcas.map((valor, i) => {
+    const y = padT + chartH - (valor / eixo.topo) * chartH;
+    return `<line x1="${padL}" y1="${y}" x2="${xFim}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1"${i === 0 ? "" : ` stroke-dasharray="2 3"`} opacity="${i === 0 ? 1 : .8}"></line>
+      <text x="${padL - 6}" y="${y + 3}" text-anchor="end" class="${estiloNum || "hist-eixo-num"}">${valor}</text>`;
+  }).join("");
+}
+
+// ---------- Barras horizontais (HTML) ----------
+function barrasHTML(obj, opts) {
+  opts = opts || {};
+  const entradas = Object.entries(obj).sort((a, b) => b[1] - a[1]).filter(([, v]) => v > 0);
+  const lista = opts.top ? entradas.slice(0, opts.top) : entradas;
+  if (!lista.length) return semDadosHTML();
+  const total = entradas.reduce((a, [, v]) => a + v, 0) || 1;
+  const max = Math.max(...entradas.map(([, v]) => v), 1);
+  const resto = entradas.length - lista.length;
+  return `<div class="stat-bars">` + lista.map(([k, v], i) => {
+    const pct = Math.round(v / total * 100);
+    return `
+    <div class="stat-bar-row${i === 0 ? " is-top" : ""}" title="${escapeHtml(k)}: ${v} (${pct}%)">
+      <span class="stat-bar-label">${escapeHtml(k)}</span>
+      <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${Math.max(Math.round(v / max * 100), 3)}%"></div></div>
+      <span class="stat-bar-value"><b>${v}</b> <em>(${pct}%)</em></span>
+    </div>`;
+  }).join("") + `</div>` + (resto > 0 ? `<p class="hint chart-nota">+ ${resto} categoria${resto === 1 ? "" : "s"} com menos registros.</p>` : "");
+}
+
+// ---------- Rosca (donut) com destaque ao passar o mouse / tocar ----------
+function donutChartSVG(obj, opts) {
+  opts = opts || {};
+  const brutas = Object.entries(obj).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (!brutas.length) return semDadosHTML();
+
+  const top = opts.top || 6;
+  let entradas = brutas;
+  if (brutas.length > top) {
+    entradas = [...brutas.slice(0, top - 1), ["Outras", brutas.slice(top - 1).reduce((a, [, v]) => a + v, 0)]];
+  }
+  const total = entradas.reduce((a, [, v]) => a + v, 0) || 1;
+
+  // Cores: semânticas quando o rótulo é conhecido; o resto pega a paleta sem repetir.
+  const usadas = new Set(entradas.map(([k]) => COR_SEMANTICA[k]).filter(Boolean));
+  const livres = RESUMO_PALETA.filter((c) => !usadas.has(c));
+  let iLivre = 0;
+  const cores = entradas.map(([k]) => COR_SEMANTICA[k] || livres[iLivre++ % (livres.length || 1)] || COR_NEUTRA);
+
+  const size = opts.size || 132, stroke = opts.stroke || 22;
+  const r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
+  const circ = 2 * Math.PI * r;
+  const gap = entradas.length > 1 ? 2 : 0;
+  const centro = opts.centro || "total";
+
+  let acum = 0;
+  const arcos = entradas.map(([k, v], i) => {
+    const fr = v / total;
+    const traco = Math.max(fr * circ - gap, 0.5);
+    const pct = Math.round(fr * 100);
+    const s = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${cores[i]}" stroke-width="${stroke}" stroke-dasharray="${traco.toFixed(2)} ${(circ - traco).toFixed(2)}" stroke-dashoffset="${(-acum).toFixed(2)}" class="donut-arc" data-i="${i}" data-n="${escapeHtml(encurtarTexto(k, 12))}" data-v="${v}" data-p="${pct}" tabindex="0"><title>${escapeHtml(k)}: ${v} (${pct}%)</title></circle>`;
+    acum += fr * circ;
+    return s;
+  }).join("");
+
+  const legenda = entradas.map(([k, v], i) => {
+    const pct = Math.round(v / total * 100);
+    return `
+    <div class="donut-legend-item" data-i="${i}" title="${escapeHtml(k)}: ${v} (${pct}%)">
+      <span class="donut-legend-dot" style="background:${cores[i]}"></span>
+      <span class="donut-legend-label">${escapeHtml(k)}</span>
+      <span class="donut-legend-value"><b>${v}</b> <em>(${pct}%)</em></span>
+    </div>`;
+  }).join("");
+
+  return `<div class="donut-wrap">
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="donut-svg" role="img" aria-label="Gráfico de rosca: ${escapeHtml(centro)}, total ${total}" data-total="${total}" data-centro="${escapeHtml(centro)}">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line,#e4e9ec)" stroke-width="${stroke}" opacity=".35"></circle>
+      <g transform="rotate(-90 ${cx} ${cy})">${arcos}</g>
+      <text x="${cx}" y="${cy + 2}" text-anchor="middle" class="donut-total-num">${total}</text>
+      <text x="${cx}" y="${cy + 17}" text-anchor="middle" class="donut-total-label">${escapeHtml(centro)}</text>
+    </svg>
+    <div class="${opts.legendaLinear ? "donut-legend donut-legend-linear" : "donut-legend"}">${legenda}</div>
+  </div>`;
+}
+
+// Interação das roscas: ao passar o mouse/focar numa fatia (ou item da legenda), o centro mostra
+// o valor e o nome daquela fatia e as demais ficam esmaecidas. Um único ouvinte para todas.
+(function instalarInteracaoDonut() {
+  if (typeof document === "undefined" || window.__donutInteracao) return;
+  window.__donutInteracao = true;
+  const alvo = (e) => (e.target && e.target.closest ? e.target.closest(".donut-wrap [data-i]") : null);
+  function ativar(el) {
+    const wrap = el.closest(".donut-wrap");
+    const svg = wrap.querySelector(".donut-svg");
+    const i = el.getAttribute("data-i");
+    const arco = wrap.querySelector(`.donut-arc[data-i="${i}"]`);
+    if (!arco) return;
+    wrap.classList.add("donut-ativo");
+    wrap.querySelectorAll("[data-i]").forEach((n) => n.classList.toggle("is-active", n.getAttribute("data-i") === i));
+    svg.querySelector(".donut-total-num").textContent = arco.getAttribute("data-v");
+    svg.querySelector(".donut-total-label").textContent = arco.getAttribute("data-n");
+  }
+  function limpar(el) {
+    const wrap = el.closest(".donut-wrap");
+    if (!wrap) return;
+    const svg = wrap.querySelector(".donut-svg");
+    wrap.classList.remove("donut-ativo");
+    wrap.querySelectorAll(".is-active").forEach((n) => n.classList.remove("is-active"));
+    svg.querySelector(".donut-total-num").textContent = svg.getAttribute("data-total");
+    svg.querySelector(".donut-total-label").textContent = svg.getAttribute("data-centro");
+  }
+  document.addEventListener("mouseover", (e) => { const el = alvo(e); if (el) ativar(el); });
+  document.addEventListener("mouseout", (e) => { const el = alvo(e); if (el) limpar(el); });
+  document.addEventListener("focusin", (e) => { const el = alvo(e); if (el) ativar(el); });
+  document.addEventListener("focusout", (e) => { const el = alvo(e); if (el) limpar(el); });
+})();
+
+// Dica flutuante instantânea (a nativa do navegador demora ~1s e não existe no toque).
+// Lê o <title> do elemento do gráfico, guarda em data-tip e exibe perto do cursor/dedo.
+(function instalarDicaGraficos() {
+  if (typeof document === "undefined" || window.__dicaGraficos) return;
+  window.__dicaGraficos = true;
+  let box = null;
+  const SEL = ".chart-svg [tabindex], .donut-arc, .stat-bar-row[title], .donut-legend-item[title]";
+  function caixa() {
+    if (!box) { box = document.createElement("div"); box.className = "chart-tip"; box.setAttribute("role", "tooltip"); document.body.appendChild(box); }
+    return box;
+  }
+  function texto(el) {
+    if (el.dataset.tip) return el.dataset.tip;
+    const t = el.querySelector && el.querySelector(":scope > title");
+    if (t) { el.dataset.tip = t.textContent; t.remove(); return el.dataset.tip; }
+    if (el.hasAttribute("title")) { el.dataset.tip = el.getAttribute("title"); el.removeAttribute("title"); return el.dataset.tip; }
+    return "";
+  }
+  function mostrar(el, x, y) {
+    const t = texto(el); if (!t) return;
+    const b = caixa(); b.textContent = t; b.classList.add("on");
+    const w = b.offsetWidth, h = b.offsetHeight;
+    let left = Math.min(Math.max(x - w / 2, 6), window.innerWidth - w - 6);
+    let top = y - h - 14; if (top < 6) top = y + 18;
+    b.style.left = left + "px"; b.style.top = top + "px";
+  }
+  function esconder() { if (box) box.classList.remove("on"); }
+  const alvo = (e) => (e.target && e.target.closest ? e.target.closest(SEL) : null);
+  document.addEventListener("mousemove", (e) => { const el = alvo(e); if (el) mostrar(el, e.clientX, e.clientY); else esconder(); });
+  document.addEventListener("mouseleave", esconder, true);
+  document.addEventListener("focusin", (e) => { const el = alvo(e); if (el) { const r = el.getBoundingClientRect(); mostrar(el, r.left + r.width / 2, r.top); } });
+  document.addEventListener("focusout", esconder);
+  document.addEventListener("touchstart", (e) => { const el = alvo(e); if (el) { const t = e.touches[0]; mostrar(el, t.clientX, t.clientY); } else esconder(); }, { passive: true });
+  window.addEventListener("scroll", esconder, true);
+})();
+
 const FAIXA_ETARIA_ORDEM = ["0 a 17 anos", "18 a 29 anos", "30 a 44 anos", "45 a 59 anos", "60 anos ou mais", "Não informada"];
 const FAIXA_ETARIA_CURTA = { "0 a 17 anos": "0–17", "18 a 29 anos": "18–29", "30 a 44 anos": "30–44", "45 a 59 anos": "45–59", "60 anos ou mais": "60+", "Não informada": "N/I" };
 
-// Histograma: gráfico de barras encostadas (sem espaço entre elas), com linhas de
-// grade e eixo Y numerado, para a distribuição de frequência de uma variável
-// contínua já agrupada em classes (ex.: faixa etária) — conforme Larson & Farber,
-// "Estatística Aplicada", cap. 2.1 (Distribuições de frequência e seus gráficos).
-// Diferente do gráfico de pizza/rosca, o histograma preserva a ordem natural das
-// classes (0–17, 18–29...), o que ajuda a enxergar a forma da distribuição etária.
+// ---------- Histograma (classes em ordem natural; a mais frequente fica em destaque) ----------
 function histogramaSVG(obj, opts) {
   opts = opts || {};
   const ordem = opts.ordem || Object.keys(obj);
   const rotulos = opts.rotulos || {};
   const entradas = ordem.map((k) => [k, obj[k] || 0]).filter(([, v]) => v > 0 || !opts.ocultarZerados);
   const total = entradas.reduce((a, [, v]) => a + v, 0);
-  if (!total) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
+  if (!total) return semDadosHTML();
 
   const max = Math.max(...entradas.map(([, v]) => v), 1);
-  const passo = degrauEixoY(max);
-  const maxEixo = Math.ceil(max / passo) * passo;
-  const nDegraus = Math.max(Math.round(maxEixo / passo), 1);
-
-  const padLeft = 26, padRight = 8, padTop = 12, padBottom = 40;
-  const chartH = 120;
-  const colW = 58;
-  const width = padLeft + entradas.length * colW + padRight;
-  const height = chartH + padTop + padBottom;
-
-  const grades = Array.from({ length: nDegraus + 1 }, (_, i) => {
-    const valor = i * passo;
-    const y = padTop + chartH - (valor / maxEixo) * chartH;
-    return `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1" opacity="${i === 0 ? 1 : .45}"></line>
-      <text x="${padLeft - 6}" y="${y + 3}" text-anchor="end" class="hist-eixo-num">${valor}</text>`;
-  }).join("");
+  const eixo = eixoY(max);
+  const padL = margemEixoNum(eixo.topo), padR = 10, padT = 20, padB = 42, chartH = 124, colW = 60;
+  const width = padL + entradas.length * colW + padR;
+  const height = chartH + padT + padB;
+  // moda = classe mais frequente entre as informadas
+  const moda = entradas.filter(([k]) => k !== "Não informada").sort((a, b) => b[1] - a[1])[0];
 
   const barras = entradas.map(([k, v], i) => {
-    const x0 = padLeft + i * colW;
-    const h = Math.round((v / maxEixo) * chartH);
-    const y = padTop + chartH - h;
-    const naoInformada = k === "Não informada";
+    const x0 = padL + i * colW;
+    const h = Math.round((v / eixo.topo) * chartH);
+    const y = padT + chartH - h;
+    const ni = k === "Não informada";
+    const eModa = moda && moda[0] === k && v > 0;
     const pct = Math.round(v / total * 100);
+    const cor = ni ? COR_NEUTRA : "var(--accent, #2E7D6B)";
     return `
-      <rect x="${x0}" y="${y}" width="${colW}" height="${h}" fill="var(--accent, #2E7D6B)" opacity="${naoInformada ? .4 : 1}" rx="2" class="hist-bar" tabindex="0"><title>${escapeHtml(rotulos[k] || k)}: ${v} (${pct}%)</title></rect>
-      ${v ? `<text x="${x0 + colW / 2}" y="${y - 4}" text-anchor="middle" class="hist-bar-num">${v}</text>` : ""}
-      <text x="${x0 + colW / 2}" y="${padTop + chartH + 16}" text-anchor="middle" class="hist-bar-label">${escapeHtml(rotulos[k] || k)}</text>
-      <text x="${x0 + colW / 2}" y="${padTop + chartH + 29}" text-anchor="middle" class="hist-bar-pct">${pct}%</text>`;
+      <path d="${barraArredondadaPath(x0 + 5, y, colW - 10, h, 4)}" fill="${cor}" opacity="${ni ? .75 : eModa ? 1 : .62}" class="hist-bar" tabindex="0"><title>${escapeHtml(rotulos[k] || k)}: ${v} (${pct}%)</title></path>
+      ${v ? `<text x="${x0 + colW / 2}" y="${y - 5}" text-anchor="middle" class="hist-bar-num">${v}</text>` : ""}
+      <text x="${x0 + colW / 2}" y="${padT + chartH + 17}" text-anchor="middle" class="hist-bar-label">${escapeHtml(rotulos[k] || k)}</text>
+      <text x="${x0 + colW / 2}" y="${padT + chartH + 31}" text-anchor="middle" class="hist-bar-pct">${pct}%</text>`;
   }).join("");
 
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="histograma-chart" role="img" aria-label="Histograma">
-    ${grades}
-    <line x1="${padLeft}" y1="${padTop + chartH}" x2="${padLeft}" y2="${padTop}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
-    ${barras}
-  </svg>`;
+  const leitura = moda && moda[1] > 0
+    ? `<div class="chart-insight">Faixa mais frequente: <b>${escapeHtml(rotulos[moda[0]] || moda[0])}</b> — ${moda[1]} (${Math.round(moda[1] / total * 100)}%).</div>` : "";
+  return svgGrafico(width, height, "histograma-chart", "Histograma", `
+    ${gradeEixoY(eixo, padL, width - padR, padT, chartH)}
+    ${barras}`) + leitura;
 }
 
-// Gráfico de Pareto: barras em ordem decrescente de frequência + linha de percentual
-// acumulado — conforme Larson & Farber, "Estatística Aplicada", cap. 2.2 (Mais
-// gráficos e apresentações de dados). Ajuda a equipe a identificar rapidamente as
-// "poucas causas vitais": normalmente uma minoria das vulnerabilidades/situações
-// concentra a maior parte dos casos, e é nelas que a intervenção rende mais.
+// ---------- Pareto (barras em ordem decrescente + linha de % acumulado) ----------
 function paretoChartSVG(obj, opts) {
   opts = opts || {};
   const top = opts.top || 7;
-  const entradasBrutas = Object.entries(obj).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-  if (!entradasBrutas.length) return `<p class="muted" style="font-size:12px;">Sem dados registrados.</p>`;
-  const totalGeral = entradasBrutas.reduce((a, [, v]) => a + v, 0);
-  const entradas = entradasBrutas.slice(0, top);
+  const brutas = Object.entries(obj).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (!brutas.length) return semDadosHTML();
+  const totalGeral = brutas.reduce((a, [, v]) => a + v, 0);
+  const entradas = brutas.slice(0, top);
   const max = Math.max(...entradas.map(([, v]) => v), 1);
-  const passo = degrauEixoY(max);
-  const maxEixo = Math.ceil(max / passo) * passo;
-  const nDegraus = Math.max(Math.round(maxEixo / passo), 1);
+  const eixo = eixoY(max);
 
-  const padLeft = 26, padRight = 30, padTop = 16, padBottom = 66;
-  const chartH = 128;
-  const colW = 54;
-  const width = padLeft + entradas.length * colW + padRight;
-  const height = chartH + padTop + padBottom;
+  // Rótulos inclinados: reserva altura e margem esquerda conforme o maior rótulo (largura média conservadora).
+  const CHAR = 6.2, COS = 0.788, SIN = 0.616; // ângulo de -38°
+  const rotulosTxt = entradas.map(([k]) => encurtarTexto(k, 26));
+  const comprimentos = rotulosTxt.map((t) => t.length * CHAR);
+  const colW = 58;
+  const padT = 22, chartH = 132, padR = 40;
+  const padB = Math.ceil(Math.max(...comprimentos) * SIN) + 26;
+  const extPrimeiro = comprimentos[0] * COS; // quanto o 1º rótulo avança para a esquerda
+  const padL = Math.min(Math.max(margemEixoNum(eixo.topo), Math.ceil(extPrimeiro - colW / 2 + 12)), 110);
+  const width = padL + Math.max(entradas.length, 4) * colW + padR;
+  const height = chartH + padT + padB;
 
-  const grades = Array.from({ length: nDegraus + 1 }, (_, i) => {
-    const valor = i * passo;
-    const y = padTop + chartH - (valor / maxEixo) * chartH;
-    return `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1" opacity="${i === 0 ? 1 : .45}"></line>
-      <text x="${padLeft - 6}" y="${y + 3}" text-anchor="end" class="hist-eixo-num">${valor}</text>`;
-  }).join("");
-
-  let acumulado = 0;
+  let acum = 0, nVitais = 0;
   const pontos = [];
   const barras = entradas.map(([k, v], i) => {
-    const x0 = padLeft + i * colW;
-    const h = Math.round((v / maxEixo) * chartH);
-    const y = padTop + chartH - h;
-    acumulado += v;
-    const pct = Math.round((acumulado / totalGeral) * 100);
-    const yLinha = padTop + chartH - (pct / 100) * chartH;
-    pontos.push([x0 + colW / 2, yLinha, pct, k]);
-    const rotulo = k.length > 22 ? k.slice(0, 20) + "…" : k;
+    const x0 = padL + i * colW;
+    const h = Math.round((v / eixo.topo) * chartH);
+    const y = padT + chartH - h;
+    const antes = acum;
+    acum += v;
+    const pct = Math.round((acum / totalGeral) * 100);
+    const vital = Math.round((antes / totalGeral) * 100) < 80; // barras até cruzar 80%
+    if (vital) nVitais = i + 1;
+    pontos.push([x0 + colW / 2, padT + chartH - (pct / 100) * chartH, pct, k]);
     const pctBarra = Math.round((v / totalGeral) * 100);
     return `
-      <rect x="${x0 + 3}" y="${y}" width="${colW - 6}" height="${h}" fill="var(--accent, #2E7D6B)" rx="2" class="pareto-bar" tabindex="0"><title>${escapeHtml(k)}: ${v} ocorrências (${pctBarra}%)</title></rect>
-      <text x="${x0 + colW / 2}" y="${y - 4}" text-anchor="middle" class="hist-bar-num">${v}</text>
-      <text x="${x0 + colW / 2}" y="${padTop + chartH + 14}" text-anchor="end" class="pareto-bar-label" transform="rotate(-38 ${x0 + colW / 2} ${padTop + chartH + 14})">${escapeHtml(rotulo)}</text>`;
+      <path d="${barraArredondadaPath(x0 + 6, y, colW - 12, h, 4)}" fill="var(--accent, #2E7D6B)" opacity="${vital ? 1 : .42}" class="pareto-bar" tabindex="0"><title>${escapeHtml(k)}: ${v} ocorrências (${pctBarra}%)</title></path>
+      <text x="${x0 + colW / 2}" y="${y - 5}" text-anchor="middle" class="hist-bar-num">${v}</text>
+      <text x="${x0 + colW / 2 + 4}" y="${padT + chartH + 14}" text-anchor="end" class="pareto-bar-label" transform="rotate(-38 ${x0 + colW / 2 + 4} ${padT + chartH + 14})">${escapeHtml(rotulosTxt[i])}<title>${escapeHtml(k)}</title></text>`;
   }).join("");
 
-  const linhaPontos = pontos.map(([x, y]) => `${x},${y}`).join(" ");
+  const xFim = width - padR;
+  const linha = pontos.map(([x, y]) => `${x},${y}`).join(" ");
   const marcadores = pontos.map(([x, y, pct, k]) => `
-    <circle cx="${x}" cy="${y}" r="3.2" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1.2" class="pareto-ponto" tabindex="0"><title>Acumulado até "${escapeHtml(k)}": ${pct}%</title></circle>
-    <text x="${x}" y="${y - 7}" text-anchor="middle" class="pareto-pct-num">${pct}%</text>`).join("");
+    <circle cx="${x}" cy="${y}" r="3.6" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1.5" class="pareto-ponto" tabindex="0"><title>Acumulado até "${escapeHtml(k)}": ${pct}%</title></circle>
+    <text x="${x}" y="${y - 8}" text-anchor="middle" class="pareto-pct-num">${pct}%</text>`).join("");
+  const y80 = padT + chartH - 0.8 * chartH;
+  const eixoDir = [0, 50, 100].map((p) => `<text x="${xFim + 6}" y="${padT + chartH - (p / 100) * chartH + 3}" text-anchor="start" class="pareto-eixo-dir">${p}%</text>`).join("");
 
-  const y80 = padTop + chartH - 0.8 * chartH;
+  const leitura = (nVitais && brutas.length > 2)
+    ? `<div class="chart-insight">${nVitais === 1 ? "A categoria mais frequente concentra" : `As ${nVitais} categorias mais frequentes concentram`} <b>${pontos[nVitais - 1][2]}%</b> das ocorrências — é onde a intervenção rende mais.</div>` : "";
 
   return `
     <div class="chart-legend-inline">
-      <span><i style="background:var(--accent, #2E7D6B)"></i> Ocorrências</span>
-      <span><i style="background:var(--gold, #B98A34)"></i> % acumulado</span>
-      <span><i style="background:none;border-top:2px dashed #B0959C;height:0;"></i> Corte 80%</span>
-    </div>
-    <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMinYMin meet" class="pareto-chart" role="img" aria-label="Gráfico de Pareto">
-      ${grades}
-      <line x1="${padLeft}" y1="${y80}" x2="${width - padRight}" y2="${y80}" stroke="#B0959C" stroke-width="1" stroke-dasharray="4 3" opacity=".8"><title>Linha de referência: 80% acumulado</title></line>
-      <line x1="${padLeft}" y1="${padTop + chartH}" x2="${padLeft}" y2="${padTop}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
+      <span><i style="background:var(--accent, #2E7D6B)"></i> Ocorrências (até 80%)</span>
+      <span><i style="background:var(--accent, #2E7D6B);opacity:.42"></i> Demais</span>
+      <span><i class="lg-linha" style="background:var(--gold, #B98A34)"></i> % acumulado</span>
+    </div>` + svgGrafico(width, height, "pareto-chart", "Gráfico de Pareto", `
+      ${gradeEixoY(eixo, padL, xFim, padT, chartH)}
+      <line x1="${padL}" y1="${y80}" x2="${xFim}" y2="${y80}" stroke="#B0959C" stroke-width="1" stroke-dasharray="4 3"><title>Linha de referência: 80% acumulado</title></line>
+      ${eixoDir}
       ${barras}
-      <polyline points="${linhaPontos}" fill="none" stroke="var(--gold, #B98A34)" stroke-width="1.6" stroke-linejoin="round"></polyline>
-      ${marcadores}
-    </svg>
-    ${entradasBrutas.length > top ? `<p class="hint" style="margin-top:4px;">Mostrando as ${top} mais frequentes de ${entradasBrutas.length} categorias registradas.</p>` : ""}`;
+      <polyline points="${linha}" fill="none" stroke="var(--gold, #B98A34)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="chart-linha" style="--len:${width * 2}"></polyline>
+      ${marcadores}`) + leitura +
+    (brutas.length > top ? `<p class="hint chart-nota">Mostrando as ${top} mais frequentes de ${brutas.length} categorias registradas.</p>` : "");
 }
 
+// ---------- Evolução mensal: barras (incluídas x excluídas) + linha do saldo acumulado ----------
 function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
   opts = opts || {};
   const limite = opts.limite || 12;
-  const meses = linhasCrescentes.slice(-limite);
-  if (!meses.length) return `<p class="muted" style="font-size:12px;">Sem dados suficientes para o gráfico.</p>`;
+  if (!linhasCrescentes.length) return semDadosHTML("Sem dados suficientes para o gráfico.");
 
-  const valores = meses.map(ym => ({
-    ym,
-    inc: grupos[ym]?.quantidade || 0,
-    exc: saidas[ym]?.quantidade || 0
-  }));
-  const maxValor = Math.max(...valores.map(v => Math.max(v.inc, v.exc)), 1);
-  const passo = degrauEixoY(maxValor);
-  const maxEixo = Math.ceil(maxValor / passo) * passo;
-  const nDegraus = Math.max(Math.round(maxEixo / passo), 1);
+  // saldo acumulado desde o primeiro mês registrado (não só da janela exibida)
+  let ac = 0;
+  const todos = linhasCrescentes.map((ym) => {
+    const inc = grupos[ym]?.quantidade || 0, exc = saidas[ym]?.quantidade || 0;
+    ac += inc - exc;
+    return { ym, inc, exc, ac };
+  });
+  const valores = todos.slice(-limite);
 
-  const colW = 46;
-  const chartH = 120;
-  const padTop = 10, padBottom = 34, padSide = 26;
-  const width = meses.length * colW + padSide + 10;
-  const height = chartH + padTop + padBottom;
-  const barW = 14;
+  const maxBarra = Math.max(...valores.map((v) => Math.max(v.inc, v.exc)), 1);
+  const eixo = eixoY(maxBarra);
+  const acMin = Math.min(0, ...valores.map((v) => v.ac)), acMax = Math.max(1, ...valores.map((v) => v.ac));
+  const escAc = (a) => 0 + (a - acMin) / (acMax - acMin); // 0..1
 
-  const grades = Array.from({ length: nDegraus + 1 }, (_, i) => {
-    const valor = i * passo;
-    const y = padTop + chartH - (valor / maxEixo) * chartH;
-    return `<line x1="${padSide}" y1="${y}" x2="${width - 6}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1" opacity="${i === 0 ? 1 : .45}"></line>
-      <text x="${padSide - 6}" y="${y + 3}" text-anchor="end" class="hist-eixo-num">${valor}</text>`;
-  }).join("");
+  const colW = 50, barW = 15, padT = 24, chartH = 128, padB = 46;
+  const padL = margemEixoNum(eixo.topo), padR = margemEixoNum(Math.max(acMax, Math.abs(acMin))) + 14;
+  const width = padL + valores.length * colW + padR;
+  const height = chartH + padT + padB;
+  const xFim = width - padR;
+  const yAc = (a) => padT + chartH - escAc(a) * chartH;
 
   const barras = valores.map((v, i) => {
-    const x0 = padSide + i * colW;
-    const hInc = Math.round((v.inc / maxEixo) * chartH);
-    const hExc = Math.round((v.exc / maxEixo) * chartH);
-    const yInc = padTop + (chartH - hInc);
-    const yExc = padTop + (chartH - hExc);
+    const x0 = padL + i * colW, xc = x0 + colW / 2;
+    const hInc = Math.round((v.inc / eixo.topo) * chartH), hExc = Math.round((v.exc / eixo.topo) * chartH);
+    const yInc = padT + chartH - hInc, yExc = padT + chartH - hExc;
     const saldo = v.inc - v.exc;
-    const mesLabel = labelYmCurto(v.ym);
+    const mes = labelYmCurto(v.ym);
     return `
       <g>
-        <rect x="${x0 + colW / 2 - barW - 2}" y="${yInc}" width="${barW}" height="${hInc}" fill="var(--accent, #2E7D6B)" rx="2" class="evo-bar" tabindex="0"><title>${mesLabel}: ${v.inc} incluída${v.inc === 1 ? "" : "s"}</title></rect>
-        <rect x="${x0 + colW / 2 + 2}" y="${yExc}" width="${barW}" height="${hExc}" fill="var(--danger, #B5473F)" rx="2" class="evo-bar" tabindex="0"><title>${mesLabel}: ${v.exc} excluída${v.exc === 1 ? "" : "s"}</title></rect>
-        ${v.inc ? `<text x="${x0 + colW / 2 - barW / 2 - 2}" y="${yInc - 3}" text-anchor="middle" class="chart-bar-num">${v.inc}</text>` : ""}
-        ${v.exc ? `<text x="${x0 + colW / 2 + barW / 2 + 2}" y="${yExc - 3}" text-anchor="middle" class="chart-bar-num">${v.exc}</text>` : ""}
-        <text x="${x0 + colW / 2}" y="${padTop + chartH + 16}" text-anchor="middle" class="chart-bar-mes">${mesLabel}</text>
-        <text x="${x0 + colW / 2}" y="${padTop + chartH + 27}" text-anchor="middle" class="chart-bar-saldo ${saldo > 0 ? "saldo-pos" : saldo < 0 ? "saldo-neg" : "saldo-zero"}">${saldo > 0 ? "+" : ""}${saldo}</text>
+        <path d="${barraArredondadaPath(xc - barW - 1.5, yInc, barW, hInc, 3)}" fill="var(--accent, #2E7D6B)" class="evo-bar" tabindex="0"><title>${mes}: ${v.inc} incluída${v.inc === 1 ? "" : "s"}</title></path>
+        <path d="${barraArredondadaPath(xc + 1.5, yExc, barW, hExc, 3)}" fill="var(--danger, #B5473F)" class="evo-bar" tabindex="0"><title>${mes}: ${v.exc} excluída${v.exc === 1 ? "" : "s"}</title></path>
+        ${v.inc ? `<text x="${xc - barW / 2 - 1.5}" y="${yInc - 4}" text-anchor="middle" class="chart-bar-num">${v.inc}</text>` : ""}
+        ${v.exc ? `<text x="${xc + barW / 2 + 1.5}" y="${yExc - 4}" text-anchor="middle" class="chart-bar-num">${v.exc}</text>` : ""}
+        <text x="${xc}" y="${padT + chartH + 16}" text-anchor="middle" class="chart-bar-mes">${mes}</text>
+        <text x="${xc}" y="${padT + chartH + 30}" text-anchor="middle" class="chart-bar-saldo ${saldo > 0 ? "saldo-pos" : saldo < 0 ? "saldo-neg" : "saldo-zero"}">${saldo > 0 ? "+" : ""}${saldo}</text>
       </g>`;
   }).join("");
+
+  const linha = valores.map((v, i) => `${padL + i * colW + colW / 2},${yAc(v.ac)}`).join(" ");
+  const pontos = valores.map((v, i) => `<circle cx="${padL + i * colW + colW / 2}" cy="${yAc(v.ac)}" r="3.2" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1.4" class="pareto-ponto" tabindex="0"><title>${labelYmCurto(v.ym)}: ${v.ac} famílias acumuladas</title></circle>`).join("");
+  const eixoDir = [acMax, ...(acMin < 0 ? [0, acMin] : [0])].map((a) => `<text x="${xFim + 6}" y="${yAc(a) + 3}" text-anchor="start" class="pareto-eixo-dir">${a}</text>`).join("");
+  const linhaZero = acMin < 0 ? `<line x1="${padL}" y1="${yAc(0)}" x2="${xFim}" y2="${yAc(0)}" stroke="var(--gold, #B98A34)" stroke-width="1" stroke-dasharray="3 3" opacity=".6"></line>` : "";
+  const ultimo = valores[valores.length - 1];
 
   return `
     <div class="chart-legend-inline">
       <span><i style="background:var(--accent, #2E7D6B)"></i> Incluídas</span>
       <span><i style="background:var(--danger, #B5473F)"></i> Excluídas</span>
-      <span><i style="background:none;"></i> Saldo do mês</span>
-    </div>
-    <svg viewBox="0 0 ${width} ${height + 12}" width="100%" height="${height + 12}" preserveAspectRatio="xMinYMin meet" class="evolucao-chart" role="img" aria-label="Evolução mensal de famílias incluídas e excluídas">
-      ${grades}
-      <line x1="${padSide}" y1="${padTop}" x2="${padSide}" y2="${padTop + chartH}" stroke="var(--line,#d7dee4)" stroke-width="1"></line>
+      <span><i class="lg-linha" style="background:var(--gold, #B98A34)"></i> Saldo acumulado (eixo à direita)</span>
+      <span class="lg-texto">Número sob o mês = saldo do mês</span>
+    </div>` + svgGrafico(width, height, "evolucao-chart", "Evolução mensal de famílias incluídas e excluídas, com saldo acumulado", `
+      ${gradeEixoY(eixo, padL, xFim, padT, chartH)}
+      ${linhaZero}
+      ${eixoDir}
       ${barras}
-    </svg>`;
+      <polyline points="${linha}" fill="none" stroke="var(--gold, #B98A34)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="chart-linha" style="--len:${width * 2}"></polyline>
+      ${pontos}`) +
+    `<div class="chart-insight">Saldo acumulado em ${labelYmCurto(ultimo.ym)}: <b>${ultimo.ac}</b> família${Math.abs(ultimo.ac) === 1 ? "" : "s"}.</div>`;
 }
 
 function assinaturaHTML() {
@@ -2298,14 +2476,16 @@ function assinaturaHTML() {
     </div>`;
 }
 
-function resumoGeralGeralHTML(r, anteriorTotal) {
+function resumoGeralGeralHTML(r, anteriorTotal, mensal) {
   const delta = anteriorTotal != null ? { diff: r.total - anteriorTotal } : null;
+  const g = mensal && mensal.grupos ? mensal.grupos : {};
+  const spark = (sit, cor) => sparklineSVG(serieKpiAcumulada(g, sit), cor);
   return `
     <div class="kpi-grid kpi-grid-hero">
-      ${kpiCardHTML(r.total, "Total de PAFs", "cabecalho", delta)}
-      ${kpiCardHTML(r.porStatus.andamento || 0, "Em andamento", "diagnostico")}
-      ${kpiCardHTML(r.porStatus.encaminhado || 0, "Encaminhados", "encaminhamentos")}
-      ${kpiCardHTML(r.porStatus.concluido || 0, "Concluídos", "encerramento")}
+      ${kpiCardHTML(r.total, "Total de PAFs", "cabecalho", delta, spark(null, "#1F3A5F"))}
+      ${kpiCardHTML(r.porStatus.andamento || 0, "Em andamento", "diagnostico", null, spark("andamento", "#2E7D6B"))}
+      ${kpiCardHTML(r.porStatus.encaminhado || 0, "Encaminhados", "encaminhamentos", null, spark("encaminhado", "#B98A34"))}
+      ${kpiCardHTML(r.porStatus.concluido || 0, "Concluídos", "encerramento", null, spark("concluido", "#52667C"))}
     </div>
     <div class="kpi-grid">
       ${kpiCardHTML(state.desistentes.length, "Famílias desistentes", "encerramento")}
@@ -2689,7 +2869,7 @@ function renderDashboardHTML() {
         ${dashboardNavHTML()}
         <div class="resumo-scroll">
           ${filtrosAtivos ? `<p class="dash-filtro-resumo">Mostrando <strong>${geral.total}</strong> de ${state.pafs.length} PAFs cadastrados, conforme os filtros acima.</p>` : ""}
-          <div id="dash-sec-geral">${resumoGeralGeralHTML(geral, anteriorTotal)}</div>
+          <div id="dash-sec-geral">${resumoGeralGeralHTML(geral, anteriorTotal, grupos)}</div>
           <div id="dash-sec-perfil">${resumoGeralPerfilHTML(geral)}</div>
           <div id="dash-sec-territorio">${resumoGeralTerritorioHTML(geral)}</div>
           <div id="dash-sec-vulnerabilidades">${resumoGeralVulnerabilidadesHTML(geral)}</div>
@@ -2949,8 +3129,29 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         .chart-legend-inline span { display: flex; align-items: center; gap: 4px; }
         .chart-legend-inline i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
         .evolucao-chart { display: block; }
+        .chart-scroll { overflow: visible; }
+        .kpi-spark-wrap { display: block; margin: 5px auto 0; max-width: 90px; }
+        .kpi-spark { display: block; width: 100%; height: 18px; }
+        .resumo-cols > div:has(.pareto-chart), .resumo-cols > div:has(.histograma-chart) { grid-column: span 2; }
+        .chart-svg { display: block; width: 100%; height: auto; max-width: 100%; min-width: 0; }
+        .chart-insight { font-size: 9.5px; color: #52667C; margin-top: 4px; }
+        .chart-insight b { color: #1F3A5F; }
+        .chart-nota { margin-top: 3px; }
+        .chart-legend-inline i.lg-linha { height: 3px; width: 12px; border-radius: 2px; }
+        .pareto-bar-label { font-size: 8px; fill: #52667C; }
+        .pareto-pct-num { font-size: 8px; fill: #8a6423; font-weight: bold; paint-order: stroke; stroke: #fff; stroke-width: 2.5px; stroke-linejoin: round; }
+        .pareto-eixo-dir { font-size: 7.5px; fill: #8a6423; }
+        .chart-bar-saldo { font-size: 8.5px; font-weight: bold; }
+        .chart-bar-saldo.saldo-pos { fill: #1F5C4E; }
+        .chart-bar-saldo.saldo-neg { fill: #A63D33; }
+        .chart-bar-saldo.saldo-zero { fill: #8496A8; }
+        .stat-bar-value b { font-weight: bold; color: #1F3A5F; }
+        .donut-legend-value b { font-weight: bold; color: #1F3A5F; }
         .chart-bar-num { font-size: 8.8px; fill: #1F3A5F; }
         .chart-bar-mes { font-size: 8.8px; fill: #5b7186; }
+        .hist-eixo-num, .hist-bar-pct { font-size: 8px; fill: #8496A8; }
+        .hist-bar-num { font-size: 8.5px; fill: #1F3A5F; font-weight: bold; }
+        .hist-bar-label { font-size: 8.5px; fill: #52667C; }
 
         .assinatura-bloco { margin-top: 38px; page-break-inside: avoid; text-align: center; }
         .assinatura-linha { width: 260px; border-top: 1px solid #1F3A5F; margin: 0 auto 6px; }
@@ -6124,6 +6325,23 @@ async function exportPDF(paf) {
           padding: 2px 8px; border-radius: 5px; font-size: 9.5px; font-weight: 600;
         }
         .histograma-chart, .evolucao-chart { display: block; }
+        .chart-scroll { overflow: visible; }
+        .resumo-cols > div:has(.pareto-chart), .resumo-cols > div:has(.histograma-chart) { grid-column: span 2; }
+        .chart-svg { display: block; width: 100%; height: auto; max-width: 100%; min-width: 0; }
+        .chart-insight { font-size: 9.5px; color: #52667C; margin-top: 4px; }
+        .chart-insight b { color: #1F3A5F; }
+        .chart-nota { margin-top: 3px; }
+        .chart-legend-inline i.lg-linha { height: 3px; width: 12px; border-radius: 2px; }
+        .pareto-bar-label { font-size: 8px; fill: #52667C; }
+        .pareto-pct-num { font-size: 8px; fill: #8a6423; font-weight: bold; paint-order: stroke; stroke: #fff; stroke-width: 2.5px; stroke-linejoin: round; }
+        .pareto-eixo-dir { font-size: 7.5px; fill: #8a6423; }
+        .chart-bar-saldo { font-size: 8.5px; font-weight: bold; }
+        .chart-bar-saldo.saldo-pos { fill: #1F5C4E; }
+        .chart-bar-saldo.saldo-neg { fill: #A63D33; }
+        .chart-bar-saldo.saldo-zero { fill: #8496A8; }
+        .stat-bar-value b { font-weight: bold; color: #1F3A5F; }
+        .donut-legend-value b { font-weight: bold; color: #1F3A5F; }
+
         .hist-eixo-num, .hist-bar-pct { font-size: 8px; fill: #8496A8; }
         .hist-bar-num { font-size: 8.5px; fill: #1F3A5F; font-weight: bold; }
         .hist-bar-label { font-size: 8.5px; fill: #52667C; }
