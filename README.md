@@ -34,6 +34,10 @@ os registros só para si (não compartilha com os outros).
          match /anexos/{anexoId} {
            allow read, write: if request.auth != null;
          }
+
+         match /historico/{registroId} {
+           allow read, write: if request.auth != null;
+         }
        }
      }
    }
@@ -467,10 +471,11 @@ da família com o tempo.
 - **Marco manual:** botão "Registrar marco" para anotar avanços que não aparecem em nenhum campo.
 - **Duas visões:** *Linha do tempo* (por data) e *Por campo* (trajetória de cada campo, com
   mini-gráfico para renda e outros números). Filtro por seção.
+- **Ações registradas:** além das alterações de campos, o histórico guarda quem anexou/removeu arquivo, gerou PDF, exportou Word, imprimiu encaminhamento ou removeu um registro do histórico (tipo "Ação"; filtro por tipo e por usuário). Exportar não altera a data de "última atualização" da ficha.
 - **Exportação:** o histórico sai no PDF e no Word do PAF.
-- **Nuvem:** o histórico fica dentro do próprio documento do PAF — não exige mudar as regras do
+- **Nuvem:** (versão atual) cada registro do histórico é um documento próprio na subcoleção `historico` do PAF — sem o limite de 1 MB. **É preciso republicar as regras do Firestore** (arquivo `firestore.rules` ou o trecho acima, com a regra de `historico`). PAFs antigos são migrados automaticamente na primeira abertura; até a regra ser publicada, o histórico continua salvo dentro do PAF como antes. (Nas versões anteriores o histórico ficava dentro do próprio documento do PAF — o que não exigia mudar as regras do
   Firestore. Se ficar muito grande (limite de 1 MB por documento), os registros automáticos mais
-  antigos são descartados.
+  antigos eram descartados.)
 - O histórico começa a valer a partir do momento em que esta versão é publicada; PAFs antigos
   não têm histórico retroativo.
 
