@@ -21,7 +21,7 @@
 const HIST_IGNORAR = new Set([
   "diario", "habitacaoObs", "eduObs", "rendaObs", "saudeObs", "aspectosPsicossociaisObs", "barreirasDesafios", "observacoes", // campos de texto agora são anotações datadas (ver "Anotações por dia")
   "id", "createdAt", "updatedAt", "criadoPor", "atualizadoPor",
-  "anexos", "anexosCount", "historico", "tipo", "situacaoData"
+  "anexos", "anexosCount", "anexosBytes", "historico", "historicoCount", "tipo", "situacaoData"
 ]);
 
 // Listas de itens fixos (o app cria sempre os mesmos itens): comparadas pelo nome do item.
@@ -114,7 +114,7 @@ const HIST_CAMPOS_NUMERICOS = /^(renda|habitacaoComodos|habitacaoDormitorios|edu
 
 // Anotações abertas pelo usuário (sobrevivem ao redesenho da tela)
 const HIST_ABERTOS = new Map(); // id -> aberto (true/false); sem entrada = padrão
-const HIST_UI = { view: "linha", secao: "", periodo: "", tipo: "", busca: "" };
+const HIST_UI = { view: "linha", secao: "", periodo: "", tipo: "", busca: "", usuario: "" };
 try { Object.assign(HIST_UI, JSON.parse(sessionStorage.getItem("paif_hist_ui") || "{}")); } catch (e) { /* ignora */ }
 function histSalvarUI() { try { sessionStorage.setItem("paif_hist_ui", JSON.stringify(HIST_UI)); } catch (e) { /* ignora */ } }
 
@@ -124,12 +124,12 @@ function histTextoExportacao(paf) {
   const blocos = [];
   histOrdenar(paf).forEach(({ e }) => {
     if (!histPeriodoOk(e.data)) return;
-    const manual = e.tipo === "manual";
-    if (HIST_UI.tipo === "manual" && !manual) return;
-    if (HIST_UI.tipo === "auto" && manual) return;
+    const manual = e.tipo === "manual", acao = e.tipo === "acao";
+    if (!histTipoUsuarioOk(e)) return;
     let muds = e.mudancas || [];
     if (HIST_UI.secao) { muds = muds.filter(m => m.secao === HIST_UI.secao); if (!muds.length) return; }
-    const linhas = [(e.data ? fmtDateBR(e.data) : "sem data") + " — " + (manual ? "Marco de evolução" : muds.length + (muds.length === 1 ? " alteração" : " alterações")) + (e.usuario ? " (" + e.usuario + ")" : "")];
+    const hora = histHora(e.atualizadoEm || e.criadoEm);
+    const linhas = [(e.data ? fmtDateBR(e.data) : "sem data") + (hora ? " " + hora : "") + " — " + (manual ? "Marco de evolução" : acao ? "Ação: " + (e.descricao || e.acao) : muds.length + (muds.length === 1 ? " alteração" : " alterações")) + (e.usuario ? " (" + e.usuario + ")" : "")];
     muds.forEach(m => linhas.push("  • " + histSecaoLabel(m.secao) + " › " + histTextoMudanca(m)));
     if (e.nota) linhas.push("  Anotação: " + e.nota);
     const txt = linhas.join("\n");
@@ -147,6 +147,16 @@ function histPeriodoOk(data) {
   const lim = new Date(); lim.setDate(lim.getDate() - dias);
   const p = n => String(n).padStart(2, "0");
   return data >= `${lim.getFullYear()}-${p(lim.getMonth() + 1)}-${p(lim.getDate())}`;
+}
+function histNomeUsuario(email) {
+  const n = String(email || "").split("@")[0].replace(/[._-]+/g, " ").trim();
+  return n ? n.replace(/\b\p{L}/gu, c => c.toUpperCase()) : "Usuário não identificado";
+}
+// Um registro passa pelos filtros de tipo (alterações / marcos / ações) e de usuário?
+function histTipoUsuarioOk(e) {
+  if (HIST_UI.tipo && e.tipo !== HIST_UI.tipo) return false;
+  if (HIST_UI.usuario && (e.usuario || "") !== HIST_UI.usuario) return false;
+  return true;
 }
 function histNorm(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
 function histNomeMes(data) {
@@ -316,11 +326,17 @@ function histIniciarBase(paf) {
 
 function histLimitar(paf) {
   const h = paf.historico;
+  // Nuvem: cada registro é um documento próprio (sem o limite de 1 MB do PAF) — limite só por quantidade.
+  if (typeof state !== "undefined" && state.mode === "cloud" && state.db) {
+    if (h.length > 5000) h.splice(0, h.length - 5000);
+    return;
+  }
   if (h.length > 1000) h.splice(0, h.length - 1000);
   // O PAF inteiro vai num único documento do Firestore (limite de 1 MB):
   // se o histórico crescer demais, descarta os registros automáticos mais antigos.
   while (h.length > 20 && JSON.stringify(h).length > 600000) {
-    const i = h.findIndex(e => e.tipo === "auto");
+    let i = h.findIndex(e => e.tipo === "acao");
+    if (i === -1) i = h.findIndex(e => e.tipo === "auto");
     h.splice(i === -1 ? 0 : i, 1);
   }
 }
@@ -366,6 +382,27 @@ function histAdicionarMarco(paf, data, nota) {
     usuario: (state.currentUser && state.currentUser.email) || null, estrutural: true, nota, mudancas: []
   });
   histLimitar(paf);
+}
+
+/* Ações que não alteram campos do PAF (anexos, exportações, impressões, remoções no histórico).
+   Ficam no mesmo histórico, com tipo "acao", para saber quem fez o quê e quando. */
+function histAdicionarAcao(paf, acao, descricao) {
+  if (!paf) return;
+  if (!Array.isArray(paf.historico)) paf.historico = [];
+  const agora = new Date().toISOString();
+  const usuario = (state.currentUser && state.currentUser.email) || null;
+  const ult = paf.historico[paf.historico.length - 1];
+  // evita duplicar o mesmo registro por clique duplo (menos de 1 min)
+  if (ult && ult.tipo === "acao" && ult.acao === acao && ult.descricao === descricao && ult.usuario === usuario
+      && Date.now() - new Date(ult.criadoEm).getTime() < 60000) return;
+  paf.historico.push({ id: histId(), tipo: "acao", acao, descricao, data: histHoje(), criadoEm: agora, atualizadoEm: agora, usuario, estrutural: true, nota: "", mudancas: [] });
+  histLimitar(paf);
+}
+
+// Registra a ação e grava o PAF sem mexer na data de "última atualização" (exportar não é editar).
+function histRegistrarAcao(paf, acao, descricao) {
+  histAdicionarAcao(paf, acao, descricao);
+  if (typeof savePAF === "function") savePAF(paf, { silent: true, semAtualizarData: true });
 }
 
 /* ---------------------------- Apresentação ---------------------------- */
@@ -434,7 +471,8 @@ function histEstatisticas(paf) {
     campos: campos.size,
     primeira: datas[0] || "",
     ultima: datas[datas.length - 1] || "",
-    marcos: h.filter(e => e.tipo === "manual").length
+    marcos: h.filter(e => e.tipo === "manual").length,
+    acoes: h.filter(e => e.tipo === "acao").length
   };
 }
 
@@ -457,7 +495,7 @@ function histAtividadeMesesSVG(paf) {
   const porMes = {};
   h.forEach(e => {
     const ym = (e.data || "").slice(0, 7);
-    if (ym.length !== 7) return;
+    if (ym.length !== 7 || e.tipo === "acao") return;
     const o = porMes[ym] || (porMes[ym] = { alt: 0, marco: 0 });
     if (e.tipo === "manual") o.marco++; else o.alt += (e.mudancas || []).length || 1;
   });
@@ -544,20 +582,19 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
   let ultMes = null;
   const itens = ordenado.map(({ e, i }, pos) => {
     if (!histPeriodoOk(e.data)) return "";
-    if (HIST_UI.tipo === "manual" && e.tipo !== "manual") return "";
-    if (HIST_UI.tipo === "auto" && e.tipo === "manual") return "";
+    if (!histTipoUsuarioOk(e)) return "";
     let muds = e.mudancas || [];
     if (secaoFiltro) {
       muds = muds.filter(m => m.secao === secaoFiltro);
       if (!muds.length) return "";
     }
     const badge = dateBadgeParts(e.data);
-    const manual = e.tipo === "manual";
+    const manual = e.tipo === "manual", acao = e.tipo === "acao";
     const grupos = {};
     muds.forEach(m => { (grupos[m.secao] = grupos[m.secao] || []).push(m); });
     const corpo = Object.keys(grupos).map(s => `
       <div class="hist-grupo"><div class="hist-grupo-titulo">${escapeHtml(histSecaoLabel(s))}</div>${grupos[s].map(histMudancaHTML).join("")}</div>`).join("");
-    const quem = [e.usuario, histHora(e.atualizadoEm || e.criadoEm)].filter(Boolean).join(" · ");
+    const quem = [e.usuario ? `<span class="hist-usuario" title="${escapeHtml(e.usuario)}">${escapeHtml(histNomeUsuario(e.usuario))}</span>` : "", histHora(e.atualizadoEm || e.criadoEm) ? `<span>${escapeHtml(histHora(e.atualizadoEm || e.criadoEm))}</span>` : ""].filter(Boolean).join(" · ");
     const anterior = ordenado[pos + 1] && ordenado[pos + 1].e.data;
     const dias = anterior && e.data ? Math.round((new Date(e.data + "T12:00:00") - new Date(anterior + "T12:00:00")) / 86400000) : 0;
     const gap = dias > 0 ? `<span class="hist-gap" title="Tempo desde o registro anterior (${fmtDateBR(anterior)})">+${dias >= 60 ? Math.round(dias / 30) + " meses" : dias + (dias === 1 ? " dia" : " dias")}</span>` : "";
@@ -565,23 +602,23 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
     const cab = mesKey !== ultMes ? `<div class="hist-mes">${escapeHtml(histNomeMes(e.data))}</div>` : "";
     ultMes = mesKey;
     return cab + `
-    <div class="timeline-item hist-item ${manual ? "manual" : ""}" style="--tipo-cor:${manual ? "var(--gold)" : "var(--accent)"}">
+    <div class="timeline-item hist-item ${manual ? "manual" : acao ? "acao" : ""}" style="--tipo-cor:${manual ? "var(--gold)" : acao ? "var(--slate, #52667C)" : "var(--accent)"}">
       <div class="timeline-date-badge"><span class="dia">${escapeHtml(badge.dia)}</span><span class="mes">${escapeHtml(badge.mes)}</span></div>
       <div class="timeline-card">
         <button class="row-del" data-hist-del="${escapeHtml(e.id)}" title="Remover este registro do histórico" aria-label="Remover este registro do histórico">${uiIconSvg("close", 12)}</button>
         <div class="hist-topo">
-          <span class="hist-tipo ${manual ? "manual" : ""}">${manual ? "Marco de evolução" : (muds.length + (muds.length === 1 ? " alteração" : " alterações"))}</span>
-          <span class="hist-quem">${escapeHtml(quem)}</span>${gap}
+          <span class="hist-tipo ${manual ? "manual" : acao ? "acao" : ""}">${manual ? "Marco de evolução" : acao ? "Ação" : (muds.length + (muds.length === 1 ? " alteração" : " alterações"))}</span>
+          <span class="hist-quem">${quem}</span>${gap}
         </div>
-        ${corpo}
-        ${e.nota ? `<p class="hist-nota-previa">${escapeHtml(e.nota)}</p>` : ""}
-        <details class="hist-editar" data-hist-det="${escapeHtml(e.id)}"${(HIST_ABERTOS.has(e.id) ? HIST_ABERTOS.get(e.id) : (manual && !e.nota)) ? " open" : ""}>
+        ${acao ? `<p class="hist-acao-desc">${escapeHtml(e.descricao || e.acao || "")}</p>` : corpo}
+        ${acao ? "" : e.nota ? `<p class="hist-nota-previa">${escapeHtml(e.nota)}</p>` : ""}
+        ${acao ? "" : `<details class="hist-editar" data-hist-det="${escapeHtml(e.id)}"${(HIST_ABERTOS.has(e.id) ? HIST_ABERTOS.get(e.id) : (manual && !e.nota)) ? " open" : ""}>
         <summary>${e.nota ? "Editar data e anotação" : "Adicionar anotação ou corrigir a data"}</summary>
         <div class="timeline-row hist-edit">
           <div class="f"><label>Data da evolução</label><input type="date" data-field="historico.${i}.data" value="${escapeHtml(e.data)}"></div>
           <div class="f" style="grid-column: span 2"><label>${manual ? "Anotação técnica" : "Anotação técnica sobre esta evolução (opcional)"}</label><textarea data-field="historico.${i}.nota" rows="${manual ? 3 : 2}" placeholder="${manual ? "Descreva a evolução observada na família..." : "Ex.: motivo da mudança, contexto, quem informou..."}">${escapeHtml(e.nota || "")}</textarea></div>
         </div>
-        </details>
+        </details>`}
       </div>
     </div>`;
   }).join("");
@@ -595,7 +632,10 @@ function historicoSectionHTML(paf) {
     ...DIARIO_CAMPOS.filter(k => ((paf.diario || {})[k] || []).some(e => e.texto)).map(k => histSecaoId(k))
   ])];
   if (HIST_UI.secao && !secoes.includes(HIST_UI.secao)) HIST_UI.secao = "";
-  const vazio = !st.registros;
+  const usuarios = [...new Set((paf.historico || []).map(e => e.usuario).filter(Boolean))].sort();
+  if (HIST_UI.usuario && !usuarios.includes(HIST_UI.usuario)) HIST_UI.usuario = "";
+  const carregando = typeof histCarregado === "function" && !histCarregado(paf);
+  const vazio = !st.registros && !carregando;
   return `
   <div class="section-card">
     ${sectionHeader("15", "Histórico de Evolução", "Cada alteração feita neste PAF fica registrada com data, para acompanhar a evolução da família ao longo do tempo.")}
@@ -604,6 +644,7 @@ function historicoSectionHTML(paf) {
       <div class="stat-box"><span class="stat-num">${st.registros}</span><span class="stat-label">Registros</span></div>
       <div class="stat-box"><span class="stat-num">${st.campos}</span><span class="stat-label">Campos alterados</span></div>
       <div class="stat-box"><span class="stat-num">${st.marcos}</span><span class="stat-label">Marcos manuais</span></div>
+      <div class="stat-box"><span class="stat-num">${st.acoes}</span><span class="stat-label">Ações registradas</span></div>
       <div class="stat-box"><span class="stat-num" style="font-size:14px">${st.ultima ? fmtDateBR(st.ultima) : "—"}</span><span class="stat-label">Última evolução</span></div>
     </div>
     ${histVisaoGeralHTML(paf)}
@@ -637,12 +678,14 @@ function historicoSectionHTML(paf) {
       <div class="f"><label for="histPeriodo">Período</label>
         <select id="histPeriodo">${[["", "Todo o período"], ["7", "Últimos 7 dias"], ["30", "Últimos 30 dias"], ["90", "Últimos 90 dias"], ["365", "Último ano"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.periodo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
       ${HIST_UI.view === "linha" ? `<div class="f"><label for="histTipo">Tipo de registro</label>
-        <select id="histTipo">${[["", "Todos"], ["auto", "Só alterações"], ["manual", "Só marcos manuais"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.tipo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>` : ""}
+        <select id="histTipo">${[["", "Todos"], ["auto", "Só alterações"], ["manual", "Só marcos manuais"], ["acao", "Só ações (anexos, exportações…)"]].map(([v, l]) => `<option value="${v}" ${HIST_UI.tipo === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>` : ""}
+      ${HIST_UI.view === "linha" && usuarios.length > 1 ? `<div class="f"><label for="histUsuario">Usuário</label>
+        <select id="histUsuario"><option value="">Todos</option>${usuarios.map(u => `<option value="${escapeHtml(u)}" ${HIST_UI.usuario === u ? "selected" : ""}>${escapeHtml(histNomeUsuario(u))}</option>`).join("")}</select></div>` : ""}
       ${HIST_UI.view === "linha" ? `<span class="hist-acoes"><button type="button" class="btn btn-ghost btn-sm" data-hist-todos="abrir" title="Abrir todos os campos de anotação">Abrir anotações</button><button type="button" class="btn btn-ghost btn-sm" data-hist-todos="fechar">Recolher</button><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="copiar">Copiar</button><button type="button" class="btn btn-ghost btn-sm" data-hist-exp="txt">Baixar (.txt)</button></span>` : ""}
-      ${(HIST_UI.secao || HIST_UI.periodo || HIST_UI.tipo || HIST_UI.busca) ? `<button type="button" class="btn btn-ghost btn-sm" id="histLimpar">Limpar filtros</button>` : ""}
+      ${(HIST_UI.secao || HIST_UI.periodo || HIST_UI.tipo || HIST_UI.busca || HIST_UI.usuario) ? `<button type="button" class="btn btn-ghost btn-sm" id="histLimpar">Limpar filtros</button>` : ""}
       <span class="hist-contagem" id="histContagem" aria-live="polite"></span>
     </div>
-    <div id="histConteudo">${HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}</div>
+    <div id="histConteudo">${carregando && !st.registros ? `<p class="hint" style="margin:10px 0 0">Carregando o histórico…</p>` : HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}</div>
   </div>`;
 }
 
@@ -656,7 +699,7 @@ function attachHistoricoHandlers(container) {
   if (filtro) filtro.addEventListener("change", () => { HIST_UI.secao = filtro.value; histSalvarUI(); renderApp(); });
 
   const limpar = container.querySelector("#histLimpar");
-  if (limpar) limpar.addEventListener("click", () => { HIST_UI.secao = ""; HIST_UI.periodo = ""; HIST_UI.tipo = ""; HIST_UI.busca = ""; histSalvarUI(); renderApp(); });
+  if (limpar) limpar.addEventListener("click", () => { HIST_UI.secao = ""; HIST_UI.periodo = ""; HIST_UI.tipo = ""; HIST_UI.busca = ""; HIST_UI.usuario = ""; histSalvarUI(); renderApp(); });
   container.querySelectorAll("[data-hist-exp]").forEach(b => b.addEventListener("click", () => {
     const txt = histTextoExportacao(state.current);
     if (b.dataset.histExp === "copiar") {
@@ -669,6 +712,8 @@ function attachHistoricoHandlers(container) {
   }));
   const per = container.querySelector("#histPeriodo");
   if (per) per.addEventListener("change", () => { HIST_UI.periodo = per.value; histSalvarUI(); renderApp(); });
+  const usu = container.querySelector("#histUsuario");
+  if (usu) usu.addEventListener("change", () => { HIST_UI.usuario = usu.value; histSalvarUI(); renderApp(); });
   const tip = container.querySelector("#histTipo");
   if (tip) tip.addEventListener("change", () => { HIST_UI.tipo = tip.value; histSalvarUI(); renderApp(); });
 
@@ -749,7 +794,12 @@ function attachHistoricoHandlers(container) {
   container.querySelectorAll("[data-hist-del]").forEach(b => b.addEventListener("click", () => {
     const id = b.dataset.histDel;
     confirmModal("Remover este registro do histórico?", "O registro de evolução será apagado definitivamente. O valor atual do campo no PAF não é alterado.", () => {
+      const removido = (state.current.historico || []).find(e => e.id === id);
       state.current.historico = (state.current.historico || []).filter(e => e.id !== id);
+      if (removido) {
+        const resumo = removido.tipo === "manual" ? "marco de evolução" : removido.tipo === "acao" ? "ação (" + (removido.descricao || removido.acao) + ")" : (removido.mudancas || []).length + " alteração(ões)";
+        histAdicionarAcao(state.current, "historico_removido", "Removeu do histórico um registro de " + (removido.data ? fmtDateBR(removido.data) : "data não informada") + ": " + resumo);
+      }
       savePAF(state.current, { silent: true });
       renderApp();
     });
@@ -762,6 +812,7 @@ function histLinhasExportacao(paf, max) {
   const linhas = [];
   histOrdenar(paf).forEach(({ e }) => {
     if (e.tipo === "manual") linhas.push({ data: e.data, campo: "Marco de evolução", detalhe: e.nota || "" });
+    if (e.tipo === "acao") linhas.push({ data: e.data, campo: "Ação", detalhe: (e.descricao || e.acao || "") + (e.usuario ? " — " + histNomeUsuario(e.usuario) : "") });
     (e.mudancas || []).forEach(m => {
       linhas.push({
         data: e.data,
