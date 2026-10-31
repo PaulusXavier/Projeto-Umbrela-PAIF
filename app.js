@@ -793,6 +793,10 @@ function anexoMaxBytes() { return state.mode === "cloud" ? ANEXO_MAX_BYTES_CLOUD
 function anexoTotalAvisoBytes() { return state.mode === "cloud" ? ANEXO_TOTAL_AVISO_CLOUD : ANEXO_TOTAL_AVISO_LOCAL; }
 function anexoTotalMaxBytes() { return state.mode === "cloud" ? ANEXO_TOTAL_MAX_CLOUD : ANEXO_TOTAL_MAX_LOCAL; }
 
+// PAFs cujos anexos já foram carregados da nuvem nesta sessão (não é gravado no Firestore).
+// Evita que um salvamento feito ANTES do carregamento zere a contagem de anexos do PAF.
+const ANEXOS_CARREGADOS = new WeakSet();
+
 // Referência da subcoleção de anexos de um PAF (só existe sentido em modo nuvem).
 function anexosCollectionRef(pafId) {
   return state.db.collection(FIRESTORE_COLLECTION).doc(pafId).collection("anexos");
@@ -910,7 +914,7 @@ async function carregarAnexosCloud(pafId) {
 // da migração automática, e só uma vez, de PAFs salvos ANTES desta atualização
 // (quando os anexos ainda ficavam embutidos no próprio documento do PAF), sem
 // perder nenhum arquivo já salvo por um técnico.
-async function garantirAnexosCarregados(paf) {
+async function garantirAnexosCarregados(paf, opts = {}) {
   if (state.mode !== "cloud" || !state.db) return paf;
 
   if (Array.isArray(paf.anexos) && paf.anexos.length && paf.anexosCount == null) {
@@ -920,6 +924,7 @@ async function garantirAnexosCarregados(paf) {
       paf.anexos.forEach(a => batch.set(col.doc(a.id || uid()), a));
       await batch.commit();
       paf.anexosCount = paf.anexos.length;
+      ANEXOS_CARREGADOS.add(paf);
       savePAF(paf, { silent: true }); // regrava o documento principal já sem o array embutido
     } catch (err) {
       console.error("Falha ao migrar anexos antigos para a subcoleção:", err);
@@ -928,10 +933,14 @@ async function garantirAnexosCarregados(paf) {
   }
 
   const jaCarregado = Array.isArray(paf.anexos) && paf.anexos.length === (paf.anexosCount || 0);
-  if (jaCarregado) return paf;
+  // opts.forcar (impressão/exportação): confere na nuvem mesmo que a contagem diga "0" ou "tudo carregado",
+  // porque a contagem pode ter ficado desatualizada e os anexos não apareceriam no documento.
+  if (jaCarregado && !opts.forcar) { ANEXOS_CARREGADOS.add(paf); return paf; }
 
   try {
     paf.anexos = await carregarAnexosCloud(paf.id);
+    paf.anexosCount = paf.anexos.length;
+    ANEXOS_CARREGADOS.add(paf);
   } catch (err) {
     console.error("Falha ao carregar anexos:", err);
     toast("Não foi possível carregar os anexos deste PAF — verifique a conexão.");
@@ -1083,6 +1092,7 @@ async function adicionarAnexos(fileList) {
 
   if (!novos.length) return;
   if (!state.current.anexos) state.current.anexos = [];
+  await garantirAnexosCarregados(state.current); // não perder/zerar os anexos já existentes
 
   if (state.mode === "cloud" && state.db) {
     // Cada anexo vira um documento próprio na subcoleção do PAF — assim não
@@ -3940,7 +3950,8 @@ function savePAF(paf, opts = {}) {
     // Os anexos ficam numa subcoleção própria (ver adicionarAnexos/removerAnexo);
     // aqui só guardamos a contagem, para os cartões da lista e a barra de
     // progresso saberem que o PAF tem anexos sem precisar carregá-los todos.
-    const toSave = { ...paf, anexosCount: (paf.anexos || []).length };
+    const anexosOk = ANEXOS_CARREGADOS.has(paf) || paf.anexosCount == null;
+    const toSave = { ...paf, anexosCount: anexosOk ? (paf.anexos || []).length : paf.anexosCount };
     // Só atualiza o total em bytes quando os anexos estão carregados (senão manteria 0 por engano).
     if (Array.isArray(paf.anexos) && paf.anexos.length === toSave.anexosCount && (paf.anexosCount == null || paf.anexosCount === toSave.anexosCount)) {
       toSave.anexosBytes = totalAnexosBytes(paf);
@@ -4977,6 +4988,81 @@ function chipListHTML(arr) {
   return `<div class="chip-list">${arr.map(v => `<span class="chip-tag">${escapeHtml(v)}</span>`).join("")}</div>`;
 }
 
+// Há quanto tempo a família é acompanhada, em texto ("1 ano e 3 meses", "2 meses e 10 dias", "12 dias").
+function tempoAcompanhamentoTexto(iso) {
+  if (!iso) return "";
+  const ini = new Date(iso + "T00:00:00");
+  if (isNaN(ini.getTime())) return "";
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  if (hoje < ini) return "ainda não começou";
+  let anos = hoje.getFullYear() - ini.getFullYear(), meses = hoje.getMonth() - ini.getMonth(), dias = hoje.getDate() - ini.getDate();
+  if (dias < 0) { meses--; dias += new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate(); }
+  if (meses < 0) { anos--; meses += 12; }
+  const partes = [];
+  if (anos) partes.push(anos + (anos === 1 ? " ano" : " anos"));
+  if (meses) partes.push(meses + (meses === 1 ? " mês" : " meses"));
+  if (!anos && meses < 3 && dias) partes.push(dias + (dias === 1 ? " dia" : " dias"));
+  if (!partes.length) return dias ? dias + (dias === 1 ? " dia" : " dias") : "começou hoje";
+  return partes.join(" e ");
+}
+
+// Bloco dos gráficos da família: tempo de acompanhamento + linha do tempo (início → hoje)
+// com os atendimentos e os marcos de evolução. Também sai no PDF da ficha.
+function tempoAcompanhamentoBlocoHTML(paf) {
+  const inicioISO = paf.dataInicial || (paf.createdAt || "").slice(0, 10);
+  const titulo = `<h4>${sectionIconSvg("historico", 16)} Tempo de acompanhamento</h4>`;
+  if (!inicioISO || isNaN(new Date(inicioISO + "T00:00:00").getTime())) {
+    return `<div class="resumo-secao">${titulo}<p class="hint">Informe a "Data inicial do PAF" para ver aqui há quanto tempo a família é acompanhada.</p></div>`;
+  }
+  const hojeISO = todayISO();
+  const tempo = (iso) => new Date(iso + "T12:00:00").getTime();
+  const t0 = tempo(inicioISO), t1 = tempo(hojeISO), span = Math.max(t1 - t0, 86400000);
+  const atend = (paf.atendimentos || []).filter(a => a.data).map(a => ({ data: String(a.data).slice(0, 10), tipo: a.tipo || "Atendimento" }))
+    .sort((a, b) => a.data.localeCompare(b.data));
+  const marcos = typeof histH === "function"
+    ? histH(paf).filter(e => e.tipo === "manual" && e.data).map(e => ({ data: e.data, sent: histSentido(e), nota: e.nota || "" }))
+    : [];
+  const W = 640, H = 122, padL = 26, padR = 26, yAx = 64;
+  const px = (iso) => Math.round(padL + Math.min(1, Math.max(0, (tempo(iso) - t0) / span)) * (W - padL - padR));
+
+  // marcas de mês (no máximo ~10 rótulos)
+  const ticks = [];
+  let [y, m] = inicioISO.slice(0, 7).split("-").map(Number);
+  const [yf, mf] = hojeISO.slice(0, 7).split("-").map(Number);
+  const meses = (yf - y) * 12 + (mf - m);
+  const passo = Math.max(1, Math.ceil(meses / 10));
+  for (let i = 1; i <= meses; i++) {
+    if (++m > 12) { m = 1; y++; }
+    if (i % passo === 0 && !(y === yf && m === mf && hojeISO.slice(8) < "05")) ticks.push(y + "-" + String(m).padStart(2, "0"));
+  }
+  const tickSvg = ticks.map(ym => { const x = px(ym + "-01"); return `<line x1="${x}" y1="${yAx - 4}" x2="${x}" y2="${yAx + 4}" stroke="var(--line,#d7dee4)" stroke-width="1.5"></line><text x="${x}" y="${yAx + 21}" text-anchor="middle" class="chart-bar-mes">${labelYmCurto(ym)}</text>`; }).join("");
+  const corMarco = s => s === "avanco" ? "var(--accent,#2E7D6B)" : s === "retrocesso" ? "var(--danger,#B5473F)" : "var(--gold,#B98A34)";
+  const marcosSvg = marcos.map(mc => { const x = px(mc.data); return `<g><line x1="${x}" y1="${yAx - 8}" x2="${x}" y2="${yAx - 20}" stroke="${corMarco(mc.sent)}" stroke-width="1.5"></line><path d="M${x} ${yAx - 36} L${x + 7} ${yAx - 28} L${x} ${yAx - 20} L${x - 7} ${yAx - 28} Z" fill="${corMarco(mc.sent)}"><title>${fmtDateBR(mc.data)} — marco de evolução${mc.nota ? ": " + escapeHtml(mc.nota.slice(0, 120)) : ""}</title></path></g>`; }).join("");
+  const atendSvg = atend.map(a => `<circle cx="${px(a.data)}" cy="${yAx}" r="5" fill="var(--accent,#2E7D6B)" fill-opacity=".85" stroke="var(--paper,#fff)" stroke-width="1.5"><title>${fmtDateBR(a.data)} — ${escapeHtml(a.tipo)}</title></circle>`).join("");
+  const svg = `<line x1="${padL}" y1="${yAx}" x2="${W - padR}" y2="${yAx}" stroke="var(--line,#cfd8df)" stroke-width="3" stroke-linecap="round"></line>
+    ${tickSvg}${marcosSvg}${atendSvg}
+    <circle cx="${padL}" cy="${yAx}" r="7" fill="var(--paper,#fff)" stroke="var(--ink-soft,#52667C)" stroke-width="2.5"></circle>
+    <circle cx="${W - padR}" cy="${yAx}" r="7" fill="var(--ink-soft,#52667C)"></circle>
+    <text x="${padL}" y="${H - 6}" text-anchor="start" class="tempo-rot"><tspan font-weight="700">Início</tspan> · ${fmtDateBR(inicioISO)}</text>
+    <text x="${W - padR}" y="${H - 6}" text-anchor="end" class="tempo-rot"><tspan font-weight="700">Hoje</tspan> · ${fmtDateBR(hojeISO)}</text>`;
+
+  const ultimo = atend.length ? atend[atend.length - 1].data : "";
+  const diasUlt = ultimo ? diasDesde(ultimo) : null;
+  const intervalo = atend.length >= 2 ? Math.round((tempo(atend[atend.length - 1].data) - tempo(atend[0].data)) / 86400000 / (atend.length - 1)) : null;
+  const legenda = `<div class="chart-legend-inline"><span><i style="background:var(--accent,#2E7D6B);border-radius:50%"></i> Atendimentos (${atend.length})</span>${marcos.length ? `<span><i style="background:var(--gold,#B98A34);transform:rotate(45deg)"></i> Marcos de evolução (${marcos.length})</span>` : ""}</div>`;
+  return `<div class="resumo-secao">
+      ${titulo}
+      <div class="hist-stats" style="margin-bottom:12px">
+        <div class="stat-box"><span class="stat-num" style="font-size:15px">${escapeHtml(tempoAcompanhamentoTexto(inicioISO))}</span><span class="stat-label">Tempo de acompanhamento</span></div>
+        <div class="stat-box"><span class="stat-num" style="font-size:15px">${fmtDateBR(inicioISO)}</span><span class="stat-label">Início do acompanhamento</span></div>
+        <div class="stat-box"><span class="stat-num" style="font-size:15px">${ultimo ? fmtDateBR(ultimo) : "—"}</span><span class="stat-label">${ultimo ? "Último atendimento (há " + (diasUlt === 0 ? "menos de 1 dia" : diasUlt + (diasUlt === 1 ? " dia" : " dias")) + ")" : "Último atendimento"}</span></div>
+        <div class="stat-box"><span class="stat-num" style="font-size:15px">${intervalo === null ? "—" : intervalo + (intervalo === 1 ? " dia" : " dias")}</span><span class="stat-label">Intervalo médio entre atendimentos</span></div>
+      </div>
+      ${legenda}
+      ${svgGrafico(W, H, "tempo-chart", "Linha do tempo do acompanhamento: início em " + fmtDateBR(inicioISO) + ", " + tempoAcompanhamentoTexto(inicioISO) + " de acompanhamento, " + atend.length + " atendimentos", svg)}
+    </div>`;
+}
+
 // Extraído de graficosFamiliaHTML para ser reaproveitado também na impressão/PDF
 // da ficha individual do PAF (exportPDF), sem duplicar os blocos de gráficos.
 function graficosFamiliaBlocosHTML(paf) {
@@ -4986,6 +5072,7 @@ function graficosFamiliaBlocosHTML(paf) {
   return `
     ${semDadosFamilia ? `<p class="hint">Cadastre os membros da família na seção "Membros da Família" para ver aqui a composição familiar e os demais gráficos.</p>` : ""}
 
+    ${tempoAcompanhamentoBlocoHTML(paf)}
     <div class="resumo-secao">
       <h4>${sectionIconSvg("familia", 16)} Composição familiar</h4>
       <div class="resumo-cols resumo-cols-donut">
@@ -5052,7 +5139,7 @@ function graficosFamiliaHTML(paf) {
     </div>
     <div class="prontuario-stats">
       <div class="stat-box"><span class="stat-num">${r.totalMembros}</span><span class="stat-label">Membros da família</span></div>
-      <div class="stat-box"><span class="stat-num">${meses === null ? "—" : meses}</span><span class="stat-label">Meses em acompanhamento</span></div>
+      <div class="stat-box"><span class="stat-num" style="font-size:15px">${tempoAcompanhamentoTexto(paf.dataInicial) || "—"}</span><span class="stat-label">Tempo em acompanhamento</span></div>
       <div class="stat-box"><span class="stat-num">${r.totalAtendimentos}</span><span class="stat-label">Atendimentos</span></div>
     </div>
   </div>
@@ -6136,7 +6223,7 @@ async function exportPDF(paf) {
     toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
     return;
   }
-  await garantirAnexosCarregados(paf);
+  await garantirAnexosCarregados(paf, { forcar: true });
   await garantirHistoricoCarregado(paf);
   histRegistrarAcao(paf, "exportou_pdf", "Gerou o PDF do prontuário (impressão/exportação)");
   const qtdPdfsAnexados = (paf.anexos || []).filter(a => a.tipo === "application/pdf").length;
@@ -6219,12 +6306,14 @@ async function exportPDF(paf) {
     ${anexosPdf.length ? `<p class="muted">Documentos PDF anexados (incluídos a seguir, uma página por documento): ${anexosPdf.map(a => escapeHtml(a.nome)).join(", ")}</p>` : ""}
   ` : "";
 
+  // PDFs anexados: desenhados página a página (pdf.js) para sair de verdade na impressão;
+  // um PDF dentro de <iframe> costuma sair em BRANCO no Chrome. Sem internet, cai no iframe antigo.
   const anexosPdfPaginasHTML = anexosPdf.map((a, i) => `
     <div class="anexo-pdf-pagina">
       <p class="anexo-pdf-titulo">Anexo — ${escapeHtml(a.nome)}</p>
-      <iframe src="${a.dataURL}" class="anexo-pdf-embed js-anexo-pdf-frame" id="anexoPdfFrame${i}" title="${escapeHtml(a.nome)}"></iframe>
-      <p class="anexo-pdf-fallback-link">Se a página deste anexo sair em branco na impressão, <a href="${a.dataURL}" download="${escapeHtml(a.nome)}" target="_blank" rel="noopener noreferrer">toque aqui para abrir/baixar "${escapeHtml(a.nome)}"</a> e imprima-o separadamente.</p>
+      <div class="anexo-pdf-alvo" id="anexoPdfAlvo${i}"><p class="muted">Carregando páginas do anexo…</p></div>
     </div>`).join("");
+  const anexosPdfDados = JSON.stringify(anexosPdf.map(a => ({ nome: a.nome, dataURL: a.dataURL }))).replace(/</g, "\\u003c");
 
   const html = `
     <!DOCTYPE html>
@@ -6234,6 +6323,7 @@ async function exportPDF(paf) {
       <title>Prontuário PAF nº ${protocoloNumero(paf)} - ${escapeHtml(paf.responsavel)} - ${todayISO()}</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+      ${anexosPdf.length ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></' + 'script>' : ""}
       <style>
         ${PRINT_COMMON_CSS}
         * { box-sizing: border-box; }
@@ -6442,6 +6532,8 @@ async function exportPDF(paf) {
         .anexo-pdf-pagina { page-break-before: always; padding-top: 8px; }
         .anexo-pdf-titulo { font-family: 'Times New Roman', Times, serif; font-size: 11px; color: #1F3A5F; margin: 0 0 8px; }
         .anexo-pdf-embed { width: 100%; height: 92vh; border: 1px solid #D7E0E6; display: block; }
+        .anexo-pdf-pg { display: block; width: 100%; height: auto; border: 1px solid #D7E0E6; break-inside: avoid; page-break-inside: avoid; }
+        .anexo-pdf-pg + .anexo-pdf-pg { page-break-before: always; margin-top: 6px; }
         .anexo-pdf-fallback-link { text-align: center; font-size: 9px; color: #71859A; margin-top: 4px; }
         .anexo-pdf-fallback-link a { color: #2E7D6B; font-weight: bold; }
 
@@ -6738,36 +6830,67 @@ async function exportPDF(paf) {
 
       <script>
         (function () {
-          var totalPdfs = ${anexosPdf.length};
+          var PDFS = ${anexosPdfDados};
           var jaImprimiu = false;
           function dispararImpressao() {
             if (jaImprimiu) return;
             jaImprimiu = true;
             window.print();
           }
-          if (totalPdfs === 0) {
-            window.onload = function () {
-              var esperar = (document.fonts && document.fonts.ready) ? Promise.race([document.fonts.ready, new Promise(function (r) { setTimeout(r, 2500); })]) : Promise.resolve();
-              esperar.then(function () { setTimeout(dispararImpressao, 50); }, function () { setTimeout(dispararImpressao, 50); });
-            };
-            return;
+          function b64ParaBytes(dataURL) {
+            var b = atob(String(dataURL).split(",")[1] || "");
+            var u = new Uint8Array(b.length);
+            for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+            return u;
           }
-          // Espera os PDFs incorporados carregarem de verdade antes de imprimir, em vez
-          // de um tempo fixo — PDFs grandes ou vários anexos juntos precisam de mais
-          // tempo, e o "load" real evita tanto impressão precoce (página em branco)
-          // quanto espera desnecessária quando os anexos são pequenos.
-          var frames = document.querySelectorAll(".js-anexo-pdf-frame");
-          var carregados = 0;
-          frames.forEach(function (frame) {
-            frame.addEventListener("load", function () {
-              carregados++;
-              if (carregados >= frames.length) setTimeout(dispararImpressao, 200);
-            });
-          });
-          // Rede de segurança: se o navegador não disparar "load" de forma confiável
-          // para algum PDF embutido, imprime mesmo assim depois de um tempo que cresce
-          // com o número de anexos, em vez de a impressão travar para sempre.
-          window.onload = function () { setTimeout(dispararImpressao, 1200 + totalPdfs * 700); };
+          // Plano B (sem internet / pdf.js indisponível): PDF dentro de um quadro, como antes.
+          function quadroPdf(i) {
+            var alvo = document.getElementById("anexoPdfAlvo" + i);
+            if (!alvo) return;
+            alvo.innerHTML = "";
+            var f = document.createElement("iframe");
+            f.className = "anexo-pdf-embed";
+            f.title = PDFS[i].nome;
+            f.src = PDFS[i].dataURL;
+            alvo.appendChild(f);
+            var p = document.createElement("p");
+            p.className = "anexo-pdf-fallback-link";
+            p.textContent = "Se a página deste anexo sair em branco na impressão, abra o anexo pelo app (aba Anexos) e imprima por lá: " + PDFS[i].nome;
+            alvo.appendChild(p);
+          }
+          async function desenharPdf(i) {
+            var alvo = document.getElementById("anexoPdfAlvo" + i);
+            var doc = await window.pdfjsLib.getDocument({ data: b64ParaBytes(PDFS[i].dataURL) }).promise;
+            alvo.innerHTML = "";
+            for (var n = 1; n <= doc.numPages; n++) {
+              var page = await doc.getPage(n);
+              var vp = page.getViewport({ scale: 1.6 });
+              var c = document.createElement("canvas");
+              c.width = vp.width; c.height = vp.height;
+              c.className = "anexo-pdf-pg";
+              await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+              alvo.appendChild(c);
+            }
+          }
+          async function principal() {
+            var usouQuadro = false;
+            if (PDFS.length) {
+              if (window.pdfjsLib) {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                for (var i = 0; i < PDFS.length; i++) {
+                  try { await desenharPdf(i); } catch (e) { console.error(e); usouQuadro = true; quadroPdf(i); }
+                }
+              } else {
+                usouQuadro = true;
+                for (var k = 0; k < PDFS.length; k++) quadroPdf(k);
+              }
+            }
+            setTimeout(dispararImpressao, usouQuadro ? 1200 + PDFS.length * 700 : (PDFS.length ? 300 : 50));
+          }
+          window.onload = function () {
+            var esperar = (document.fonts && document.fonts.ready) ? Promise.race([document.fonts.ready, new Promise(function (r) { setTimeout(r, 2500); })]) : Promise.resolve();
+            esperar.then(principal, principal);
+          };
         })();
       </script>
     </body>
@@ -6915,7 +7038,7 @@ function imprimirEncaminhamento(paf, enc) {
 
 async function exportWord(paf) {
   if (!paf) return;
-  await garantirAnexosCarregados(paf);
+  await garantirAnexosCarregados(paf, { forcar: true });
   await garantirHistoricoCarregado(paf);
   histRegistrarAcao(paf, "exportou_word", "Exportou o prontuário em Word (.doc)");
 
