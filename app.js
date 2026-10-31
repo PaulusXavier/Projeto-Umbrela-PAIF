@@ -798,6 +798,106 @@ function anexosCollectionRef(pafId) {
   return state.db.collection(FIRESTORE_COLLECTION).doc(pafId).collection("anexos");
 }
 
+/* ---------------------------- Histórico de evolução na nuvem (subcoleção) ----------------------------
+   O PAF inteiro é UM documento do Firestore (limite de 1 MB). Com o histórico dentro dele, fichas com
+   muitos anos de acompanhamento chegavam ao limite e os registros mais antigos eram descartados.
+   Em modo nuvem, cada registro do histórico agora é um documento próprio em
+   planos_acompanhamento_familiar/{id}/historico/{registroId} (como já é feito com os anexos).
+   - O documento principal guarda só "historicoCount".
+   - paf.historico continua sendo o array em memória que o resto do app usa.
+   - Migração automática: PAFs antigos (histórico embutido) são copiados para a subcoleção e, só depois
+     da confirmação do servidor, o array embutido é retirado do documento principal (nenhuma perda se a
+     conexão cair no meio).
+   - Estado de sincronização fica num WeakMap por objeto (nunca vai para o Firestore). */
+const HIST_SYNC = new WeakMap();
+function histSyncInfo(paf) {
+  let i = HIST_SYNC.get(paf);
+  if (!i) { i = { carregado: false, seguro: false, docs: new Map() }; HIST_SYNC.set(paf, i); }
+  return i;
+}
+function histCarregado(paf) {
+  if (state.mode !== "cloud" || !state.db) return true;
+  return histSyncInfo(paf).carregado;
+}
+function historicoCollectionRef(pafId) {
+  return state.db.collection(FIRESTORE_COLLECTION).doc(pafId).collection("historico");
+}
+
+// Garante que paf.historico tenha TODOS os registros (busca na subcoleção, mesclando com o que já
+// foi criado localmente antes do carregamento terminar). Só depois disso apagar registros é seguro.
+async function garantirHistoricoCarregado(paf) {
+  if (state.mode !== "cloud" || !state.db || !paf) return paf;
+  const info = histSyncInfo(paf);
+  if (info.carregado) return paf;
+  const legado = Array.isArray(paf.historico) && paf.historico.length > 0 && paf.historicoCount == null;
+  if (legado) {
+    info.carregado = true;
+    savePAF(paf, { silent: true, semAtualizarData: true }); // migra agora: copia para a subcoleção e, confirmado, retira do documento principal
+    return paf;
+  }
+  try {
+    const snap = await historicoCollectionRef(paf.id).get();
+    const remotos = snap.docs.map(d => d.data()).filter(e => e && e.id);
+    const ids = new Set(remotos.map(e => e.id));
+    const locais = (Array.isArray(paf.historico) ? paf.historico : []).filter(e => e && !ids.has(e.id));
+    remotos.forEach(e => info.docs.set(e.id, JSON.stringify(e)));
+    paf.historico = [...remotos, ...locais].sort((x, y) => (x.criadoEm || "").localeCompare(y.criadoEm || ""));
+    info.carregado = true;
+    if (!locais.length) info.seguro = true; // com registros locais ainda não enviados, só fica "seguro" após a confirmação
+  } catch (err) {
+    console.error("Falha ao carregar o histórico:", err);
+    toast("Não foi possível carregar o histórico deste PAF — verifique a conexão.");
+  }
+  return paf;
+}
+
+// Envia para a subcoleção só o que mudou (novos/alterados) e, se o histórico já foi carregado por
+// completo, apaga o que foi removido. Retorna uma Promise (resolve quando o servidor confirma).
+function histSincronizarCloud(paf) {
+  const info = histSyncInfo(paf);
+  const lista = Array.isArray(paf.historico) ? paf.historico.filter(e => e && e.id) : [];
+  const col = historicoCollectionRef(paf.id);
+  const sets = [], dels = [];
+  lista.forEach(e => { const j = JSON.stringify(e); if (info.docs.get(e.id) !== j) sets.push([e, j]); });
+  if (info.carregado) {
+    const atuais = new Set(lista.map(e => e.id));
+    info.docs.forEach((_, id) => { if (!atuais.has(id)) dels.push(id); });
+  }
+  if (!sets.length && !dels.length) return Promise.resolve();
+  // atualiza o espelho na hora (otimista) — se falhar, volta atrás para tentar de novo no próximo salvamento
+  sets.forEach(([e, j]) => info.docs.set(e.id, j));
+  const apagados = dels.map(id => [id, info.docs.get(id)]);
+  dels.forEach(id => info.docs.delete(id));
+  const ops = [...sets.map(([e]) => ["set", e]), ...dels.map(id => ["del", id])];
+  const lotes = [];
+  for (let i = 0; i < ops.length; i += 400) lotes.push(ops.slice(i, i + 400));
+  return Promise.all(lotes.map(lote => {
+    const batch = state.db.batch();
+    lote.forEach(([tipo, v]) => { if (tipo === "set") batch.set(col.doc(v.id), v); else batch.delete(col.doc(v)); });
+    return batch.commit();
+  })).catch(err => {
+    console.error("Falha ao sincronizar o histórico:", err);
+    sets.forEach(([e]) => info.docs.delete(e.id));
+    apagados.forEach(([id, j]) => { if (j !== undefined) info.docs.set(id, j); });
+    toast("Não foi possível sincronizar o histórico — será tentado novamente no próximo salvamento.");
+    throw err;
+  });
+}
+
+async function excluirHistoricoSubcolecao(pafId) {
+  try {
+    const snap = await historicoCollectionRef(pafId).get();
+    if (snap.empty) return;
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const batch = state.db.batch();
+      snap.docs.slice(i, i + 400).forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  } catch (err) {
+    console.error("Falha ao excluir o histórico do PAF:", err);
+  }
+}
+
 // Busca os anexos completos (com dataURL) de um PAF direto da subcoleção.
 async function carregarAnexosCloud(pafId) {
   const snap = await anexosCollectionRef(pafId).orderBy("addedAt").get();
@@ -1001,6 +1101,12 @@ async function adicionarAnexos(fileList) {
     state.current.anexos.push(...novos);
   }
 
+  const adicionados = novos.filter(n => state.current.anexos.some(x => x.id === n.id));
+  if (adicionados.length) {
+    histAdicionarAcao(state.current, "anexo_adicionado", adicionados.length === 1
+      ? `Anexou o arquivo "${adicionados[0].nome}"`
+      : `Anexou ${adicionados.length} arquivos: ${adicionados.map(n => '"' + n.nome + '"').join(", ")}`);
+  }
   savePAF(state.current, { silent: true });
   renderApp();
 
@@ -1028,6 +1134,7 @@ function removerAnexo(id) {
         return;
       }
     }
+    if (alvo) histAdicionarAcao(state.current, "anexo_removido", `Removeu o anexo "${alvo.nome}"`);
     savePAF(state.current, { silent: true });
   });
 }
@@ -1696,12 +1803,15 @@ function baixarArquivoTexto(nome, texto, tipo) {
 // arquivo se forem carregados um a um (opção "incluir anexos").
 async function baixarBackupJSON(incluirAnexos) {
   let pafs = state.pafs;
-  if (incluirAnexos && state.mode === "cloud" && state.db) {
-    toast("Reunindo os anexos para o backup… pode levar alguns instantes.");
+  if (state.mode === "cloud" && state.db) {
+    // O histórico fica numa subcoleção: precisa ser reunido para entrar no arquivo de backup.
+    toast(incluirAnexos ? "Reunindo anexos e histórico para o backup… pode levar alguns instantes." : "Reunindo o histórico para o backup…");
     pafs = [];
     for (const p of state.pafs) {
       const copia = { ...p };
-      try { await garantirAnexosCarregados(copia); } catch (err) { console.error(err); }
+      if (incluirAnexos) { try { await garantirAnexosCarregados(copia); } catch (err) { console.error(err); } }
+      else if (Array.isArray(copia.anexos)) { copia.anexosCount = copia.anexos.length; delete copia.anexos; }
+      try { await garantirHistoricoCarregado(copia); } catch (err) { console.error(err); }
       pafs.push(copia);
     }
   } else if (!incluirAnexos) {
@@ -2936,6 +3046,33 @@ function attachDashboardHandlers() {
   }
 }
 
+/* ---------------------------- CSS comum das folhas impressas ----------------------------
+   - print-color-adjust: exact -> sem isso o Chrome/Edge/Safari descartam fundos ao imprimir
+     (padrão do diálogo de impressão), e cabeçalhos de tabela, faixas institucionais e etiquetas
+     com texto branco sobre fundo escuro saíam ilegíveis (branco sobre branco).
+   - @page com margem inferior maior + caixa de margem "Página X de Y" (navegadores sem suporte a
+     margin boxes simplesmente ignoram).
+   - Quebras: títulos nunca ficam órfãos, cartões/linhas não se partem, mas seções grandes podem
+     fluir entre páginas (evita grandes espaços em branco). */
+const PRINT_COMMON_CSS = `
+  @page {
+    size: A4; margin: 14mm 14mm 18mm;
+    @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 8px 'Times New Roman', Times, serif; color: #8496A8; }
+  }
+  html, body, * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  img, svg { max-width: 100%; }
+  h1, h2, h3, h4, h5 { break-after: avoid-page; page-break-after: avoid; break-inside: avoid; }
+  thead { display: table-header-group; }
+  .print-shell > thead > tr > td, .print-shell > tfoot > tr > td { border: 0 !important; padding: 0 !important; background: none !important; }
+  tr, .reg-item, .kpi-card, .chart-box, .fechamento, .assinatura-bloco, .anexo-print-item, .resumo-cols > div, .canhoto { break-inside: avoid; page-break-inside: avoid; }
+  p { orphans: 3; widows: 3; }
+  /* Gráficos com poucos dados (ex.: 1 mês) geram viewBox estreito; sem limite o SVG era esticado até ocupar a página inteira. */
+  .chart-svg { max-width: calc(var(--w, 9999px) * 1.5) !important; max-height: 95mm; margin: 0 auto; }
+  .resumo-secao { break-inside: auto !important; page-break-inside: auto !important; }
+  @media print { body { background: #fff !important; } }
+`;
+
 function imprimirResumoMensal(geral, grupos, contexto) {
   contexto = contexto || {};
   const filtros = contexto.filtros || [];
@@ -2951,11 +3088,11 @@ function imprimirResumoMensal(geral, grupos, contexto) {
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <title>Resumo estatístico - PAF/PAIF</title>
+      <title>Resumo estatístico PAF-PAIF - ${todayISO()}</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
-        @page { margin: 16mm 14mm; }
+        ${PRINT_COMMON_CSS}
         * { box-sizing: border-box; }
         body {
           font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F;
@@ -3255,7 +3392,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
       </td></tr></tbody>
       </table>
 
-      <script>window.onload = () => setTimeout(() => window.print(), 200);<\/script>
+      <script>window.onload = () => { var go = () => setTimeout(() => window.print(), 200); (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 2500))]) : Promise.resolve()).then(go, go); };<\/script>
     </body>
     </html>`;
   printWin.document.write(html);
@@ -3794,8 +3931,10 @@ function savePAF(paf, opts = {}) {
   const isNovo = !paf.criadoPor && !paf.createdAt;
   diarioCompilar(paf); // anotações datadas -> texto dos campos (historico.js)
   histRegistrar(paf); // histórico de evolução: compara com o último salvamento (historico.js)
-  paf.updatedAt = new Date().toISOString();
-  paf.atualizadoPor = state.currentUser?.email || paf.atualizadoPor || null;
+  if (!opts.semAtualizarData) { // ações como exportar/imprimir não contam como edição da ficha
+    paf.updatedAt = new Date().toISOString();
+    paf.atualizadoPor = state.currentUser?.email || paf.atualizadoPor || null;
+  }
   if (!paf.criadoPor) paf.criadoPor = state.currentUser?.email || null;
   if (state.mode === "cloud" && state.db) {
     // Os anexos ficam numa subcoleção própria (ver adicionarAnexos/removerAnexo);
@@ -3808,6 +3947,22 @@ function savePAF(paf, opts = {}) {
       paf.anexosBytes = toSave.anexosBytes;
     }
     delete toSave.anexos;
+
+    // Histórico: vai para a subcoleção. O array embutido só sai do documento principal depois que
+    // o servidor confirmar a cópia (migração segura de PAFs antigos).
+    const hInfo = histSyncInfo(paf);
+    const hLista = Array.isArray(paf.historico) ? paf.historico : [];
+    const manterEmbutido = !hInfo.seguro && hLista.length > 0;
+    toSave.historicoCount = hInfo.carregado ? hLista.length : Math.max(paf.historicoCount || 0, hLista.length);
+    paf.historicoCount = toSave.historicoCount;
+    if (manterEmbutido) toSave.historico = hLista; else delete toSave.historico;
+    histSincronizarCloud(paf).then(() => {
+      if (manterEmbutido) {
+        hInfo.seguro = true;
+        savePAF(paf, { silent: true, semAtualizarData: true }); // regrava já sem o array embutido
+      }
+    }).catch(() => { /* já avisado; o array embutido permanece no documento principal */ });
+
     if (typeof window.__statusSalvamento === "function") window.__statusSalvamento("salvando");
     state.db.collection(FIRESTORE_COLLECTION).doc(paf.id).set(toSave)
       .then(() => {
@@ -3834,6 +3989,7 @@ function deletePAFRecord(id) {
   const paf = state.pafs.find(p => p.id === id) || { id };
   if (state.mode === "cloud" && state.db) {
     excluirAnexosSubcolecao(id); // melhor esforço, roda em paralelo — não precisa aguardar
+    excluirHistoricoSubcolecao(id);
     state.db.collection(FIRESTORE_COLLECTION).doc(id).delete()
       .then(() => { registrarAuditoria("exclusao", paf); toast("Registro excluído."); })
       .catch(err => { console.error(err); toast("Não foi possível excluir na nuvem."); });
@@ -3894,6 +4050,7 @@ function registrarDesistencia(paf) {
   stub.registradoPor = state.currentUser?.email || null;
   if (state.mode === "cloud" && state.db) {
     excluirAnexosSubcolecao(stub.id); // melhor esforço — o PAF completo, com seus anexos, está sendo excluído
+    excluirHistoricoSubcolecao(stub.id);
     state.db.collection(FIRESTORE_COLLECTION).doc(stub.id).set(stub)
       .then(() => { registrarAuditoria("desistencia", paf); toast("PAF excluído — família registrada como desistente."); })
       .catch(err => { console.error(err); toast("Não foi possível sincronizar a desistência."); });
@@ -3968,6 +4125,9 @@ function openPAF(id) {
   if (state.mode === "cloud" && state.db) {
     const idAberto = state.current.id;
     garantirAnexosCarregados(state.current).then(() => {
+      if (state.current && state.current.id === idAberto) renderApp();
+    });
+    garantirHistoricoCarregado(state.current).then(() => {
       if (state.current && state.current.id === idAberto) renderApp();
     });
   }
@@ -4483,7 +4643,7 @@ function tabCompleteness(paf) {
     encerramento: !!paf.encerramentoMotivo,
     anexos: (paf.anexosCount != null ? paf.anexosCount : (paf.anexos || []).length) > 0,
     observacoes: !!paf.observacoes,
-    historico: (paf.historico || []).length > 0
+    historico: Math.max(paf.historicoCount || 0, (paf.historico || []).length) > 0
   };
 }
 
@@ -5977,6 +6137,8 @@ async function exportPDF(paf) {
     return;
   }
   await garantirAnexosCarregados(paf);
+  await garantirHistoricoCarregado(paf);
+  histRegistrarAcao(paf, "exportou_pdf", "Gerou o PDF do prontuário (impressão/exportação)");
   const qtdPdfsAnexados = (paf.anexos || []).filter(a => a.tipo === "application/pdf").length;
   if (qtdPdfsAnexados) {
     toast(`Gerando documento com ${qtdPdfsAnexados} PDF${qtdPdfsAnexados > 1 ? "s" : ""} anexado${qtdPdfsAnexados > 1 ? "s" : ""} — pode levar alguns segundos…`);
@@ -6069,11 +6231,11 @@ async function exportPDF(paf) {
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <title>Prontuário PAF - ${escapeHtml(paf.responsavel)}</title>
+      <title>Prontuário PAF nº ${protocoloNumero(paf)} - ${escapeHtml(paf.responsavel)} - ${todayISO()}</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
       <style>
-        @page { margin: 14mm 14mm; }
+        ${PRINT_COMMON_CSS}
         * { box-sizing: border-box; }
         body {
           font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F;
@@ -6274,7 +6436,7 @@ async function exportPDF(paf) {
 
         .anexos-print-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
         .anexo-print-item { width: 140px; text-align: center; page-break-inside: avoid; }
-        .anexo-print-item img { width: 100%; height: 140px; object-fit: cover; border: 1px solid #D7E0E6; border-radius: 6px; }
+        .anexo-print-item img { width: 100%; height: 140px; object-fit: contain; background: #F6F8F9; border: 1px solid #D7E0E6; border-radius: 6px; }
         .anexo-print-item span { display: block; font-size: 9.2px; color: #52667C; margin-top: 4px; word-break: break-word; }
 
         .anexo-pdf-pagina { page-break-before: always; padding-top: 8px; }
@@ -6584,7 +6746,10 @@ async function exportPDF(paf) {
             window.print();
           }
           if (totalPdfs === 0) {
-            window.onload = function () { setTimeout(dispararImpressao, 50); };
+            window.onload = function () {
+              var esperar = (document.fonts && document.fonts.ready) ? Promise.race([document.fonts.ready, new Promise(function (r) { setTimeout(r, 2500); })]) : Promise.resolve();
+              esperar.then(function () { setTimeout(dispararImpressao, 50); }, function () { setTimeout(dispararImpressao, 50); });
+            };
             return;
           }
           // Espera os PDFs incorporados carregarem de verdade antes de imprimir, em vez
@@ -6622,6 +6787,7 @@ function imprimirEncaminhamento(paf, enc) {
     toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
     return;
   }
+  histRegistrarAcao(paf, "imprimiu_encaminhamento", `Imprimiu o formulário de encaminhamento${enc && (enc.orgaoDestino || enc.area) ? " para " + (enc.orgaoDestino || enc.area) : ""}`);
 
   const html = `
     <!DOCTYPE html>
@@ -6632,7 +6798,7 @@ function imprimirEncaminhamento(paf, enc) {
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
-        @page { margin: 16mm 14mm; }
+        ${PRINT_COMMON_CSS}
         * { box-sizing: border-box; }
         body { font-family: 'Times New Roman', Times, serif; font-size: 12px; color: #1F3A5F; font-weight: 400; line-height: 1.5; text-align: left; margin: 0; }
         /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12px, justificado, dentro de caixa */
@@ -6735,7 +6901,7 @@ function imprimirEncaminhamento(paf, enc) {
         Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </div>
 
-      <script>window.onload = () => { window.print(); };</script>
+      <script>window.onload = () => { var go = () => window.print(); (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 2500))]) : Promise.resolve()).then(go, go); };</script>
     </body>
     </html>
   `;
@@ -6750,6 +6916,8 @@ function imprimirEncaminhamento(paf, enc) {
 async function exportWord(paf) {
   if (!paf) return;
   await garantirAnexosCarregados(paf);
+  await garantirHistoricoCarregado(paf);
+  histRegistrarAcao(paf, "exportou_word", "Exportou o prontuário em Word (.doc)");
 
   // ---- Cores e helpers compartilhados com o padrão visual do PDF ----
   const C = {
