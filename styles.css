@@ -2280,3 +2280,26 @@ main:has(> .footer-bar) .footer-bar { padding-right: 84px; } /* espaço para o m
 .hist-chip-sec:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 ::highlight(hist-busca) { background: #FFE08A; color: #1F2A37; }
 @media print { .hist-chips, .hist-gap { display: none; } }
+
+/* ---------------------------- Impressão da própria tela do app (Ctrl+P) ----------------------------
+   Para documentos oficiais, use "Baixar PDF" na ficha ou "Imprimir / Baixar PDF" no painel de gráficos.
+   Este bloco só evita que a impressão direta saia com menus, botões e fundos escuros. */
+@media print {
+  @page { size: A4; margin: 14mm 14mm 16mm; }
+  html, body { background: #fff !important; color: #1F3A5F; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .masthead-strip, .topbar, .rail-overlay, .tab-rail, .footer-bar, .app-footer, .apoio-lateral,
+  .mascote-wrap, .toast, #modalRoot, #authScreen, .btn, .icon-btn, .dash-filtros, .dash-nav,
+  .section-nav, .rail-toggle { display: none !important; }
+  #app, main, .editor-wrap, .form-inner { display: block !important; max-width: none !important; width: auto !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
+  * { animation: none !important; transition: none !important; }
+  .section-card, .kpi-card, .chart-box, .resumo-cols > div, tr, img, svg { break-inside: avoid; page-break-inside: avoid; }
+  h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+  a[href]::after { content: none !important; }
+  input, select, textarea { border: 1px solid #C9D2D9 !important; background: #fff !important; color: #1F3A5F !important; }
+}
+
+/* ---------------------------- Histórico: registros de ação ---------------------------- */
+.hist-tipo.acao { color: var(--ink-soft); background: var(--slate-soft); }
+.hist-item.acao .timeline-card { border-left: 3px solid var(--slate, #52667C) !important; }
+.hist-acao-desc { margin: 2px 0 0; font-size: var(--text-sm); color: var(--ink); overflow-wrap: anywhere; }
+.hist-usuario { font-weight: 600; color: var(--ink-soft); }
