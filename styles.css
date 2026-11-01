@@ -2779,3 +2779,165 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
   .topbar #settingsBtn { order: 5; font-size: 0; padding: 8px 10px; }
   .topbar-tab { font-size: 10pt; padding: 7px 2px; min-width: 0; }
 }
+
+/* ==========================================================================
+   Refinamento visual — parte 5: alinhamento, espaços em branco e acabamento
+   - Cabeçalho, barra superior, conteúdo e rodapé agora usam a MESMA largura útil
+     (antes: 1200 / 1080 / 1380 px, o que deixava as bordas desencontradas).
+   - Painel lateral sobe até a altura do título (antes ficava 150 px abaixo do topo).
+   - Menu de seções do formulário acompanha a rolagem em vez de deixar um vazio embaixo.
+   - Grades de gráficos preenchem a linha toda (sem coluna vazia à direita).
+   - Rodapé compacto; lista de registros no celular sem altura sobrando.
+   ========================================================================== */
+:root { --wrap: 1400px; --wrap-pad: 24px; --topbar-h: 56px; }
+
+/* ---------- Larguras alinhadas ---------- */
+.masthead-strip-inner, .masthead-inner { max-width: var(--wrap); padding-left: var(--wrap-pad); padding-right: var(--wrap-pad); }
+.topbar { padding-left: max(20px, calc((100% - var(--wrap)) / 2 + var(--wrap-pad) - 4px)); padding-right: max(20px, calc((100% - var(--wrap)) / 2 + var(--wrap-pad) - 4px)); min-height: var(--topbar-h); }
+.home-layout { max-width: var(--wrap); margin: 0 auto; padding: 0 var(--wrap-pad); gap: 24px; }
+.home-main { flex: 1 1 0; max-width: 1100px; margin: 0 auto; }
+.home-wrap, .dashboard-wrap { max-width: none; padding-left: 0; padding-right: 0; }
+.dashboard-wrap { overflow-y: visible; }
+@media (min-width: 1440px) {
+  .home-main { margin: 0; max-width: none; }
+  .apoio-home { flex-basis: 300px; margin-top: 30px; top: calc(var(--topbar-h) + 16px); }
+}
+@media (max-width: 640px) { .home-layout { padding: 0 14px; } .home-wrap, .dashboard-wrap { padding-left: 0; padding-right: 0; } }
+
+/* ---------- Início: ritmo vertical mais compacto ---------- */
+.home-wrap { padding-top: 26px; padding-bottom: 48px; }
+.home-head { margin-bottom: 16px; align-items: flex-end; }
+.home-head p { margin: 4px 0 0; }
+.home-stats-grid { margin-bottom: 12px; }
+.stat-card { transition: box-shadow .15s, transform .15s; }
+.search-row { margin-bottom: 12px; }
+.records-list { box-shadow: var(--shadow); border: 1px solid var(--line); }
+
+/* ---------- Gráficos / painel: sem coluna vazia ---------- */
+.resumo-cols-donut2 { max-width: none; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.resumo-cols { gap: 14px; }
+.kpi-grid-sec { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.kpi-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+@media (max-width: 480px) {
+  .kpi-grid, .kpi-grid-sec { grid-template-columns: repeat(2, 1fr); }
+  .resumo-cols, .resumo-cols-donut2 { grid-template-columns: 1fr; }
+}
+
+/* ---------- Formulário: menu lateral acompanha a rolagem ---------- */
+@media (min-width: 861px) {
+  .editor-wrap { align-items: flex-start; }
+  .tab-rail {
+    position: sticky; top: var(--topbar-h);
+    align-self: flex-start;
+    max-height: calc(100vh - var(--topbar-h));
+    border-bottom: 1px solid var(--line);
+  }
+  .tab-rail::before { bottom: auto; height: calc(100% - 126px); }
+  .editor-wrap .form-scroll { align-self: stretch; }
+}
+.form-inner { padding-top: 20px; padding-bottom: 96px; }
+.section-card { padding-top: var(--space-5); padding-bottom: var(--space-6); }
+.section-card + .section-card { margin-top: var(--space-4); }
+
+/* ---------- Rodapé compacto em grade ---------- */
+.app-footer { padding: 22px var(--wrap-pad) 12px; margin-top: 8px; }
+.app-footer-inner, .app-footer-bottom { max-width: calc(var(--wrap) - 2 * var(--wrap-pad)); }
+.app-footer-inner {
+  display: grid; gap: 16px 40px; align-items: start;
+  grid-template-columns: minmax(150px, 0.8fr) 1.4fr 1.4fr;
+  grid-template-areas: "brand inst contact" "tech tech tech";
+}
+.app-footer-inner > .app-footer-brand { grid-area: brand; min-width: 0; flex: none; }
+.app-footer-inner > .app-footer-col:nth-child(2) { grid-area: inst; min-width: 0; flex: none; }
+.app-footer-inner > .app-footer-col:nth-child(3) { grid-area: contact; min-width: 0; flex: none; }
+.app-footer-inner > .app-footer-tech {
+  grid-area: tech; min-width: 0; flex: none;
+  border-left: 0; padding-left: 0; margin-top: 0;
+  border-top: 1px dashed var(--line); padding-top: 12px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 4px 28px;
+}
+.app-footer-tech .app-footer-eyebrow { grid-column: 1 / -1; }
+.app-footer-bottom { margin-top: 12px; padding-top: 10px; }
+@media (max-width: 860px) {
+  .app-footer-inner { grid-template-columns: 1fr 1fr; grid-template-areas: "brand brand" "inst contact" "tech tech"; gap: 14px 20px; }
+}
+@media (max-width: 560px) {
+  .app-footer { padding: 18px 16px 12px; }
+  .app-footer-inner { grid-template-columns: 1fr; grid-template-areas: "brand" "inst" "contact" "tech"; gap: 12px; }
+  .app-footer-brandmark { display: none; }
+  .app-footer-inner > .app-footer-brand { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  .app-footer-bottom { flex-wrap: wrap; }
+}
+.app-footer-col p, .app-footer-col span { text-align: left; }
+
+/* ---------- Celular: lista de registros e prioridades sem altura sobrando ---------- */
+@media (max-width: 900px) {
+  .record-row {
+    grid-template-columns: 38px 1fr; column-gap: 12px; row-gap: 4px; padding: 12px 12px 10px;
+    grid-template-areas: "idx main" "idx cras" "idx status" "actions actions";
+  }
+  .record-cras { margin: 0; font-size: 10pt; }
+  .record-status { justify-self: start; margin: 2px 0 0; }
+  .record-actions { margin-top: 6px; gap: 6px; }
+  .record-actions .btn, .record-actions button { min-height: 36px; padding: 6px 14px; }
+}
+@media (max-width: 640px) {
+  .home-head h1 { line-height: 1.2; }
+  .home-stats-grid { gap: 8px; }
+  .stat-card { padding: 10px 12px; }
+  .apoio-mobile { margin: 0 0 12px; }
+  .home-main > .apoio-mobile { margin-top: 12px; }
+  .form-inner { padding: 14px 12px 96px; }
+  .section-card { padding: 16px 14px 18px; }
+  .app-footer { margin-bottom: 0; }
+  /* mascote menor e fora do caminho dos botões */
+  .mascote-wrap { transform: scale(.82); transform-origin: bottom right; }
+  #app { padding-bottom: 8px; }
+}
+
+/* ---------- Acabamento ---------- */
+.masthead { box-shadow: 0 2px 10px rgba(15,30,50,.18); }
+.btn { transition: background .15s, box-shadow .15s, transform .1s; }
+.btn:active { transform: translateY(1px); }
+.btn-primary:hover { box-shadow: 0 3px 10px rgba(31,92,78,.28); }
+.stat-card:hover, .apoio-card:hover { box-shadow: var(--shadow-lift); }
+.apoio-card { background: #fff; }
+
+/* ajustes finos (parte 5b) */
+.app-footer-inner > .app-footer-tech { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+@media (max-width: 900px) {
+  .record-index { align-self: start; margin-top: 2px; }
+}
+@media (max-width: 640px) {
+  .home-wrap { padding-top: 6px; }
+  .home-head { margin-bottom: 12px; }
+  .app-footer-inner > .app-footer-tech { grid-template-columns: 1fr; }
+}
+/* KPIs: 4 por linha (12 indicadores = 3 linhas cheias); 3 por linha nos secundários */
+.kpi-grid { grid-template-columns: repeat(4, 1fr); }
+.kpi-grid-sec { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } .kpi-grid-sec { grid-template-columns: repeat(2, 1fr); } }
+
+/* ==========================================================================
+   Parte 6: formulário no celular (menos rolagem, sem texto cortado)
+   ========================================================================== */
+@media (max-width: 640px) {
+  /* campos curtos (datas, RG, órgão, UF, CEP…) lado a lado */
+  .f.c3, .f.c4 { grid-column: span 6; }
+  .f.c6, .f.c8 { grid-column: span 12; }
+  .field-grid { gap: 10px 10px; }
+
+  /* topo da ficha: botões numa linha, situação numa faixa que rola */
+  .form-inner > div[style*="flex-wrap"] { gap: 8px; margin-bottom: 10px; }
+  .status-picker { margin-left: 0 !important; width: 100%; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .status-picker::-webkit-scrollbar { display: none; }
+  .status-opt { flex: 0 0 auto; padding: 6px 12px; font-size: 10.5pt; margin-left: 0; }
+  .protocolo-tag { margin-right: auto; }
+
+  /* navegação entre seções: botões empilhados, nome completo visível */
+  .section-nav { flex-direction: column-reverse; gap: 8px; margin-top: 22px; padding-top: 14px; }
+  .section-nav-btn { max-width: none; width: 100%; padding: 10px 14px; }
+  .section-nav-btn.next { margin-left: 0; }
+  .section-nav-label { max-width: 100%; white-space: normal; }
+  .section-nav-spacer { display: none; }
+}
