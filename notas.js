@@ -11,10 +11,10 @@
   /* ------------------------- auto-ajuste de altura ------------------------- */
   function autosize(ta) {
     if (!ta || !ta.isConnected) return;
+    if (ta.classList.contains("nota-editor-area")) return; /* editor ampliado rola sozinho */
     ta.style.height = "auto";
-    const max = Math.round(window.innerHeight * 0.75);
-    ta.style.height = Math.min(ta.scrollHeight + 2, max) + "px";
-    ta.style.overflowY = ta.scrollHeight + 2 > max ? "auto" : "hidden";
+    ta.style.overflowY = "hidden";
+    ta.style.height = (ta.scrollHeight + 2) + "px"; /* sem limite: mostra tudo o que foi escrito */
   }
 
   function contar(txt) {
@@ -437,6 +437,7 @@
   window.addEventListener("pagehide", salvarPendente);
 
   window.addEventListener("resize", () => document.querySelectorAll("#mainArea textarea").forEach(autosize));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => document.querySelectorAll("#mainArea textarea").forEach(autosize));
 
   function iniciar() {
     const main = document.getElementById("mainArea");
