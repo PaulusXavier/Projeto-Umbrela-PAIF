@@ -3284,6 +3284,28 @@ const ABNT_PRINT_CSS = `
   .sep-cadastro, .sep-cadastro *:not(.marco-ponto), .sub-parte *, h2 small { color: #000 !important; }
   .stat-bar-fill, .prog-trilho i, .hist-bar { opacity: 1 !important; }
 
+  /* ===== Melhorias de leitura na impressão =====
+     Texto corrido continua justificado (ABNT), mas listas, rótulos e caixas estreitas ficam
+     alinhados à esquerda — justificar linhas curtas abria "buracos" entre as palavras. */
+  li, .grid, .grid *, .kpi-card, .sum-box, .stat-box, .gbox, .gbox *, .resumo-cols li, .sum-cols li, .lei-cols li,
+  .capa-header, .capa-header *, .titulo-band, .titulo-band *, .id-band, .id-band *, .fam-resumo, .fam-resumo *,
+  .stat-bar-row, .donut-legend, .tags-wrap, .fechamento .campo { text-align: left !important; }
+  .assinatura, .assinatura *, .assinatura-bloco, .assinaturas { text-align: center !important; }
+  .corpo, .fam-resumo { break-inside: avoid; page-break-inside: avoid; }
+  .grid .field, .id-grid > * { padding: 1pt 0 !important; }
+  /* título da ficha: sem entrelinha de 1,5 nem espaços esticados */
+  .capa-header *, .titulo-band * { line-height: 1.3 !important; }
+  .capa-header, .titulo-band { align-items: flex-start !important; }
+  /* tabelas: cabeçalho levemente destacado e linhas legíveis */
+  table:not(.print-shell) th { background: #EFEFEF !important; }
+  table:not(.print-shell) td { vertical-align: top; }
+  /* texto corrido: sem viúvas e sem quebrar palavras no meio */
+  p, .anotacao, .traj-texto, .reg-evolucao { hyphens: manual; overflow-wrap: break-word; }
+  /* anotações do prontuário: sem recuo na primeira linha */
+  .anotacao, .traj-texto, .reg-evolucao, .campo-preenchido, p { text-indent: 0 !important; }
+  /* seções vazias ocupam uma linha só */
+  .campo-preenchido:empty, .anotacao:empty { display: none !important; }
+
   @media screen { .page-header-fixed, .page-footer-fixed, .watermark { display: none; } }
 `;
 
@@ -7417,7 +7439,7 @@ async function exportPDF(paf) {
           </div>
           <div>
             <span class="ph-org">Prefeitura Municipal de Boa Vista · SEMADS</span>
-            <span class="ph-sub">CRAS Cristiana Vicente Nunes — Prontuário do Plano de Acompanhamento Familiar (PAF/PAIF)</span>
+            <span class="ph-sub">CRAS Cristiana Vicente Nunes — Prontuário PAF/PAIF</span>
           </div>
           <div class="ph-right">
             <b>Ficha nº ${protocoloNumero(paf)}</b>
