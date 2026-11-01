@@ -5119,6 +5119,126 @@ function graficosFamiliaBlocosHTML(paf) {
     </div>`;
 }
 
+// ---------- Gráficos da impressão (PDF do prontuário) ----------
+// Compartilham o mesmo estilo e saem dentro das Partes 1 e 2 do documento, perto dos dados que ilustram.
+function gboxPrint(titulo, corpo, extra) {
+  return `<div class="gbox${extra ? " " + extra : ""}"><strong>${titulo}</strong>${corpo}</div>`;
+}
+
+function graficosComposicaoPrintHTML(paf) {
+  const r = computeFamiliaResumo(paf);
+  if (!r.totalMembros) return "";
+  return `<div class="fam-graf">
+    <div class="g-col">
+      ${gboxPrint("Sexo dos membros", donutChartSVG(r.porSexo, { centro: "membros" }))}
+      ${gboxPrint("Parentesco", barrasHTML(r.porParentesco))}
+    </div>
+    ${gboxPrint("Faixa etária dos membros", histogramaSVG(r.porFaixa, { ordem: FAIXA_ETARIA_ORDEM, rotulos: FAIXA_ETARIA_CURTA }))}
+  </div>`;
+}
+
+// Renda per capita da família diante da linha de extrema pobreza adotada pelo app.
+function graficoRendaPrintHTML(paf) {
+  const v = parseValorMonetario(paf.rendaPerCapita);
+  if (v == null) return "";
+  const linha = LINHA_EXTREMA_POBREZA;
+  const max = Math.max(v * 1.15, linha * 2.2);
+  const W = 640, H = 78, padL = 12, padR = 12, y = 30, hBar = 16, larg = W - padL - padR;
+  const xv = padL + Math.min(v / max, 1) * larg, xl = padL + (linha / max) * larg;
+  const abaixo = v <= linha;
+  const cor = abaixo ? "#A63D33" : "#2E7D6B";
+  const brl = n => "R$ " + n.toFixed(2).replace(".", ",");
+  const svg = `
+    <rect x="${padL}" y="${y}" width="${larg}" height="${hBar}" rx="8" fill="#E4EAEE"></rect>
+    <rect x="${padL}" y="${y}" width="${Math.max(xv - padL, 4)}" height="${hBar}" rx="8" fill="${cor}"></rect>
+    <line x1="${xl}" y1="${y - 8}" x2="${xl}" y2="${y + hBar + 8}" stroke="#1F3A5F" stroke-width="1.6" stroke-dasharray="3 2"></line>
+    <text x="${xl}" y="${y - 12}" text-anchor="${xl > W * .7 ? "end" : "start"}" font-size="10" fill="#1F3A5F">Linha de extrema pobreza · ${brl(linha)}</text>
+    <text x="${Math.min(xv, W - padR)}" y="${y + hBar + 20}" text-anchor="${xv > W * .8 ? "end" : "middle"}" font-size="11" font-weight="bold" fill="${cor}">Família · ${brl(v)} per capita</text>`;
+  return gboxPrint("Renda per capita × linha de extrema pobreza", svgGrafico(W, H, "renda-chart", "Renda per capita " + brl(v) + " comparada à linha de extrema pobreza " + brl(linha), svg), "gbox-largo");
+}
+
+// Atendimentos mês a mês (inclui meses sem atendimento), empilhados por tipo.
+function graficoAtendimentosMesPrintHTML(paf) {
+  const ats = (paf.atendimentos || []).filter(a => a.data).map(a => ({ ym: String(a.data).slice(0, 7), tipo: TIPO_ATENDIMENTO_COR[a.tipo] ? a.tipo : "Outro" }));
+  if (!ats.length) return `<p class="muted chart-vazio">Nenhum atendimento registrado ainda.</p>`;
+  const ini = (paf.dataInicial || "").slice(0, 7);
+  const yms = ats.map(a => a.ym).sort();
+  let ymA = ini && ini < yms[0] ? ini : yms[0];
+  const hoje = todayISO().slice(0, 7);
+  const ymB = hoje > yms[yms.length - 1] ? hoje : yms[yms.length - 1];
+  const meses = [];
+  let [y, m] = ymA.split("-").map(Number);
+  const [yb, mb] = ymB.split("-").map(Number);
+  while (y < yb || (y === yb && m <= mb)) { meses.push(y + "-" + String(m).padStart(2, "0")); if (++m > 12) { m = 1; y++; } }
+  const visiveis = meses.slice(-18);
+  const tipos = Object.keys(TIPO_ATENDIMENTO_COR).filter(t => ats.some(a => a.tipo === t));
+  const cont = {};
+  visiveis.forEach(ym => { cont[ym] = {}; });
+  ats.forEach(a => { if (cont[a.ym]) cont[a.ym][a.tipo] = (cont[a.ym][a.tipo] || 0) + 1; });
+  const totais = visiveis.map(ym => tipos.reduce((s, t) => s + (cont[ym][t] || 0), 0));
+  const maxV = Math.max(...totais, 1);
+  const passo = maxV <= 5 ? 1 : Math.ceil(maxV / 4);
+  const topo = Math.ceil(maxV / passo) * passo;
+  const W = 640, H = 190, padL = 30, padR = 10, padT = 20, padB = 34, chartH = H - padT - padB;
+  const colW = (W - padL - padR) / visiveis.length, bw = Math.min(colW * .62, 46);
+  let svg = "";
+  for (let v = 0; v <= topo; v += passo) {
+    const yy = padT + chartH - (v / topo) * chartH;
+    svg += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#D7E0E6" stroke-width="1"${v ? ` stroke-dasharray="2 3"` : ""}></line><text x="${padL - 6}" y="${yy + 3}" text-anchor="end" font-size="9" fill="#8496A8">${v}</text>`;
+  }
+  visiveis.forEach((ym, i) => {
+    const x = padL + i * colW + (colW - bw) / 2;
+    let base = padT + chartH;
+    tipos.forEach(t => {
+      const n = cont[ym][t] || 0;
+      if (!n) return;
+      const h = (n / topo) * chartH;
+      base -= h;
+      svg += `<rect x="${x.toFixed(1)}" y="${base.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${TIPO_ATENDIMENTO_COR[t]}" stroke="#fff" stroke-width="1"><title>${labelYmCurto(ym)} — ${escapeHtml(t)}: ${n}</title></rect>`;
+    });
+    if (totais[i]) svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${(base - 5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#1F3A5F">${totais[i]}</text>`;
+    else svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${padT + chartH - 4}" text-anchor="middle" font-size="9" fill="#B5C0CA">0</text>`;
+    svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${padT + chartH + 16}" text-anchor="middle" font-size="9.5" fill="#52667C">${labelYmCurto(ym)}</text>`;
+  });
+  const legenda = `<div class="lei-tipos" style="margin-top:4px">${tipos.map(t => `<span class="lei-tipo" style="border-color:${TIPO_ATENDIMENTO_COR[t]};color:${TIPO_ATENDIMENTO_COR[t]}">${escapeHtml(t)}</span>`).join("")}</div>`;
+  const nota = meses.length > visiveis.length ? `<p class="hint chart-nota">Mostrando os últimos ${visiveis.length} meses.</p>` : "";
+  return legenda + svgGrafico(W, H, "atend-mes-chart", "Atendimentos por mês, empilhados por tipo", svg) + nota;
+}
+
+// Barras de avanço: quanto do que foi identificado/planejado já tem resposta.
+function avancoPlanoPrintHTML(paf) {
+  const sits = (paf.situacoesSociais || []).filter(x => x.membros || x.superada);
+  const sup = sits.filter(x => x.superada).length;
+  const metas = (paf.metas || []).filter(m => m.prazo || m.resultados);
+  const metasRes = metas.filter(m => metaNotas(m).some(n => (n.texto || "").trim())).length;
+  const encs = paf.encaminhamentosForm || [];
+  const encRet = encs.filter(e => (e.contraReferencia || "").trim()).length;
+  const linhas = [
+    ["Situações sociais superadas", sup, sits.length, "#2E7D6B"],
+    ["Metas com resultado registrado", metasRes, metas.length, "#B98A34"],
+    ["Encaminhamentos com contra-referência", encRet, encs.length, "#3E6B8A"]
+  ];
+  if (!linhas.some(l => l[2])) return `<p class="muted chart-vazio">Ainda não há situações, metas ou encaminhamentos registrados.</p>`;
+  return `<div class="prog-lista">${linhas.map(([rot, n, tot, cor]) => {
+    const pct = tot ? Math.round(n / tot * 100) : 0;
+    return `<div class="prog-linha"><div class="prog-topo"><span>${rot}</span><span><b>${tot ? n + " de " + tot : "—"}</b>${tot ? ` <em>(${pct}%)</em>` : ""}</span></div><div class="prog-trilho"><i style="width:${tot ? Math.max(pct, 2) : 0}%;background:${cor}"></i></div></div>`;
+  }).join("")}</div>`;
+}
+
+function graficosAcompanhamentoPrintHTML(paf) {
+  const r = computeFamiliaResumo(paf);
+  return `
+    ${gboxPrint("Atendimentos por mês", graficoAtendimentosMesPrintHTML(paf), "gbox-largo")}
+    <div class="g-par">
+      ${gboxPrint("Avanço do plano", avancoPlanoPrintHTML(paf))}
+      ${gboxPrint("Atendimentos por tipo", r.totalAtendimentos ? donutChartSVG(r.porAtendimentoTipo, { centro: "atend." }) : `<p class="muted chart-vazio">Nenhum atendimento.</p>`)}
+    </div>
+    <div class="g-par">
+      ${gboxPrint("Encaminhamentos por área", barrasHTML(r.porEncArea))}
+      ${gboxPrint("Potencialidades da família", donutChartSVG(r.porPotencial, { centro: "potenciais" }))}
+    </div>`;
+}
+
 function graficosFamiliaHTML(paf) {
   const r = computeFamiliaResumo(paf);
   const meses = mesesEmAcompanhamento(paf.dataInicial);
@@ -6377,6 +6497,129 @@ async function exportPDF(paf) {
     </div>`).join("");
   const anexosPdfDados = JSON.stringify(anexosPdf.map(a => ({ nome: a.nome, dataURL: a.dataURL }))).replace(/</g, "\\u003c");
 
+  // ---- Parte 1 (conhecer a família): auxiliares de composição, moradia, renda e saúde ----
+  const _c = (label, val) => `<div class="field"><span class="label">${label}</span>${val || "—"}</div>`;
+  const _sq = (sn, quem) => sn ? escapeHtml(sn) + (sn === "Sim" && quem ? " (" + escapeHtml(quem) + ")" : "") : "";
+  const _membros = paf.membros || [];
+  const _idades = _membros.map(m => calcularIdade(m.nascimento)).filter(i => i !== null);
+  const _faixa = (lo, hi) => _idades.filter(i => i >= lo && i <= hi).length;
+  const _pcd = _membros.filter(m => m.pcd).length;
+  const composicaoResumoHTML = _membros.length ? `
+      <div class="fam-resumo">
+        <span><b>${_membros.length}</b> pessoa${_membros.length > 1 ? "s" : ""}</span>
+        ${_idades.length ? `<span><b>${_faixa(0, 11)}</b> criança${_faixa(0, 11) === 1 ? "" : "s"} (0–11)</span>
+        <span><b>${_faixa(12, 17)}</b> adolescente${_faixa(12, 17) === 1 ? "" : "s"} (12–17)</span>
+        <span><b>${_faixa(18, 59)}</b> adulto${_faixa(18, 59) === 1 ? "" : "s"} (18–59)</span>
+        <span><b>${_faixa(60, 200)}</b> idoso${_faixa(60, 200) === 1 ? "" : "s"} (60+)</span>` : ""}
+        ${_pcd ? `<span><b>${_pcd}</b> com deficiência</span>` : ""}
+      </div>` : "";
+  const _nDorm = parseInt(String(paf.habitacaoDormitorios || "").replace(/\D/g, ""), 10);
+  const densidadeDorm = _nDorm > 0 && _membros.length ? (_membros.length / _nDorm).toFixed(1).replace(".", ",") : "";
+
+  // ---- Leitura do acompanhamento: panorama, o que foi feito, resultados e pontos de atenção ----
+  const leituraAcompanhamentoHTML = (() => {
+    const E = escapeHtml;
+    const plural = (n, s, p) => n + " " + (n === 1 ? s : p);
+    const inicioISO = paf.dataInicial || (paf.createdAt || "").slice(0, 10);
+    const inicioOk = inicioISO && !isNaN(new Date(inicioISO + "T00:00:00").getTime());
+    const ats = atendimentosOrdenados;
+    const comData = ats.filter(a => a.data);
+    const ult = comData[0] || null;
+    const diasUlt = ult ? diasDesde(ult.data) : null;
+    const per = String(paf.periodicidade || "").toLowerCase();
+    const prazoPer = /seman/.test(per) ? 7 : /quinzen/.test(per) ? 15 : /bimes/.test(per) ? 60 : /trimes/.test(per) ? 90 : /mensal|mes/.test(per) ? 30 : null;
+    const addDias = (iso, n) => { const d = new Date(String(iso).slice(0, 10) + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+    const sits = (paf.situacoesSociais || []).filter(x => x.membros || x.superada);
+    const sitsSup = sits.filter(x => x.superada).length;
+    const sitsPend = sits.filter(x => !x.superada);
+    const metasSemRes = metasAtivas.filter(m => !metaNotas(m).some(n => (n.texto || "").trim()));
+    const metasComRes = metasAtivas.length - metasSemRes.length;
+    const metasSemPrazo = (paf.metas || []).filter(m => m && m.resultados && !m.prazo).length;
+    const encs = paf.encaminhamentosForm || [];
+    const encPend = encs.filter(e => !(e.contraReferencia || "").trim());
+    const nBenef = (paf.beneficiosEventuaisForm || []).length;
+    const nColet = (paf.atividadesColetivas || []).length;
+    const porTipo = {};
+    ats.forEach(a => { const t = a.tipo || "Atendimento"; porTipo[t] = (porTipo[t] || 0) + 1; });
+    const tiposHTML = Object.keys(porTipo).sort((a, b) => porTipo[b] - porTipo[a]).map(t => {
+      const cor = TIPO_ATENDIMENTO_COR[t] || TIPO_ATENDIMENTO_COR["Outro"];
+      return `<span class="lei-tipo" style="border-color:${cor};color:${cor}"><b>${porTipo[t]}</b> ${E(t)}</span>`;
+    }).join("");
+
+    // Texto corrido: quem é a família e em que ponto está o acompanhamento
+    const frases = [];
+    frases.push(`Família de <b>${E(paf.responsavel) || "responsável não informado"}</b>${_membros.length ? `, com ${plural(_membros.length, "pessoa", "pessoas")}` : ""}, ${inicioOk ? `em acompanhamento no PAIF desde <b>${fmtDateBR(inicioISO)}</b> (${E(tempoAcompanhamentoTexto(inicioISO))})` : "em acompanhamento no PAIF"}${paf.tecnicoReferencia ? `, com referência técnica de ${E(paf.tecnicoReferencia)}` : ""}.`);
+    frases.push(ats.length
+      ? `Foram registrados <b>${plural(ats.length, "atendimento", "atendimentos")}</b>${ult ? `; o último em ${fmtDateBR(ult.data)} (${diasUlt === 0 ? "hoje" : "há " + plural(diasUlt, "dia", "dias")})` : ""}.`
+      : `Ainda <b>não há atendimentos registrados</b> neste acompanhamento.`);
+    if (sits.length) frases.push(`Das <b>${sits.length}</b> situação(ões) social(is) identificada(s), <b>${sitsSup}</b> foi(ram) superada(s) e <b>${sitsPend.length}</b> segue(m) em acompanhamento.`);
+    if (metasAtivas.length) frases.push(`<b>${metasComRes} de ${metasAtivas.length}</b> meta(s) têm resultado registrado.`);
+    if (encs.length) frases.push(`Foram feitos <b>${plural(encs.length, "encaminhamento", "encaminhamentos")}</b> à rede, ${encs.length - encPend.length} com contra-referência recebida.`);
+
+    // Pontos de atenção (gerados dos dados — apoio à leitura, não substituem o julgamento técnico)
+    const aten = [];
+    const aberto = !["concluido", "cancelado"].includes(paf.situacaoPAF);
+    if (aberto) {
+      if (!ats.length) aten.push("Nenhum atendimento registrado até agora.");
+      else if (prazoPer !== null && diasUlt !== null && diasUlt > prazoPer) aten.push(`Último atendimento há ${plural(diasUlt, "dia", "dias")}, acima da periodicidade combinada (${E(paf.periodicidade)}).`);
+      else if (diasUlt !== null && diasUlt > 60) aten.push(`Sem atendimento há ${plural(diasUlt, "dia", "dias")}.`);
+      if (!metasAtivas.length) aten.push("Nenhuma meta definida para a família.");
+    }
+    metasSemRes.slice(0, 5).forEach(m => aten.push(`Meta sem resultado registrado: <b>${E(m.meta)}</b>${m.prazo ? ` (prazo: ${E(m.prazo)})` : ""}.`));
+    if (metasSemRes.length > 5) aten.push(`… e mais ${metasSemRes.length - 5} meta(s) sem resultado.`);
+    if (metasSemPrazo) aten.push(`${plural(metasSemPrazo, "meta com resultado mas sem prazo definido", "metas com resultado mas sem prazo definido")}.`);
+    encPend.slice(0, 5).forEach(e => aten.push(`Aguardando contra-referência: <b>${E(e.orgaoDestino || e.area) || "encaminhamento"}</b>${e.data ? ` (enviado em ${fmtDateBR(e.data)}${diasDesde(e.data) !== null ? ", há " + plural(diasDesde(e.data), "dia", "dias") : ""})` : ""}.`));
+    if (encPend.length > 5) aten.push(`… e mais ${encPend.length - 5} encaminhamento(s) sem contra-referência.`);
+    sitsPend.slice(0, 5).forEach(x => aten.push(`Situação ainda em acompanhamento: ${E(x.situacao)}.`));
+
+    // Próximos passos previstos
+    const prox = [];
+    if (aberto && ult && prazoPer !== null) {
+      const prev = addDias(ult.data, prazoPer);
+      prox.push(`Próximo atendimento previsto até <b>${fmtDateBR(prev)}</b> (${E(paf.periodicidade)})${prev < todayISO() ? ` <b class="alerta">— prazo já vencido</b>` : ""}.`);
+    }
+    if (paf.prazoAvaliacaoPlano) prox.push(`Avaliação do plano: <b>${E(paf.prazoAvaliacaoPlano)}</b>.`);
+    if (paf.prazoExecucaoPlano) prox.push(`Execução do plano: ${E(paf.prazoExecucaoPlano)}.`);
+    if (encPend.length) prox.push(`Cobrar o retorno de ${plural(encPend.length, "encaminhamento", "encaminhamentos")}.`);
+    const ultEncam = ult && comData.find(a => (a.encaminhamentos || "").trim());
+    if (ultEncam) prox.push(`Último encaminhamento registrado no atendimento de ${fmtDateBR(ultEncam.data)}: ${E(ultEncam.encaminhamentos.trim().slice(0, 160))}${ultEncam.encaminhamentos.trim().length > 160 ? "…" : ""}`);
+
+    const lista = (arr, vazio) => arr.length ? `<ul>${arr.map(x => `<li>${x}</li>`).join("")}</ul>` : `<p class="muted">${vazio}</p>`;
+    return `
+      <h2>Leitura do acompanhamento</h2>
+      <div class="lei-texto">${frases.join(" ")}</div>
+      <div class="lei-cols">
+        <div>
+          <strong>O que foi feito</strong>
+          ${tiposHTML ? `<div class="lei-tipos">${tiposHTML}</div>` : `<p class="muted">Nenhum atendimento.</p>`}
+          <ul>
+            <li><b>${encs.length}</b> encaminhamento(s) à rede</li>
+            <li><b>${nBenef}</b> benefício(s) eventual(is) concedido(s)/solicitado(s)</li>
+            <li><b>${nColet}</b> atividade(s) coletiva(s) do PAIF</li>
+          </ul>
+        </div>
+        <div>
+          <strong>Resultados até aqui</strong>
+          <ul>
+            <li>Situações superadas: <b>${sitsSup}</b> de <b>${sits.length}</b></li>
+            <li>Metas com resultado: <b>${metasComRes}</b> de <b>${metasAtivas.length}</b></li>
+            <li>Contra-referências recebidas: <b>${encs.length - encPend.length}</b> de <b>${encs.length}</b></li>
+          </ul>
+        </div>
+      </div>
+      <div class="lei-cols">
+        <div class="lei-atencao">
+          <strong>Pontos de atenção</strong>
+          ${lista(aten, "Nenhum ponto de atenção identificado nos dados registrados.")}
+        </div>
+        <div class="lei-prox">
+          <strong>Próximos passos</strong>
+          ${lista(prox, "Sem prazos ou pendências registrados.")}
+        </div>
+      </div>
+      <p class="lei-nota">Leitura gerada automaticamente a partir dos registros da ficha; serve de apoio e não substitui a avaliação técnica.</p>`;
+  })();
+
   const html = `
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -6756,6 +6999,67 @@ async function exportPDF(paf) {
         .sum-box .prog { display: block; height: 6px; background: #E4EAEE; border-radius: 3px; margin: 2px 0 5px; overflow: hidden; }
         .sum-box .prog i { display: block; height: 100%; background: #2E7D6B; }
         .sep-cadastro { margin-top: 16px; }
+        .sep-cadastro.parte { margin: 22px 0 6px; padding: 9px 14px; font-size: 13px; }
+        .sep-cadastro.parte .parte-n { display: inline-block; background: #B98A34; color: #fff; border-radius: 4px; padding: 1px 8px; margin-right: 8px; font-size: 11px; }
+        .sep-cadastro.parte small { display: block; font-size: 10.5px; font-weight: normal; letter-spacing: .02em; text-transform: none; opacity: .85; margin-top: 2px; }
+        .grid.g3 { grid-template-columns: repeat(3, 1fr); }
+        .sep-cadastro.nova-pagina { break-before: page; page-break-before: always; margin-top: 0; }
+        .sintese-fam { margin: 6px 0 8px; }
+        .hist-intro { margin: 0 0 6px; font-size: 12.5px; }
+        .marcos-lista { position: relative; margin: 6px 0 10px; padding-left: 4px; }
+        .marcos-lista::before { content: ""; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 2px; background: #D7E0E6; }
+        .marco-item { position: relative; display: flex; gap: 11px; align-items: flex-start; padding: 5px 0; break-inside: avoid; page-break-inside: avoid; }
+        .marco-ponto { flex: 0 0 20px; height: 20px; border-radius: 50%; background: var(--c); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; margin-left: 4px; border: 2px solid #fff; box-sizing: content-box; }
+        .marco-corpo { flex: 1; min-width: 0; border: 1px solid #D7E0E6; border-left: 3px solid var(--c); border-radius: 6px; background: #FBFCFC; padding: 6px 11px; }
+        .marco-topo { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+        .marco-topo b { color: #1F3A5F; }
+        .marco-topo span { color: #52667C; font-size: 11.5px; white-space: nowrap; }
+        .marco-topo em { font-style: normal; color: #8496A8; }
+        .marco-corpo p { margin: 3px 0 0 !important; border: 0 !important; padding: 0 !important; background: none !important; font-size: 12.5px; text-align: left; }
+        .traj-mes { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+        .traj-mes-res { font-size: 10.5px; font-weight: normal; text-transform: none; letter-spacing: 0; color: #52667C; }
+        .tab-sintese tbody tr:not(:has(td[colspan])) td:nth-child(2) { background: #FBF3F1 !important; }
+        .tab-sintese tbody tr:not(:has(td[colspan])) td:nth-child(3) { background: #EEF6F2 !important; }
+        .tab-sintese tbody td:nth-child(3) { border-left: 2px solid #2E7D6B; }
+        .gbox { border: 1px solid #D7E0E6; border-radius: 7px; background: #FBFCFC; padding: 10px 12px; break-inside: avoid; page-break-inside: avoid; min-width: 0; }
+        .gbox > strong { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: #3F546B; margin-bottom: 8px; }
+        .gbox-largo { margin: 6px 0 9px; }
+        .fam-graf { display: grid; grid-template-columns: 1fr 1.15fr; gap: 9px; margin: 8px 0; align-items: start; }
+        .fam-graf .g-col { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+        .g-par { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 9px; align-items: stretch; }
+        .prog-linha { margin-bottom: 11px; } .prog-linha:last-child { margin-bottom: 0; }
+        .prog-topo { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; margin-bottom: 4px; }
+        .prog-topo b { color: #1F3A5F; } .prog-topo em { color: #8496A8; font-style: normal; }
+        .prog-trilho { height: 10px; background: #E4EAEE; border-radius: 5px; overflow: hidden; }
+        .prog-trilho i { display: block; height: 100%; border-radius: 5px; }
+        .gbox .stat-bar-row { grid-template-columns: minmax(64px, 34%) 1fr 58px; gap: 8px; font-size: 11px; padding: 3px 0; }
+        .gbox .stat-bar-track { height: 8px; border-radius: 4px; }
+        .gbox .stat-bar-fill { border-radius: 4px; }
+        .gbox .donut-legend { font-size: 11px; gap: 4px; }
+        .gbox .donut-legend-dot { width: 8px; height: 8px; }
+        .gbox .chart-vazio { margin: 4px 0; font-size: 11.5px; }
+        .gbox .histograma-chart { max-height: 60mm !important; }
+        .lei-texto { border: 1px solid #D7E0E6; border-left: 4px solid #1F3A5F; border-radius: 7px; background: #FBFCFC; padding: 10px 14px; font-size: 13px; line-height: 1.6; text-align: justify; margin-bottom: 8px; break-inside: avoid; }
+        .lei-texto b { color: #1F3A5F; }
+        .lei-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 9px; }
+        .lei-cols > div { border: 1px solid #D7E0E6; border-radius: 7px; background: #FBFCFC; padding: 9px 12px; break-inside: avoid; }
+        .lei-cols strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: #3F546B; margin-bottom: 5px; }
+        .lei-cols ul { margin: 3px 0 0; padding-left: 17px; font-size: 12.5px; }
+        .lei-cols li { margin: 3px 0; }
+        .lei-cols p { margin: 3px 0 !important; border: 0 !important; padding: 0 !important; background: none !important; font-size: 12.5px; }
+        .lei-atencao { border-top: 3px solid #A63D33 !important; }
+        .lei-prox { border-top: 3px solid #2E7D6B !important; }
+        .lei-tipos { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 4px; }
+        .lei-tipo { font-size: 11px; border: 1.2px solid; border-radius: 999px; padding: 1px 9px; background: #fff; }
+        .lei-nota { font-size: 10.5px; color: #8496A8; margin: 0 0 6px !important; border: 0 !important; padding: 0 !important; background: none !important; }
+        .sintese-fam .sum-box .n { font-size: 16px; }
+        .sintese-fam .sum-box .s { min-height: 13px; }
+        .sub-parte { margin: 20px 0 2px; padding: 4px 10px; border-left: 4px solid #B98A34; background: #F3E7D0; color: #5E4516; font-size: 12px; font-weight: bold; letter-spacing: .03em; text-transform: uppercase; break-after: avoid; page-break-after: avoid; }
+        .sub-parte b { font-family: 'IBM Plex Mono', 'Courier New', monospace; margin-right: 6px; }
+        .sub-parte small { font-weight: normal; text-transform: none; letter-spacing: 0; margin-left: 8px; opacity: .85; }
+        .grid, .grid + p, h2 + .grid { break-inside: avoid; page-break-inside: avoid; }
+        .fam-resumo { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: #3F546B; border: 1px solid #D7E0E6; border-radius: 7px; background: #FBFCFC; padding: 7px 12px; margin: 2px 0 6px; break-inside: avoid; }
+        .fam-resumo b { color: #1F3A5F; font-size: 14px; }
         .chart-svg { max-height: 56mm !important; }
         .resumo-secao { margin-bottom: 10px; }
 
@@ -6858,7 +7162,87 @@ async function exportPDF(paf) {
         </div>
       </div>
 
+      <div class="sep-cadastro parte"><span class="parte-n">Parte 1</span> Conhecendo a família <small>Composição, moradia, renda e condições de vida</small></div>
+
+      <div class="sum-boxes sintese-fam">
+        <div class="sum-box"><span class="n">${_membros.length || "—"}</span><span class="l">Pessoas na família</span><span class="s">${_idades.length ? `${_faixa(0, 17)} menor${_faixa(0, 17) === 1 ? "" : "es"} de 18 · ${_faixa(60, 200)} idoso${_faixa(60, 200) === 1 ? "" : "s"}` : "&nbsp;"}</span></div>
+        <div class="sum-box"><span class="n">${escapeHtml(paf.habitacaoTipo) || "—"}</span><span class="l">Moradia</span><span class="s">${escapeHtml(paf.enderecoBairro) || "&nbsp;"}${paf.habitacaoAreaRisco === "Sim" ? ` <b class="alerta">· área de risco</b>` : ""}</span></div>
+        <div class="sum-box"><span class="n">${escapeHtml(paf.rendaPerCapita) || "—"}</span><span class="l">Renda per capita</span><span class="s">${paf.rendaTotal ? "Total: " + escapeHtml(paf.rendaTotal) : "&nbsp;"}${familiaEmExtremaPobreza(paf) ? ` <b class="alerta">· extrema pobreza</b>` : ""}</span></div>
+        <div class="sum-box"><span class="n">${(paf.vulnerabilidades || []).length}</span><span class="l">Vulnerabilidades</span><span class="s">${(paf.recebeBeneficio === "Sim" || (paf.beneficioQuais || []).length) ? "Recebe benefício" : "&nbsp;"}</span></div>
+      </div>
+
+      <h2>Composição Familiar</h2>
+      ${composicaoResumoHTML}
+      <table>
+        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Etnia indígena</th><th>PCD</th></tr></thead>
+        <tbody>${membrosHTML}</tbody>
+      </table>
+      ${migracaoHTML}
+      ${graficosComposicaoPrintHTML(paf)}
+
+      <h2>Moradia</h2>
+      <div class="grid g3">
+        ${_c("Tipo de residência", escapeHtml(paf.habitacaoTipo) + (paf.habitacaoAbrigoNome ? " (" + escapeHtml(paf.habitacaoAbrigoNome) + ")" : ""))}
+        ${_c("Área de risco", escapeHtml(paf.habitacaoAreaRisco))}
+        ${_c("Paredes externas", escapeHtml(paf.habitacaoParedes))}
+        ${_c("Energia elétrica", escapeHtml(paf.habitacaoEnergia))}
+        ${_c("Água canalizada", escapeHtml(paf.habitacaoAgua))}
+        ${_c("Escoamento sanitário", escapeHtml(paf.habitacaoEsgoto))}
+        ${_c("Coleta de lixo", escapeHtml(paf.habitacaoLixo))}
+        ${_c("Cômodos / dormitórios", [paf.habitacaoComodos, paf.habitacaoDormitorios].some(Boolean) ? escapeHtml(paf.habitacaoComodos || "—") + " / " + escapeHtml(paf.habitacaoDormitorios || "—") + (densidadeDorm ? ` <span class="muted">(${densidadeDorm} pessoa(s) por dormitório)</span>` : "") : "")}
+      </div>
+      ${paf.habitacaoObs ? `<p class="muted" style="margin:4px 0;">${diarioBr(paf.habitacaoObs)}</p>` : ""}
+
+      <h2>Trabalho, Renda e Benefícios</h2>
+      <div class="grid g3">
+        ${_c("Renda total da família", escapeHtml(paf.rendaTotal))}
+        ${_c("Renda per capita", escapeHtml(paf.rendaPerCapita) + (familiaEmExtremaPobreza(paf) ? ` <b class="alerta">· abaixo da linha de extrema pobreza (R$ ${LINHA_EXTREMA_POBREZA})</b>` : ""))}
+        ${_c("Pessoas na família", _membros.length || "")}
+        ${_c("Participa de programas/projetos sociais", escapeHtml(paf.participaProgramas))}
+        ${_c("Recebe outro benefício assistencial", escapeHtml(paf.recebeBeneficio))}
+      </div>
+      ${graficoRendaPrintHTML(paf)}
+      <div class="tags-wrap">${(paf.programasQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
+      ${paf.programasOutros ? `<p style="margin:4px 0;"><strong>Outros programas:</strong> ${escapeHtml(paf.programasOutros)}</p>` : ""}
+      <div class="tags-wrap">${(paf.beneficioQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
+      ${paf.beneficioOutro ? `<p style="margin:4px 0;"><strong>Outro benefício:</strong> ${escapeHtml(paf.beneficioOutro)}</p>` : ""}
+      ${paf.rendaObs ? `<p class="muted" style="margin:4px 0;">${diarioBr(paf.rendaObs)}</p>` : ""}
+
+      <h2>Educação e Saúde</h2>
+      ${(() => {
+        const itens = [
+          ["Fora da escola — 0 a 5 anos", escapeHtml(paf.eduForaEscola06)],
+          ["Fora da escola — 6 a 14 anos", escapeHtml(paf.eduForaEscola614)],
+          ["Fora da escola — 15 a 17 anos", escapeHtml(paf.eduForaEscola1517)],
+          ["Não sabem ler/escrever — 10 a 17 anos", escapeHtml(paf.eduAnalfabetismo1017)],
+          ["Não sabem ler/escrever — 18 a 59 anos", escapeHtml(paf.eduAnalfabetismo1859)],
+          ["Não sabem ler/escrever — 60 anos ou mais", escapeHtml(paf.eduAnalfabetismo60mais)],
+          ["Doença grave", _sq(paf.saudeDoencaGrave, paf.saudeDoencaGraveQuem)],
+          ["Medicação controlada", _sq(paf.saudeMedicacaoControlada, paf.saudeMedicacaoQuem)],
+          ["Gestante(s)", _sq(paf.saudeGestante, paf.saudeGestanteQuem)],
+          ["Uso abusivo de álcool", _sq(paf.saudeAlcool, paf.saudeAlcoolQuem)],
+          ["Uso abusivo de outras drogas", _sq(paf.saudeDrogas, paf.saudeDrogasQuem)]
+        ].filter(x => x[1]);
+        return itens.length
+          ? `<div class="grid g3">${itens.map(x => _c(x[0], x[1])).join("")}</div>`
+          : `<p class="muted">Nenhum dado de educação ou saúde registrado.</p>`;
+      })()}
+      ${[paf.eduObs, paf.saudeObs].filter(Boolean).map(o => `<p class="muted" style="margin:4px 0;">${diarioBr(o)}</p>`).join("")}
+
+      <h2>Vulnerabilidades Identificadas</h2>
+      <div class="tags-wrap">${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
+      ${paf.vulnerabilidadesOutros ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
+
+      <div class="sep-cadastro parte nova-pagina"><span class="parte-n">Parte 2</span> Acompanhamento <small>Resumo, metas, evolução, atendimentos e plano de intervenção</small></div>
+
+      <div class="sub-parte"><b>2A</b> Evolução do acompanhamento <small>o que já foi feito e como a família respondeu</small></div>
+
+      ${leituraAcompanhamentoHTML}
+
       ${resumoAcompanhamentoHTML}
+
+      <h2>Gráficos do acompanhamento</h2>
+      ${graficosAcompanhamentoPrintHTML(paf)}
 
       <h2>Metas e Evolução</h2>
       ${metasHTML}
@@ -6867,41 +7251,7 @@ async function exportPDF(paf) {
 
       ${historicoPdfHTML(paf)}
 
-      <div class="sep-cadastro">Dados cadastrais e diagnóstico da família</div>
-
-      <h2>Membros da Família</h2>
-      <table>
-        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Etnia indígena</th><th>PCD</th></tr></thead>
-        <tbody>${membrosHTML}</tbody>
-      </table>
-      ${migracaoHTML}
-
-      <h2>Diagnóstico e Vulnerabilidades</h2>
-      <div class="tags-wrap">${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
-      ${paf.vulnerabilidadesOutros ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
-
-      <h2>Diagnóstico Socioeconômico</h2>
-      <div class="grid">
-        <div class="field"><span class="label">Habitação</span>${escapeHtml(paf.habitacaoTipo) || "—"}${paf.habitacaoAbrigoNome ? " (" + escapeHtml(paf.habitacaoAbrigoNome) + ")" : ""}${paf.habitacaoAreaRisco === "Sim" ? " · Em área de risco" : ""}</div>
-        <div class="field"><span class="label">Saneamento</span>${escapeHtml(paf.habitacaoEsgoto) || "—"}</div>
-        <div class="field"><span class="label">Crianças/adolesc. fora da escola</span>${[paf.eduForaEscola06, paf.eduForaEscola614, paf.eduForaEscola1517].filter(Boolean).join(" / ") || "—"}</div>
-        <div class="field"><span class="label">Renda total / per capita</span>${[paf.rendaTotal, paf.rendaPerCapita].filter(Boolean).join(" / ") || "—"}</div>
-        <div class="field"><span class="label">Doença grave na família</span>${escapeHtml(paf.saudeDoencaGrave) || "—"}${paf.saudeDoencaGraveQuem ? " (" + escapeHtml(paf.saudeDoencaGraveQuem) + ")" : ""}</div>
-        <div class="field"><span class="label">Gestante(s) na família</span>${escapeHtml(paf.saudeGestante) || "—"}${paf.saudeGestanteQuem ? " (" + escapeHtml(paf.saudeGestanteQuem) + ")" : ""}</div>
-      </div>
-      ${[paf.habitacaoObs, paf.eduObs, paf.rendaObs, paf.saudeObs].filter(Boolean).map(o => `<p class="muted" style="margin:4px 0;">${diarioBr(o)}</p>`).join("")}
-
-      ${(paf.instrumentaisTecnicos || []).length || paf.aspectosPsicossociaisObs ? `
-      <h2>Aspectos Psicossociais e Instrumentais Técnicos</h2>
-      ${(paf.instrumentaisTecnicos || []).length ? `<div>${paf.instrumentaisTecnicos.map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
-      ${paf.aspectosPsicossociaisObs ? `<p class="muted" style="margin:6px 0 0;">${diarioBr(paf.aspectosPsicossociaisObs)}</p>` : ""}` : ""}
-
-      ${(paf.encaminhamentosForm || []).length ? `
-      <h2>Encaminhamentos Realizados</h2>
-      <table>
-        <thead><tr><th>Data</th><th>Área</th><th>Órgão/Unidade</th><th>Objetivo</th><th>Contra-referência</th></tr></thead>
-        <tbody>${paf.encaminhamentosForm.map(e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td>${escapeHtml(e.objetivo)}</td><td>${escapeHtml(e.contraReferencia) || "—"}</td></tr>`).join("")}</tbody>
-      </table>` : ""}
+      <div class="sub-parte"><b>2B</b> Leitura técnica <small>situações, potencialidades e barreiras</small></div>
 
       <h2>Situações Sociais Registradas</h2>
       <table>
@@ -6916,37 +7266,12 @@ async function exportPDF(paf) {
       </table>
       ${paf.barreirasDesafios ? `<p class="muted" style="margin:6px 0 0;"><strong>Barreiras e desafios:</strong> ${diarioBr(paf.barreirasDesafios)}</p>` : ""}
 
-      <h2>Trabalho Social Coletivo do PAIF</h2>
-      <div class="tags-wrap">${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
-      ${paf.atividadesColetivasOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.atividadesColetivasOutras)}</p>` : ""}
+      ${(paf.instrumentaisTecnicos || []).length || paf.aspectosPsicossociaisObs ? `
+      <h2>Aspectos Psicossociais e Instrumentais Técnicos</h2>
+      ${(paf.instrumentaisTecnicos || []).length ? `<div>${paf.instrumentaisTecnicos.map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
+      ${paf.aspectosPsicossociaisObs ? `<p class="muted" style="margin:6px 0 0;">${diarioBr(paf.aspectosPsicossociaisObs)}</p>` : ""}` : ""}
 
-      <h2>Serviços da Rede Socioassistencial</h2>
-      <div class="grid">
-        <div class="field"><span class="label">Proteção Social Básica</span>${(paf.servBasica || []).map(escapeHtml).join(", ") || "—"}</div>
-        <div class="field"><span class="label">Média Complexidade</span>${(paf.servMedia || []).map(escapeHtml).join(", ") || "—"}</div>
-        <div class="field"><span class="label">Alta Complexidade</span>${(paf.servAlta || []).map(escapeHtml).join(", ") || "—"}</div>
-      </div>
-
-      <h2>Programas, Projetos e Benefícios Socioassistenciais</h2>
-      <div class="grid">
-        <div class="field"><span class="label">Participa de programas/projetos sociais</span>${escapeHtml(paf.participaProgramas) || "—"}</div>
-        <div class="field"><span class="label">Recebe outro benefício assistencial</span>${escapeHtml(paf.recebeBeneficio) || "—"}</div>
-      </div>
-      <div class="tags-wrap">${(paf.programasQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
-      ${paf.programasOutros ? `<p style="margin:4px 0;"><strong>Outros programas:</strong> ${escapeHtml(paf.programasOutros)}</p>` : ""}
-      <div class="tags-wrap">${(paf.beneficioQuais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>
-      ${paf.beneficioOutro ? `<p style="margin:4px 0;"><strong>Outro benefício:</strong> ${escapeHtml(paf.beneficioOutro)}</p>` : ""}
-
-      ${(paf.beneficiosEventuaisForm || []).length ? `
-      <h2>Benefícios Eventuais (Art. 22 LOAS / Decreto nº 6.307/2007)</h2>
-      <table>
-        <thead><tr><th>Data</th><th>Modalidade</th><th>Situação/motivo</th><th>Forma</th><th>Valor</th><th>Situação</th><th>Concedido em</th></tr></thead>
-        <tbody>${paf.beneficiosEventuaisForm.map(b => `<tr><td>${fmtDateBR(b.data)}</td><td>${escapeHtml(b.tipo)}</td><td>${escapeHtml(b.situacaoMotivadora)}${b.situacaoDetalhe ? " — " + escapeHtml(b.situacaoDetalhe) : ""}</td><td>${escapeHtml(b.formaConcessao)}</td><td>${escapeHtml(b.valor)}</td><td>${escapeHtml(b.situacaoRequerimento) || "—"}</td><td>${fmtDateBR(b.dataConcessao) || "—"}</td></tr>`).join("")}</tbody>
-      </table>` : ""}
-
-      <h2>Recursos do Território (Rede de Apoio)</h2>
-      <div class="tags-wrap">${(paf.redeApoio || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
-      ${paf.redeApoioOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.redeApoioOutros)}</p>` : ""}
+      <div class="sub-parte"><b>2C</b> Plano de intervenção <small>o que se pretende alcançar e por quais caminhos</small></div>
 
       <h2>Estratégias e Eixos de Intervenção</h2>
       <div class="grid">
@@ -6962,6 +7287,37 @@ async function exportPDF(paf) {
       <div class="tags-wrap">${(paf.segurancasSocioassistenciais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
       ${paf.segurancasSocioassistenciaisOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.segurancasSocioassistenciaisOutras)}</p>` : ""}
 
+      <h2>Trabalho Social Coletivo do PAIF</h2>
+      <div class="tags-wrap">${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
+      ${paf.atividadesColetivasOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.atividadesColetivasOutras)}</p>` : ""}
+
+      <div class="sub-parte"><b>2D</b> Rede e encaminhamentos <small>serviços, apoios e benefícios acionados</small></div>
+
+      <h2>Serviços da Rede Socioassistencial</h2>
+      <div class="grid">
+        <div class="field"><span class="label">Proteção Social Básica</span>${(paf.servBasica || []).map(escapeHtml).join(", ") || "—"}</div>
+        <div class="field"><span class="label">Média Complexidade</span>${(paf.servMedia || []).map(escapeHtml).join(", ") || "—"}</div>
+        <div class="field"><span class="label">Alta Complexidade</span>${(paf.servAlta || []).map(escapeHtml).join(", ") || "—"}</div>
+      </div>
+
+      <h2>Recursos do Território (Rede de Apoio)</h2>
+      <div class="tags-wrap">${(paf.redeApoio || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
+      ${paf.redeApoioOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.redeApoioOutros)}</p>` : ""}
+
+      ${(paf.encaminhamentosForm || []).length ? `
+      <h2>Encaminhamentos Realizados</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Área</th><th>Órgão/Unidade</th><th>Objetivo</th><th>Contra-referência</th></tr></thead>
+        <tbody>${paf.encaminhamentosForm.map(e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td>${escapeHtml(e.objetivo)}</td><td>${escapeHtml(e.contraReferencia) || "—"}</td></tr>`).join("")}</tbody>
+      </table>` : ""}
+
+      ${(paf.beneficiosEventuaisForm || []).length ? `
+      <h2>Benefícios Eventuais (Art. 22 LOAS / Decreto nº 6.307/2007)</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Modalidade</th><th>Situação/motivo</th><th>Forma</th><th>Valor</th><th>Situação</th><th>Concedido em</th></tr></thead>
+        <tbody>${paf.beneficiosEventuaisForm.map(b => `<tr><td>${fmtDateBR(b.data)}</td><td>${escapeHtml(b.tipo)}</td><td>${escapeHtml(b.situacaoMotivadora)}${b.situacaoDetalhe ? " — " + escapeHtml(b.situacaoDetalhe) : ""}</td><td>${escapeHtml(b.formaConcessao)}</td><td>${escapeHtml(b.valor)}</td><td>${escapeHtml(b.situacaoRequerimento) || "—"}</td><td>${fmtDateBR(b.dataConcessao) || "—"}</td></tr>`).join("")}</tbody>
+      </table>` : ""}
+
       <h2>Elaboração e Encerramento</h2>
       <div class="grid">
         <div class="field"><span class="label">Família participou da elaboração</span>${escapeHtml(paf.familiaParticipou) || "—"}</div>
@@ -6976,9 +7332,6 @@ async function exportPDF(paf) {
       ${paf.encerramentoOutros ? `<p style="margin:6px 0 0;"><strong>Outros motivos/observações do encerramento:</strong> ${escapeHtml(paf.encerramentoOutros)}</p>` : ""}
 
       ${paf.observacoes ? `<h2>Observações Gerais</h2><p class="anotacao">${diarioBr(paf.observacoes)}</p>` : ""}
-
-      <h2>Gráficos da Família</h2>
-      <div class="graficos-print-secao">${graficosFamiliaBlocosHTML(paf).replace(tempoAcompanhamentoBlocoHTML(paf), "")}</div>
 
       ${anexosHTML}
 
