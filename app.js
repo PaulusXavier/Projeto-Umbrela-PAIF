@@ -3291,7 +3291,7 @@ const ABNT_PRINT_CSS = `
   .capa-header, .capa-header *, .titulo-band, .titulo-band *, .id-band, .id-band *, .fam-resumo, .fam-resumo *,
   .stat-bar-row, .donut-legend, .tags-wrap, .fechamento .campo { text-align: left !important; }
   .assinatura, .assinatura *, .assinatura-bloco, .assinaturas { text-align: center !important; }
-  .corpo, .fam-resumo { break-inside: avoid; page-break-inside: avoid; }
+  .lei-texto { border-left-width: 1px !important; }
   .grid .field, .id-grid > * { padding: 1pt 0 !important; }
   /* título da ficha: sem entrelinha de 1,5 nem espaços esticados */
   .capa-header *, .titulo-band * { line-height: 1.3 !important; }
