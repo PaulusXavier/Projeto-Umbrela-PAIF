@@ -21,36 +21,26 @@ os registros só para si (não compartilha com os outros).
 1. Acesse **https://console.firebase.google.com** e crie um projeto gratuito (plano *Spark*).
 2. No menu lateral, clique em **Compilação > Firestore Database** → **Criar banco de dados**
    → escolha um local (ex.: `southamerica-east1`) → inicie em **modo de produção**.
-3. Ainda no Firestore, abra a aba **Regras** e substitua pelo conteúdo abaixo, depois
-   clique em **Publicar**:
+3. Ainda no Firestore, abra a aba **Regras**, apague o conteúdo e cole o do arquivo
+   **`firestore.rules`** deste projeto (ele cobre os PAFs, os anexos, o histórico e a
+   trilha de auditoria). Depois clique em **Publicar**.
 
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /planos_acompanhamento_familiar/{docId} {
-         allow read, write: if request.auth != null;
+   Antes de colar, troque o UID que está na função `dono()` pelo **UID da sua conta**
+   (Authentication > Users > coluna *User UID*). Só essa conta lê e grava os dados.
 
-         match /anexos/{anexoId} {
-           allow read, write: if request.auth != null;
-         }
+   > **Equipe com vários técnicos?** Em vez de um único UID, use uma lista, por exemplo
+   > `request.auth.uid in ['UID_1', 'UID_2']`, dentro da função `dono()`. Evite a regra
+   > genérica `request.auth != null`: qualquer pessoa pode criar uma conta de e-mail/senha
+   > usando a chave pública do `firebase-config.js` (a menos que o cadastro por conta própria
+   > esteja desativado no Firebase), e passaria a ler os PAFs das famílias.
 
-         match /historico/{registroId} {
-           allow read, write: if request.auth != null;
-         }
-       }
-     }
-   }
-   ```
+   > **Já tinha configurado a nuvem antes?** Volte em Firestore > Regras e cole a versão
+   > atual do `firestore.rules` por cima da antiga. Sem a regra `auditoria`, o registro de
+   > criações, exclusões e desistências falha em silêncio; sem `anexos`, os anexos novos
+   > não sincronizam.
 
-   > **Já tinha configurado a nuvem antes?** Volte em Firestore > Regras e cole
-   > essa versão atualizada por cima da antiga (ela adiciona a subcoleção
-   > `anexos`, usada para permitir anexar bem mais fotos/documentos por PAF —
-   > veja a seção "Anexos" mais abaixo). Sem isso, novos anexos não vão
-   > sincronizar com a nuvem.
-
-   > Isso libera leitura/escrita só para quem estiver logado (ver passo 1a abaixo) —
-   > sem login, não é possível ver nem alterar os registros, mesmo tendo o link do app.
+   > Mesmo com as regras certas, mantenha o Worker do Paulus restrito às mesmas contas
+   > (`ALLOWED_UIDS` no `worker/wrangler.toml`): cada conta autorizada gera custo na API da IA.
 
 ### 1a. Ativar o login (Firebase Authentication) — obrigatório para a nuvem funcionar
 
