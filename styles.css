@@ -2413,3 +2413,369 @@ button, input, select, textarea, label, th, td, .tab-rail *, .topbar *, .filter-
 button, .btn, .topbar, .tab-rail, .filter-chip, .status-opt, th { text-align: center; }
 td, label { text-align: left; }
 textarea, input[type="text"] { text-align: left; }
+
+
+/* ==========================================================================
+   Caixas de escrita: crescem para mostrar todo o texto e seguem o padrão
+   Times New Roman 12 pt · espaçamento 1,5 · justificado · 1ª linha 1,25 cm
+   ========================================================================== */
+#mainArea textarea {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12pt;
+  line-height: 1.5;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  box-sizing: border-box;
+  overflow-y: hidden;
+  resize: none;
+  max-height: none;
+}
+/* recuo de 1,25 cm na primeira linha: campos de texto corrido */
+#mainArea .f textarea,
+#mainArea .diario-texto textarea,
+#mainArea .meta-nota textarea,
+#mainArea .timeline-card textarea,
+#mainArea .hist-novo textarea,
+#mainArea .hist-edit textarea,
+#mainArea textarea[data-field] {
+  text-indent: 1.25cm;
+}
+/* células de tabela e legendas: mesma fonte/espaçamento, sem recuo (colunas estreitas) */
+#mainArea .dyn-table textarea,
+#mainArea .anexo-card textarea {
+  text-indent: 0;
+  line-height: 1.5;
+  min-height: 0;
+}
+/* o campo de evolução e as anotações crescem a partir de um tamanho confortável, sem teto */
+#mainArea .timeline-card textarea[data-field$=".evolucao"] { min-height: 160px; }
+#mainArea .meta-nota textarea { min-height: 96px; }
+#mainArea .diario-texto textarea { min-height: 96px; }
+/* editor em tela cheia (botão Ampliar) */
+.nota-editor-area {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12pt;
+  line-height: 1.5;
+  text-align: justify;
+  text-indent: 1.25cm;
+}
+
+
+/* ==========================================================================
+   Refinamento visual
+   Ideia: fundo calmo e liso para o texto respirar; um só destaque de cor
+   (dourado = onde estou, verde = ação principal); rótulos em minúsculas
+   legíveis; campos alinhados; cabeçalho mais baixo; celular sem cortes.
+   ========================================================================== */
+:root {
+  --bg: #F3F1EB;
+  --paper: #FFFFFF;
+  --paper-soft: #F8F6F0;
+  --line: #E1DCCD;
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 2px rgba(31,58,95,.06), 0 2px 8px rgba(31,58,95,.05);
+  --shadow-lift: 0 2px 6px rgba(31,58,95,.08), 0 8px 20px rgba(31,58,95,.08);
+}
+
+/* Fundo liso: some a textura e as marcas d'água fixas que passavam atrás do texto */
+body { background: var(--bg); background-image: none; }
+
+/* Rótulos e títulos pequenos: sem caixa-alta e sem espaçamento largo */
+.f label, .home-eyebrow, .masthead-eyebrow, .app-footer-eyebrow, .rail-label,
+.tab-rail .rail-label, .ordem-lista, .apoio-card h3, .filter-chip, .login-eyebrow,
+.section-card .section-sub, .stat-label {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* ---------- Cabeçalho: mais baixo, uma faixa só ---------- */
+.masthead-strip-inner { padding: 3px 20px; }
+.masthead-inner { padding: 8px 20px; }
+.masthead-text strong { font-size: 15pt; }
+.masthead-eyebrow { font-size: 10pt; opacity: .85; }
+.masthead-service { font-size: 10.5pt; }
+.topbar { padding: 8px 20px; box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 4px 14px rgba(15,30,50,.18); }
+
+/* ---------- Início ---------- */
+.home-wrap { padding-top: 24px; }
+.home-head-illustration { display: none; }
+.home-eyebrow { color: var(--accent-dark); font-weight: 700; font-size: 10.5pt; margin: 0 0 4px; text-align: left; }
+.home-head h1 { border-bottom: 0; padding-bottom: 0; font-size: 22pt; }
+.home-head p { text-align: left; }
+.home-head > div[style] { flex-wrap: wrap; }
+
+.search-row { gap: 10px 12px; margin-bottom: 14px; align-items: center; }
+.search-row input[type=search] {
+  background: #fff; border: 1px solid #CBD3DA; border-radius: var(--radius);
+  padding: 10px 14px; min-height: 42px; box-shadow: none;
+}
+.search-row input[type=search]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.filter-tabs { gap: 6px; }
+.filter-chip {
+  background: #fff; border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 14px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; box-shadow: none;
+}
+.filter-chip:not(.active):hover { background: var(--paper-soft); color: var(--ink); }
+.filter-chip.active,
+.filter-chip[data-status].active { background: var(--ink); color: #fff; border-color: var(--ink); box-shadow: none; }
+
+.empty-state { background: #fff; border: 1px dashed #CFC8B4; border-radius: var(--radius-lg); text-align: center; }
+.empty-state p { text-align: center; }
+.apoio-mobile { background: #fff; }
+
+/* ---------- Formulário ---------- */
+.section-card {
+  border: 1px solid var(--line); border-top: 3px solid var(--gold);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow);
+}
+.section-card h2 { font-size: 15pt; }
+.section-sub { color: var(--ink-soft); }
+
+/* campos: mesma altura, preenchem a coluna, alinhados pela base */
+.f { justify-content: flex-end; gap: 4px; }
+.f label { font-size: 10.5pt; font-weight: 600; color: var(--ink-soft); line-height: 1.25; }
+.f input[type=text], .f input[type=date], .f input[type=tel], .f input[type=email],
+.f input[type=number], .f input[type=search], .f select {
+  width: 100%; min-height: 40px; background: #fff; border: 1px solid #C9D2D9; border-radius: var(--radius);
+}
+.f textarea { background: #fff; border: 1px solid #C9D2D9; border-radius: var(--radius); }
+.f input:hover, .f select:hover, .f textarea:hover { border-color: var(--ink-faint); }
+.f input:focus, .f select:focus, .f textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.f input::placeholder, .f textarea::placeholder { color: #8695A3; opacity: 1; }
+
+/* menu de seções: item ativo bem visível, em verde */
+.tab-rail { background: #fff; }
+.tab-item.active { background: var(--accent-soft); color: var(--accent-dark); border-left-color: var(--accent); }
+.tab-item.active .rivet { background: var(--accent); }
+.tab-item.active .section-icon { color: var(--accent-dark); }
+.tab-item:hover { background: var(--paper-soft); }
+.rail-progress-fill { background: var(--accent); }
+
+/* botões */
+.btn { border-radius: var(--radius); min-height: 38px; }
+.btn-primary { box-shadow: 0 1px 2px rgba(31,92,78,.25); }
+.btn-ghost { background: #fff; border: 1px solid #CBD3DA; }
+
+/* parágrafos curtos de interface não ficam esticados */
+.empty-state p, .toast, .mascote-bubble, .apoio-card li, .apoio-card p, .home-pilares span { text-align: left; }
+.empty-state p { text-align: center; }
+
+/* ---------- Celular ---------- */
+@media (max-width: 640px) {
+  .masthead-strip { display: none; }
+  .home-wrap { padding: 16px 14px 48px; }
+  .home-head h1 { font-size: 18pt; }
+  .home-head > div[style] { width: 100%; }
+  .home-head > div[style] .btn { flex: 1 1 140px; justify-content: center; }
+  .home-head > div[style] #newPafBtn { flex-basis: 100%; }
+  .search-row input[type=search] { flex: 1 1 100%; min-width: 0; }
+  .filter-tabs { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 4px; scrollbar-width: none; }
+  .filter-tabs::-webkit-scrollbar { display: none; }
+  .filter-chip { flex: 0 0 auto; }
+}
+
+/* busca em linha própria (não corta o texto); filtros e ordenação logo abaixo */
+.search-row input[type=search] { flex: 1 1 100%; min-width: 0; }
+.filter-tabs { flex: 1 1 auto; }
+.home-main > .apoio-mobile { margin-top: 16px; }
+
+
+/* ==========================================================================
+   Refinamento visual — parte 2: lista, tabelas, painéis e leitura
+   ========================================================================== */
+.apoio-card h3,
+.app-footer-eyebrow,
+.donut-total-label,
+.dyn-table th,
+.f label,
+.filter-chip,
+.folder-tab,
+.hist-grupo-titulo,
+.hist-mes,
+.hist-trajetoria-titulo,
+.hist-visao-bloco > strong,
+.home-eyebrow,
+.kpi-label,
+.masthead-eyebrow,
+.meta-nota label,
+.meta-prazo label,
+.nota-modelos-tit,
+.nota-tecnica .marca,
+.ordem-lista,
+.priority-badge,
+.prontuario-fields .k,
+.records-list-head,
+.resumo-cols strong,
+.section-nav-text em,
+.settings-field .k,
+.stat-label,
+.storage-top .k,
+.tab-rail .rail-label,
+.timeline-date-badge .mes,
+.traj-badge .mes,
+.traj-sec,
+.traj-tipo,
+.record-status,
+.record-status *,
+.record-col {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* títulos de coluna e rótulos pequenos: legíveis, sem fonte monoespaçada */
+.records-list-head, .dyn-table th, .stat-label, .kpi-label, .prontuario-fields .k, .settings-field .k, .storage-top .k {
+  font-family: "Times New Roman", Times, serif; font-size: 10.5pt; font-weight: 700; color: var(--ink-soft);
+}
+
+/* ---------- Lista de registros: nome inteiro, colunas que respiram ---------- */
+.records-list-head,
+.record-row { grid-template-columns: 44px minmax(210px, 2.4fr) minmax(120px, 1.2fr) 84px 100px 140px auto; gap: 12px; }
+.record-main { min-width: 0; }
+.record-main strong, .record-nome { white-space: normal; overflow-wrap: anywhere; }
+.record-cras { min-width: 0; overflow-wrap: anywhere; }
+.records-list { border-radius: var(--radius-lg); overflow: hidden; }
+.records-list-head { border-radius: 0; background: var(--paper-soft); }
+.records-list .record-row:nth-child(even) { background: #FCFBF8; }
+.record-row:hover { background: #F1F7F5; box-shadow: none; }
+.record-actions { gap: 6px; flex-wrap: nowrap; }
+
+/* ---------- Painéis de números ---------- */
+.stat-card { border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+.stat-card:hover { transform: none; box-shadow: var(--shadow-lift); }
+.stat-label, .kpi-label { color: var(--ink-soft); }
+.nota-tecnica { font-size: 10.5pt; line-height: 1.4; background: transparent; border: 0; border-left: 3px solid var(--line); border-radius: 0; box-shadow: none; }
+.nota-tecnica .marca { color: var(--ink-soft); }
+
+/* ---------- Tabelas do formulário (membros, metas…) ---------- */
+.dyn-table td:first-child { min-width: 150px; }
+.dyn-table input[type=date] { min-width: 135px; }
+.dyn-table th { padding: 8px 8px; line-height: 1.25; }
+.dyn-table input, .dyn-table select { min-height: 38px; }
+.dyn-table td { vertical-align: middle; }
+.add-row-btn { border-radius: var(--radius); padding: 8px 14px; }
+.add-row-btn:hover { background: var(--accent-soft); }
+
+/* ---------- Cartões de seção e painel lateral ---------- */
+.apoio-card { border-top: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.apoio-card h3 { font-size: 11pt; color: var(--ink); }
+.section-card + .section-card { margin-top: var(--space-5); }
+.section-card h2 { letter-spacing: 0; }
+.section-icon-badge { background: var(--accent-soft); color: var(--accent-dark); }
+.section-card h2 .num { color: var(--gold-dark); font-family: "Times New Roman", Times, serif; }
+
+/* ---------- Botões de situação (Em andamento…) ---------- */
+.status-opt { border-radius: 999px; font-weight: 600; }
+
+/* ---------- Rodapé mais discreto ---------- */
+.app-footer { background: #fff; border-top: 1px solid var(--line); }
+.app-footer-eyebrow { color: var(--ink); font-weight: 700; }
+
+/* ---------- Telas médias e celular ---------- */
+@media (max-width: 900px) {
+  .record-row { grid-template-columns: 40px 1fr; }
+  .record-actions { flex-wrap: wrap; }
+}
+
+/* última coluna com largura fixa: cabeçalho e linhas passam a alinhar */
+.records-list-head,
+.record-row { grid-template-columns: 44px minmax(210px, 2.4fr) minmax(130px, 1.2fr) 84px 100px 140px 224px; }
+.records-list-head { text-align: left; }
+.records-list-head span:nth-child(4), .records-list-head span:nth-child(5) { text-align: center; }
+.record-cras { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.3; }
+@media (max-width: 900px) {
+  .record-row { grid-template-columns: 40px 1fr; }
+}
+
+/* tabelas do formulário: células mais enxutas para o texto caber sem cortar */
+.dyn-table th, .dyn-table td { padding-left: 4px; padding-right: 4px; }
+.dyn-table td:first-child, .dyn-table th:first-child { padding-left: 2px; }
+.dyn-table input, .dyn-table select { padding-left: 6px; padding-right: 6px; text-overflow: ellipsis; }
+.dyn-table input[type=date] { min-width: 128px; }
+.dyn-table td:nth-child(4) input, .dyn-table td:nth-child(5) input { min-width: 108px; }
+.dyn-table td:nth-child(3) select { min-width: 58px; }
+@media (max-width: 900px) {
+  .dyn-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ==========================================================================
+   Refinamento visual — parte 3
+   ========================================================================== */
+
+/* cabeçalho escuro da ficha: textos claros (corrige nome e rótulos que ficaram escuros) */
+.prontuario-header .prontuario-nome { color: #fff; }
+.prontuario-header .prontuario-fields .k,
+.prontuario-header .stat-box .stat-label { color: #C3D0DC; }
+.prontuario-header .prontuario-fields .v { color: #fff; }
+.prontuario-header .stat-box .stat-num { color: var(--gold-soft); }
+.prontuario-header .prontuario-fields .k { font-size: 10pt; font-weight: 400; }
+.prontuario-header .stat-box .stat-label { font-size: 10pt; font-weight: 400; }
+
+/* listas de marcar: caixa maior, em verde, e a linha marcada ganha destaque */
+input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
+.chk input[type=checkbox] { width: 18px; height: 18px; }
+.chk { border-radius: var(--radius); transition: background .12s; }
+.chk:hover { background: var(--paper-soft); }
+.chk:has(input:checked) { background: var(--accent-soft); }
+.chk-mini:has(input:checked) { color: var(--accent-dark); font-weight: 600; }
+
+/* avisos curtos (toast) com cantos de cartão, não de pílula */
+.toast { border-radius: var(--radius-lg); max-width: min(560px, 92vw); text-align: left; }
+
+/* notas técnicas empilhadas: rótulo em cima, texto embaixo (cabe melhor em listas e telas médias) */
+.nota-tecnica { display: block; padding: 6px 0 6px 14px; margin: 12px 0; }
+.nota-tecnica .marca { display: block; margin-bottom: 2px; font-weight: 700; }
+
+/* prioridades: crachás com cor por nível */
+.priority-badge { border-radius: 999px; font-weight: 700; }
+
+/* ---------- Login ---------- */
+.login-card p.login-org, .login-pilar-item em, .login-eyebrow { text-transform: none !important; letter-spacing: 0 !important; }
+.login-card p.login-org { font-size: 10.5pt; }
+.login-card { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); overflow: hidden; }
+.login-card h1 { font-size: 16pt; letter-spacing: 0; }
+#authEmail, #authPassword {
+  width: 100%; min-height: 44px; background-color: #fff; border: 1px solid #C9D2D9; border-radius: var(--radius);
+}
+#authEmail:focus, #authPassword:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+.login-card .btn-primary { min-height: 44px; border-radius: var(--radius); }
+.login-card .sub { text-align: center; }
+
+/* ==========================================================================
+   Refinamento visual — parte 4: configurações e topo no celular
+   ========================================================================== */
+
+/* Configurações: cada dado em uma linha (nome à esquerda, valor à direita) */
+.settings-field:has(> .k) {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 7px 0; margin: 0; border-bottom: 1px solid var(--line);
+}
+.settings-field:has(> .k) .k { margin: 0; }
+.settings-field:has(> .k) .v { text-align: right; overflow-wrap: anywhere; }
+.modal { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); }
+.modal h3 { font-size: 15pt; color: var(--ink); }
+
+/* Topo no celular: uma linha só (o nome do CRAS já aparece no cabeçalho) */
+@media (max-width: 640px) {
+  .topbar { flex-wrap: nowrap; gap: 8px; padding: 6px 10px; }
+  .topbar .brand { display: none; }
+  .topbar .spacer { display: none; }
+  .topbar-tabs { flex: 1 1 auto; min-width: 0; padding: 2px; }
+  .topbar-tab { flex: 1 1 0; padding: 7px 4px; font-size: 10.5pt; text-align: center; }
+  .topbar .sync-pill { flex: 0 0 auto; }
+  .topbar .icon-btn { flex: 0 0 auto; }
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+/* topo no celular: menu · abas · estado de sincronização · configurações (só o ícone) */
+@media (max-width: 640px) {
+  .topbar .rail-toggle { order: 1; }
+  .topbar .topbar-tabs { order: 2; }
+  .topbar .sync-pill { order: 3; padding: 7px; }
+  .topbar #userPill { display: none !important; }
+  .topbar #logoutBtn { order: 4; }
+  .topbar #settingsBtn { order: 5; font-size: 0; padding: 8px 10px; }
+  .topbar-tab { font-size: 10pt; padding: 7px 2px; min-width: 0; }
+}
