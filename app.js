@@ -956,9 +956,12 @@ async function excluirAnexosSubcolecao(pafId) {
   try {
     const snap = await anexosCollectionRef(pafId).get();
     if (snap.empty) return;
-    const batch = state.db.batch();
-    snap.docs.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
+    // O Firestore aceita no máximo 500 operações por lote: apaga em blocos de 400.
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const batch = state.db.batch();
+      snap.docs.slice(i, i + 400).forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
   } catch (err) {
     console.error("Falha ao excluir anexos do PAF:", err);
   }
@@ -1276,7 +1279,12 @@ function uid() {
 
 function todayISO() {
   // Data local (não UTC): em Boa Vista (UTC-4), depois das 20h o UTC já é "amanhã".
-  const d = new Date();
+  return dataISOLocal(new Date());
+}
+
+// Converte um Date para "AAAA-MM-DD" usando o calendário LOCAL (toISOString() usa UTC e
+// pode devolver o dia anterior/seguinte conforme o fuso do aparelho).
+function dataISOLocal(d) {
   const p = n => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
@@ -1500,9 +1508,19 @@ const LINHA_EXTREMA_POBREZA = 218;
 // em número, para comparação com a linha de extrema pobreza. Retorna null se ilegível.
 function parseValorMonetario(txt) {
   if (!txt) return null;
-  let limpo = String(txt).trim().replace(/[^\d.,]/g, "");
+  // Aceita um único número no texto (ex.: "R$ 1.200,50", "300 reais"). Se houver mais de um
+  // ("600 + 200", "de 300 a 500"), o valor é ambíguo e devolve null em vez de juntar os dígitos.
+  const numeros = String(txt).match(/\d[\d.,]*/g);
+  if (!numeros || numeros.length !== 1) return null;
+  let limpo = numeros[0].replace(/[.,]+$/, "");
   if (!limpo) return null;
-  if (limpo.includes(",")) limpo = limpo.replace(/\./g, "").replace(",", ".");
+  if (limpo.includes(",")) {
+    // Formato brasileiro: ponto = milhar, vírgula = decimal ("1.200,50").
+    limpo = limpo.replace(/\./g, "").replace(",", ".");
+  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(limpo)) {
+    // Só pontos, em grupos de 3 dígitos ("1.200", "1.234.567"): é milhar, não decimal.
+    limpo = limpo.replace(/\./g, "");
+  }
   const n = parseFloat(limpo);
   return isNaN(n) ? null : n;
 }
@@ -1560,7 +1578,7 @@ function computeRmaMensal(pafsParam) {
   const pafs = pafsParam || state.pafs;
   const hoje = new Date();
   const ymAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
-  const fimMesISO = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const fimMesISO = dataISOLocal(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
 
   const novas = pafs.filter(p => {
     const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
@@ -2860,7 +2878,7 @@ function dashboardPafsFiltrados() {
     } else {
       const meses = { "3m": 3, "6m": 6, "12m": 12 }[dashPeriodo] || 0;
       const d = new Date(hoje.getFullYear(), hoje.getMonth() - meses, hoje.getDate());
-      limiteISO = d.toISOString().slice(0, 10);
+      limiteISO = dataISOLocal(d);
     }
   }
   return state.pafs.filter(p => {
@@ -2892,8 +2910,8 @@ function dashboardPeriodoAnteriorTotal() {
     inicioAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - meses * 2, hoje.getDate());
     fimAnterior = new Date(inicioAtual.getTime() - 86400000);
   }
-  const inicioISO = inicioAnterior.toISOString().slice(0, 10);
-  const fimISO = fimAnterior.toISOString().slice(0, 10);
+  const inicioISO = dataISOLocal(inicioAnterior);
+  const fimISO = dataISOLocal(fimAnterior);
 
   const count = state.pafs.filter(p => {
     if (dashCras && (p.crasNome || "").trim() !== dashCras) return false;
@@ -3827,6 +3845,9 @@ function initStorage() {
   if (firebaseConfigured()) {
     try {
       state.db = firebase.firestore();
+      // Campos "undefined" fariam o set() inteiro falhar ("Unsupported field value"); aqui são ignorados.
+      // (settings() precisa vir antes de qualquer outro uso do Firestore.)
+      try { state.db.settings({ ignoreUndefinedProperties: true }); } catch (e) { console.warn("Firestore settings:", e); }
       // Habilita a fila de escrita offline (IndexedDB): se o técnico estiver
       // sem conexão (ex.: visita domiciliar), o app continua salvando
       // normalmente e sincroniza sozinho assim que a rede voltar. Se falhar
@@ -4995,9 +5016,17 @@ function tempoAcompanhamentoTexto(iso) {
   if (isNaN(ini.getTime())) return "";
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   if (hoje < ini) return "ainda não começou";
-  let anos = hoje.getFullYear() - ini.getFullYear(), meses = hoje.getMonth() - ini.getMonth(), dias = hoje.getDate() - ini.getDate();
-  if (dias < 0) { meses--; dias += new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate(); }
-  if (meses < 0) { anos--; meses += 12; }
+  // Meses inteiros primeiro; o que sobra são dias. A "âncora" é o dia do início no mês alvo,
+  // limitado ao último dia daquele mês (31/01 + 1 mês = 28/02), para nunca dar dias negativos.
+  const ancora = (n) => {
+    const alvo = new Date(ini.getFullYear(), ini.getMonth() + n, 1);
+    const ultimo = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
+    return new Date(alvo.getFullYear(), alvo.getMonth(), Math.min(ini.getDate(), ultimo));
+  };
+  let totalMeses = (hoje.getFullYear() - ini.getFullYear()) * 12 + (hoje.getMonth() - ini.getMonth());
+  if (ancora(totalMeses) > hoje) totalMeses--;
+  const dias = Math.round((hoje - ancora(totalMeses)) / 86400000);
+  const anos = Math.floor(totalMeses / 12), meses = totalMeses % 12;
   const partes = [];
   if (anos) partes.push(anos + (anos === 1 ? " ano" : " anos"));
   if (meses) partes.push(meses + (meses === 1 ? " mês" : " meses"));
@@ -6530,7 +6559,7 @@ async function exportPDF(paf) {
     const diasUlt = ult ? diasDesde(ult.data) : null;
     const per = String(paf.periodicidade || "").toLowerCase();
     const prazoPer = /seman/.test(per) ? 7 : /quinzen/.test(per) ? 15 : /bimes/.test(per) ? 60 : /trimes/.test(per) ? 90 : /mensal|mes/.test(per) ? 30 : null;
-    const addDias = (iso, n) => { const d = new Date(String(iso).slice(0, 10) + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+    const addDias = (iso, n) => { const d = new Date(String(iso).slice(0, 10) + "T12:00:00"); d.setDate(d.getDate() + n); return dataISOLocal(d); };
     const sits = (paf.situacoesSociais || []).filter(x => x.membros || x.superada);
     const sitsSup = sits.filter(x => x.superada).length;
     const sitsPend = sits.filter(x => !x.superada);
