@@ -120,7 +120,8 @@ const HIST_SENTIDOS = {
   observacao: { label: "Observação", icone: "●" }
 };
 function histSentido(e) { return e && e.tipo === "manual" ? (HIST_SENTIDOS[e.sentido] ? e.sentido : "observacao") : ""; }
-function histRotuloMarco(e) { return "Marco de evolução (" + HIST_SENTIDOS[histSentido(e)].label.toLowerCase() + ")"; }
+function histRotuloMarco(e) { return (histCategoria(e) ? HIST_CATEGORIAS[histCategoria(e)] : "Marco de evolução") + " (" + HIST_SENTIDOS[histSentido(e)].label.toLowerCase() + ")"; }
+function histTituloMarco(e) { return (histCategoria(e) ? HIST_CATEGORIAS[histCategoria(e)] : "Marco de evolução") + " · " + HIST_SENTIDOS[histSentido(e)].label; }
 function histDuracao(iso) {
   if (!iso) return "";
   const dias = Math.round((Date.now() - new Date(iso + "T12:00:00").getTime()) / 86400000);
@@ -133,7 +134,33 @@ function histDuracao(iso) {
 
 /* Só entram no histórico (tela e exportação) as mudanças nos DADOS da família e os marcos.
    Ações como imprimir/exportar/anexar e campos internos (ex.: tamanho dos anexos) ficam de fora. */
-function histMudVisivel(m) { return !HIST_IGNORAR.has(String((m && m.k) || "").split("|")[0]); }
+/* Só entram no histórico as mudanças PERTINENTES ao acompanhamento da família — as que mudam a
+   situação dela: entrada/saída de membros, troca de responsável, mudança de endereço/abrigo,
+   vulnerabilidades e situações sociais (inclusive superação), renda, programas e benefícios,
+   situação do PAF e encerramento. Dados cadastrais (CPF, RG, NIS, telefone…) e texto livre não entram.
+   Para incluir ou tirar um campo, basta editar esta lista. */
+const HIST_RELEVANTES = /^(responsavel|endereco|enderecoRua|enderecoNumero|enderecoComplemento|enderecoBairro|enderecoMunicipio|enderecoUf|enderecoCep|pontoReferencia|localizacaoDomicilio|habitacaoAbrigoNome|habitacaoAreaRisco|vulnerabilidades|vulnerabilidadesOutros|situacoesSociais|situacaoPAF|encerramentoMotivo|encerramentoOutros|encerramentoData|migracaoInteriorizacao|rendaTotal|rendaPerCapita|participaProgramas|programasQuais|programasOutros|recebeBeneficio|beneficioQuais|beneficioOutro|tecnicoReferencia)$/;
+function histRelevante(m) {
+  const base = String((m && m.k) || "").split("|")[0];
+  if (base === "membros" || base === "beneficiosEventuaisForm") return m.tipo === "linha+" || m.tipo === "linha-"; // só incluir/retirar
+  return HIST_RELEVANTES.test(base);
+}
+function histMudVisivel(m) { return !HIST_IGNORAR.has(String((m && m.k) || "").split("|")[0]) && histRelevante(m); }
+
+/* Tipos de ocorrência para os marcos manuais (o que aconteceu com a família). */
+const HIST_CATEGORIAS = {
+  "": "Outra ocorrência",
+  membro_entrada: "Entrada de membro na família",
+  membro_saida: "Saída de membro da família",
+  endereco: "Mudança de endereço",
+  vulnerabilidade_superada: "Vulnerabilidade superada",
+  vulnerabilidade_nova: "Nova vulnerabilidade identificada",
+  renda_trabalho: "Mudança de renda ou trabalho",
+  acesso_servico: "Acesso a serviço, programa ou benefício",
+  escola_saude: "Mudança na escola ou na saúde",
+  retorno_pais: "Mudança migratória ou documental"
+};
+function histCategoria(e) { return e && HIST_CATEGORIAS[e.categoria] && e.categoria ? e.categoria : ""; }
 function histVisivel(e) {
   if (!e || e.tipo === "acao") return false;
   if (e.tipo === "manual") return true;
@@ -421,7 +448,7 @@ function histRegistrar(paf) {
   const atual = histSnapshot(paf);
   const base = state.historicoBase;
   if (!base || base.id !== paf.id) { state.historicoBase = { id: paf.id, snap: atual }; return; }
-  const mud = histDiff(base.snap, atual);
+  const mud = histDiff(base.snap, atual).filter(histRelevante);   // só mudanças pertinentes ao acompanhamento
   base.snap = atual;
   if (!mud.length) return;
 
@@ -449,13 +476,14 @@ function histRegistrar(paf) {
   histLimitar(paf);
 }
 
-function histAdicionarMarco(paf, data, nota, sentido) {
+function histAdicionarMarco(paf, data, nota, sentido, categoria) {
   if (!Array.isArray(paf.historico)) paf.historico = [];
   const agora = new Date().toISOString();
   paf.historico.push({
     id: histId(), tipo: "manual", data: data || histHoje(), criadoEm: agora, atualizadoEm: agora,
     usuario: (state.currentUser && state.currentUser.email) || null, estrutural: true, nota, mudancas: [],
-    sentido: HIST_SENTIDOS[sentido] ? sentido : "observacao"
+    sentido: HIST_SENTIDOS[sentido] ? sentido : "observacao",
+    categoria: categoria && HIST_CATEGORIAS[categoria] ? categoria : ""
   });
   histLimitar(paf);
 }
@@ -766,7 +794,7 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
       <div class="timeline-card">
         <button class="row-del" data-hist-del="${escapeHtml(e.id)}" title="Remover este registro do histórico" aria-label="Remover este registro do histórico">${uiIconSvg("close", 12)}</button>
         <div class="hist-topo">
-          <span class="hist-tipo ${manual ? "manual sentido-" + sent : acao ? "acao" : ""}">${manual ? HIST_SENTIDOS[sent].icone + " " + HIST_SENTIDOS[sent].label : acao ? "Ação" : (itensAg.length ? itensAg.length + (itensAg.length === 1 ? " alteração" : " alterações") : "Anotação")}</span>
+          <span class="hist-tipo ${manual ? "manual sentido-" + sent : acao ? "acao" : ""}">${manual ? HIST_SENTIDOS[sent].icone + " " + (histCategoria(e) ? escapeHtml(HIST_CATEGORIAS[histCategoria(e)]) + " · " : "") + HIST_SENTIDOS[sent].label : acao ? "Ação" : (itensAg.length ? itensAg.length + (itensAg.length === 1 ? " alteração" : " alterações") : "Anotação")}</span>
           <span class="hist-quem">${quem}</span>${gap}
         </div>
         ${acao ? `<p class="hist-acao-desc">${escapeHtml(e.descricao || e.acao || "")}</p>` : corpo}
@@ -775,7 +803,7 @@ function histLinhaTempoHTML(paf, secaoFiltro) {
         <summary>${e.nota ? "Editar data e anotação" : "Adicionar anotação ou corrigir a data"}</summary>
         <div class="timeline-row hist-edit">
           <div class="f"><label>Data da evolução</label><input type="date" data-field="historico.${i}.data" value="${escapeHtml(e.data)}"></div>
-          ${manual ? `<div class="f"><label>Sentido da evolução</label><select data-field="historico.${i}.sentido">${Object.keys(HIST_SENTIDOS).map(k => `<option value="${k}" ${sent === k ? "selected" : ""}>${HIST_SENTIDOS[k].label}</option>`).join("")}</select></div>` : ""}
+          ${manual ? `<div class="f"><label>O que aconteceu</label><select data-field="historico.${i}.categoria">${Object.keys(HIST_CATEGORIAS).filter(k => k).map(k => `<option value="${k}" ${histCategoria(e) === k ? "selected" : ""}>${HIST_CATEGORIAS[k]}</option>`).join("")}<option value="" ${histCategoria(e) ? "" : "selected"}>${HIST_CATEGORIAS[""]}</option></select></div><div class="f"><label>Sentido da evolução</label><select data-field="historico.${i}.sentido">${Object.keys(HIST_SENTIDOS).map(k => `<option value="${k}" ${sent === k ? "selected" : ""}>${HIST_SENTIDOS[k].label}</option>`).join("")}</select></div>` : ""}
           <div class="f" style="grid-column: span 2"><label>${manual ? "Anotação técnica" : "Anotação técnica sobre esta evolução (opcional)"}</label><textarea data-field="historico.${i}.nota" rows="${manual ? 3 : 2}" placeholder="${manual ? "Descreva a evolução observada na família..." : "Ex.: motivo da mudança, contexto, quem informou..."}">${escapeHtml(e.nota || "")}</textarea></div>
         </div>
         </details>`}
@@ -798,11 +826,11 @@ function historicoSectionHTML(paf) {
   const vazio = !st.registros && !carregando;
   return `
   <div class="section-card">
-    ${sectionHeader("15", "Histórico de Evolução", "Cada alteração feita neste PAF fica registrada com data, para acompanhar a evolução da família ao longo do tempo.")}
-    ${notaTecnica("O acompanhamento do PAIF é um processo continuado, e o registro técnico deve permitir compreender a trajetória da família (Trilha da Primeira Infância, MDS, 2026). Por isso, sempre que você altera uma informação — renda, moradia, situação de saúde, escolaridade, vulnerabilidades, metas, etc. — o app guarda o valor anterior e o novo, com a data. Se a mudança aconteceu em outra data, corrija a \"Data da evolução\" no registro. Use o marco manual para anotar avanços e retrocessos que não aparecem em nenhum campo.")}
+    ${sectionHeader("15", "Histórico de Evolução", "Registra as mudanças que importam para o acompanhamento da família — entrada e saída de membros, mudança de endereço, vulnerabilidades superadas, renda, programas e benefícios — sempre com data.")}
+    ${notaTecnica("O acompanhamento do PAIF é um processo continuado, e o registro técnico deve permitir compreender a trajetória da família (Trilha da Primeira Infância, MDS, 2026). Por isso, o app guarda automaticamente, com a data, apenas as mudanças que alteram a situação da família: entrada ou saída de membros, troca de responsável, mudança de endereço ou abrigo, vulnerabilidades e situações sociais (inclusive as superadas), renda, programas e benefícios e a situação do PAF. Dados cadastrais e textos livres não entram aqui. Se a mudança aconteceu em outra data, corrija a \"Data da evolução\" no registro. Use o marco manual para anotar avanços e retrocessos que não aparecem em nenhum campo.")}
     <div class="hist-stats">
       <div class="stat-box"><span class="stat-num">${st.registros}</span><span class="stat-label">Registros</span></div>
-      <div class="stat-box"><span class="stat-num">${st.campos}</span><span class="stat-label">Campos alterados</span></div>
+      <div class="stat-box"><span class="stat-num">${st.campos}</span><span class="stat-label">Mudanças registradas</span></div>
       <div class="stat-box"><span class="stat-num">${st.marcos}</span><span class="stat-label">Marcos manuais</span></div>
       <div class="stat-box"><span class="stat-num" style="font-size:14px">${st.primeira ? escapeHtml(histDuracao(st.primeira)) : "—"}</span><span class="stat-label">Tempo de histórico</span></div>
       <div class="stat-box"><span class="stat-num" style="font-size:14px">${st.ultima ? fmtDateBR(st.ultima) : "—"}</span><span class="stat-label">Última evolução</span></div>
@@ -813,6 +841,7 @@ function historicoSectionHTML(paf) {
       <h3>Registrar marco de evolução</h3>
       <div class="timeline-row">
         <div class="f"><label>Data</label><input type="date" id="histNovaData" value="${histHoje()}"></div>
+        <div class="f"><label for="histNovaCategoria">O que aconteceu</label><select id="histNovaCategoria">${Object.keys(HIST_CATEGORIAS).filter(k => k).map(k => `<option value="${k}">${HIST_CATEGORIAS[k]}</option>`).join("")}<option value="">${HIST_CATEGORIAS[""]}</option></select></div>
         <div class="f"><label for="histNovoSentido">Sentido</label><select id="histNovoSentido">${Object.keys(HIST_SENTIDOS).map(k => `<option value="${k}">${HIST_SENTIDOS[k].icone} ${HIST_SENTIDOS[k].label}</option>`).join("")}</select></div>
         <div class="f" style="grid-column: span 2"><label>O que mudou ou foi observado</label><textarea id="histNovaNota" rows="2" placeholder="Ex.: família passou a frequentar o SCFV; responsável conseguiu emprego formal; vínculo com a escola retomado..."></textarea></div>
       </div>
@@ -959,7 +988,8 @@ function attachHistoricoHandlers(container) {
     const data = container.querySelector("#histNovaData").value || histHoje();
     if (!nota) { toast("Descreva o marco de evolução antes de registrar."); return; }
     const selSent = container.querySelector("#histNovoSentido");
-    histAdicionarMarco(state.current, data, nota, selSent ? selSent.value : "observacao");
+    const selCat = container.querySelector("#histNovaCategoria");
+    histAdicionarMarco(state.current, data, nota, selSent ? selSent.value : "observacao", selCat ? selCat.value : "");
     savePAF(state.current, { silent: true });
     renderApp();
     toast("Marco de evolução registrado.");
@@ -1085,7 +1115,7 @@ function histMarcosPdfHTML(paf) {
   }
   histH(paf).filter(e => e.tipo === "manual").forEach(e => {
     const s = histSentido(e);
-    add(e.data, "Marco de evolução · " + HIST_SENTIDOS[s].label, (e.nota || "").trim().slice(0, 260), s === "avanco" ? "#2E7D6B" : s === "retrocesso" ? "#B5473F" : "#B98A34", HIST_SENTIDOS[s].icone);
+    add(e.data, histTituloMarco(e), (e.nota || "").trim().slice(0, 260), s === "avanco" ? "#2E7D6B" : s === "retrocesso" ? "#B5473F" : "#B98A34", HIST_SENTIDOS[s].icone);
   });
   const notasMeta = [];
   (paf.metas || []).forEach(m => (Array.isArray(m.anotacoes) ? m.anotacoes : []).forEach(n => { if ((n.texto || "").trim() && iso(n.data)) notasMeta.push({ data: iso(n.data), meta: m.meta || "" }); }));
@@ -1332,7 +1362,7 @@ function histTrajetoriaEventos(paf, opt) {
       if (sec) return;
       const s = histSentido(e);
       add({ data: e.data, kind: "marco-" + s, cor: s === "avanco" ? "#2E7D6B" : s === "retrocesso" ? "#B5473F" : "#B98A34",
-        rotulo: HIST_SENTIDOS[s].icone + " Marco de evolução · " + HIST_SENTIDOS[s].label, titulo: "", texto: e.nota || "", extra: "", quem: "" });
+        rotulo: HIST_SENTIDOS[s].icone + " " + histTituloMarco(e), titulo: "", texto: e.nota || "", extra: "", quem: "" });
       return;
     }
     const muds = (e.mudancas || []).filter(m => histMudVisivel(m) && !HIST_EXCLUI_MUDANCA.test(String(m.k || "")) && (!sec || m.secao === sec));
