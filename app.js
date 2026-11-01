@@ -5133,7 +5133,7 @@ function graficosComposicaoPrintHTML(paf) {
       ${gboxPrint("Sexo dos membros", donutChartSVG(r.porSexo, { centro: "membros" }))}
       ${gboxPrint("Parentesco", barrasHTML(r.porParentesco))}
     </div>
-    ${gboxPrint("Faixa etária dos membros", histogramaSVG(r.porFaixa, { ordem: FAIXA_ETARIA_ORDEM, rotulos: FAIXA_ETARIA_CURTA }))}
+    ${gboxPrint("Faixa etária dos membros", histogramaSVG(r.porFaixa, { ordem: FAIXA_ETARIA_ORDEM, rotulos: FAIXA_ETARIA_CURTA }), "gbox-hist")}
   </div>`;
 }
 
@@ -5179,12 +5179,12 @@ function graficoAtendimentosMesPrintHTML(paf) {
   const maxV = Math.max(...totais, 1);
   const passo = maxV <= 5 ? 1 : Math.ceil(maxV / 4);
   const topo = Math.ceil(maxV / passo) * passo;
-  const W = 640, H = 190, padL = 30, padR = 10, padT = 20, padB = 34, chartH = H - padT - padB;
+  const W = 640, H = 136, padL = 34, padR = 10, padT = 20, padB = 28, chartH = H - padT - padB;
   const colW = (W - padL - padR) / visiveis.length, bw = Math.min(colW * .62, 46);
   let svg = "";
   for (let v = 0; v <= topo; v += passo) {
     const yy = padT + chartH - (v / topo) * chartH;
-    svg += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#D7E0E6" stroke-width="1"${v ? ` stroke-dasharray="2 3"` : ""}></line><text x="${padL - 6}" y="${yy + 3}" text-anchor="end" font-size="9" fill="#8496A8">${v}</text>`;
+    svg += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#D7E0E6" stroke-width="1"${v ? ` stroke-dasharray="2 3"` : ""}></line><text x="${padL - 6}" y="${yy + 3}" text-anchor="end" font-size="12" fill="#52667C">${v}</text>`;
   }
   visiveis.forEach((ym, i) => {
     const x = padL + i * colW + (colW - bw) / 2;
@@ -5196,9 +5196,9 @@ function graficoAtendimentosMesPrintHTML(paf) {
       base -= h;
       svg += `<rect x="${x.toFixed(1)}" y="${base.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${TIPO_ATENDIMENTO_COR[t]}" stroke="#fff" stroke-width="1"><title>${labelYmCurto(ym)} — ${escapeHtml(t)}: ${n}</title></rect>`;
     });
-    if (totais[i]) svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${(base - 5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#1F3A5F">${totais[i]}</text>`;
-    else svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${padT + chartH - 4}" text-anchor="middle" font-size="9" fill="#B5C0CA">0</text>`;
-    svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${padT + chartH + 16}" text-anchor="middle" font-size="9.5" fill="#52667C">${labelYmCurto(ym)}</text>`;
+    if (totais[i]) svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${(base - 5).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="#1F3A5F">${totais[i]}</text>`;
+    else svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${padT + chartH - 4}" text-anchor="middle" font-size="11" fill="#8496A8">0</text>`;
+    svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${padT + chartH + 17}" text-anchor="middle" font-size="12" fill="#1F3A5F">${labelYmCurto(ym)}</text>`;
   });
   const legenda = `<div class="lei-tipos" style="margin-top:4px">${tipos.map(t => `<span class="lei-tipo" style="border-color:${TIPO_ATENDIMENTO_COR[t]};color:${TIPO_ATENDIMENTO_COR[t]}">${escapeHtml(t)}</span>`).join("")}</div>`;
   const nota = meses.length > visiveis.length ? `<p class="hint chart-nota">Mostrando os últimos ${visiveis.length} meses.</p>` : "";
@@ -6440,7 +6440,9 @@ async function exportPDF(paf) {
     const ultResumo = ultEvo ? (ultEvo.evolucao || "").trim() : "";
     const ultTxt = ultResumo.length > 450 ? ultResumo.slice(0, 450).replace(/\s+\S*$/, "") + "…" : ultResumo;
     const blocoTempo = tempoAcompanhamentoBlocoHTML(paf);
-    const linhaTempoPdf = `<div class="sum-tempo"><strong>Linha do tempo</strong>${blocoTempo
+    const _semMarcos = !/<g><line/.test((blocoTempo.match(/<svg[\s\S]*?<\/svg>/) || [""])[0]);
+    const blocoTempoPdf = _semMarcos ? blocoTempo.replace(/viewBox="0 0 (\d+) 122"/, 'viewBox="0 40 $1 82"') : blocoTempo;
+    const linhaTempoPdf = `<div class="sum-tempo"><strong>Linha do tempo</strong>${blocoTempoPdf
       .replace(/<h4>[\s\S]*?<\/h4>/, "").replace(/<div class="hist-stats"[\s\S]*?<\/span><\/div>\s*<\/div>/, "")}</div>`;
     const per = String(paf.periodicidade || "").toLowerCase();
     const prazoPer = /seman/.test(per) ? 7 : /quinzen/.test(per) ? 15 : /bimes/.test(per) ? 60 : /trimes/.test(per) ? 90 : /mensal|mes/.test(per) ? 30 : null;
@@ -7095,6 +7097,103 @@ async function exportPDF(paf) {
         .meta-status.pend { background: #F3E7D0; color: #7A5A1E; border: 1px solid #E3CFA3; }
         .meta-notas { margin: 7px 0 0; padding-left: 18px; font-size: 13px; }
         .meta-notas li { margin: 3px 0; }
+
+        /* ---- Sem espaços em branco: blocos grandes fluem entre páginas; só cartões pequenos não se partem ---- */
+        .sep-cadastro.nova-pagina { break-before: auto; page-break-before: auto; margin-top: 18px; }
+        .grid, .grid + p, h2 + .grid, .resumo-secao, .sum-tempo, .tags-wrap { break-inside: auto; page-break-inside: auto; }
+        .grid > .field, .tags-wrap .tag { break-inside: avoid; }
+        .fam-graf { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; align-items: start; }
+        .fam-graf .g-col { display: contents; }
+        .fam-graf .gbox { margin: 0; }
+        h2 { margin: 16px 0 8px; }
+        h2:first-of-type { margin-top: 10px; }
+        .sub-parte { margin: 14px 0 2px; }
+        .sep-cadastro { margin-top: 12px; }
+        .sep-cadastro.parte { margin: 14px 0 6px; }
+        .fechamento { margin-top: 18px; }
+        .rodape-doc { margin-top: 12px; }
+        .traj-mes { margin: 10px 0 6px; }
+        .page-header-fixed .ph-row { margin-bottom: 4mm; }
+        .page-footer-fixed .pf-row { margin-top: 3mm; }
+        h2, .sub-parte, .sep-cadastro, .traj-mes { break-after: avoid; page-break-after: avoid; }
+        @page { size: A4; margin: 10mm 13mm 12mm; }
+        body { padding: 0; }
+        th, td { padding: 5px 8px; }
+        .grid { gap: 6px 16px; padding: 8px 12px; margin-bottom: 4px; }
+        .field { margin-bottom: 2px; }
+        .traj-item, .reg-item, .meta-card { margin-bottom: 5px; padding-top: 7px; padding-bottom: 7px; }
+        .sum-boxes, .sum-cols, .lei-cols, .g-par { margin-bottom: 7px; }
+        .tags-wrap { padding: 6px 10px; margin-bottom: 4px; }
+        .capa-header { margin-bottom: 8px; }
+        .id-band { margin-bottom: 8px; }
+        .fechamento { padding: 10px 16px 12px; margin-top: 12px; }
+        .fechamento .local-data { margin-bottom: 16px; }
+        .rodape-doc { margin-top: 8px; padding: 6px 10px; }
+        h2 + .tags-wrap, h2 + .grid { margin-top: 0; }
+        h2 { margin: 12px 0 6px; padding-bottom: 3px; }
+        .tags-wrap { padding: 4px 10px; }
+        .sub-parte { margin: 10px 0 2px; }
+        .sep-cadastro, .sub-parte, .traj-mes { break-inside: avoid; page-break-inside: avoid; }
+
+        .chart-svg { max-height: 44mm !important; }
+        .gbox .histograma-chart { max-height: 40mm !important; }
+        .gbox-largo, .sum-tempo { margin: 4px 0 6px; }
+        .gbox { padding: 7px 10px; }
+        .fam-graf .gbox-hist { grid-column: 1 / -1; }
+        .gbox .chart-scroll { display: flex; justify-content: center; }
+        .gbox .stat-bar-label { white-space: normal; overflow: visible; text-overflow: clip; }
+        .gbox .stat-bar-row { grid-template-columns: minmax(70px, 38%) 1fr 62px; }
+        .traj-item, .reg-item, .lei-texto { break-inside: auto; page-break-inside: auto; }
+        .traj-item p, .reg-item p, .traj-texto, .traj-extra { orphans: 2; widows: 2; }
+        .traj-topo, .traj-badge, .reg-badge, .reg-top { break-inside: avoid; }
+        .sum-tempo svg, .sum-tempo .tempo-chart { max-height: none; width: 100%; height: auto; }
+        .sum-tempo { padding: 6px 12px 2px; }
+        .sum-box { padding: 6px 10px; }
+        .sum-cols > div, .sum-ultimo, .lei-texto, .lei-cols > div, .fam-resumo { padding-top: 6px; padding-bottom: 6px; }
+        .sum-cols, .lei-cols, .sum-boxes, .g-par, .fam-graf { gap: 6px; }
+        .meta-card, .marco-item { padding-top: 5px; padding-bottom: 5px; }
+        .traj-item { padding: 6px 12px; margin-bottom: 4px; }
+        .traj-mes { padding: 3px 12px; }
+        .fam-graf, .g-par { break-inside: auto; }
+        .gbox-largo .lei-tipos { margin: 2px 0 6px !important; }
+        .tempo-rot { font-size: 13px !important; fill: #1F3A5F !important; font-family: 'Times New Roman', Times, serif !important; }
+        .hist-bar-label, .hist-bar-num, .hist-eixo-num, .hist-bar-pct { font-size: 11px !important; }
+        .donut-total-num { font-size: 20px !important; } .donut-total-label { font-size: 10px !important; }
+        .gbox-largo .chart-svg { width: 100% !important; height: auto !important; max-height: 36mm !important; }
+        .lei-cols > div, .sum-cols > div, .sum-ultimo, .lei-texto { break-inside: auto; page-break-inside: auto; }
+        .lei-cols li, .sum-cols li, .lei-cols p, .sum-cols p { break-inside: avoid; }
+        .gbox > strong { margin-bottom: 4px; }
+        /* ---- Cores claras: economizam tinta e saem legíveis em impressão preto e branco ---- */
+        th { background: #E4EAEF !important; color: #1F3A5F !important; border-color: #9FB0BF !important; }
+        .sep-cadastro { background: #E8EDF3 !important; color: #1F3A5F !important; border: 1px solid #9FB0BF; border-left: 5px solid #1F3A5F; }
+        .sep-cadastro small { color: #3F546B !important; opacity: 1 !important; }
+        .sep-cadastro.parte .parte-n { background: #F3E7D0 !important; color: #5E4516 !important; border: 1px solid #C9A862; }
+        h2::before, h2:nth-of-type(3n+2)::before, h2:nth-of-type(3n+3)::before { background: #EEF2F5 !important; color: #1F3A5F !important; border: 1px solid #7F93A6; }
+        .orgao-header { background: #EEF2F5 !important; color: #1F3A5F !important; }
+        .orgao-header strong { color: #1F3A5F !important; }
+        .capa-header { background: #fff !important; }
+        .id-status.andamento { background: #EEF4F1 !important; }
+        .tag, .chip-tag { background: #F1F5F3 !important; border-color: #9DB8AF !important; color: #1F3A5F !important; }
+        .tab-sintese tbody tr:not(:has(td[colspan])) td:nth-child(2), .tab-sintese tbody tr:not(:has(td[colspan])) td:nth-child(3) { background: #F7F9FA !important; }
+        tbody tr:nth-child(even) td { background: #F8FAFB; }
+        .sum-box { border-top-width: 2px; }
+        .stat-bar-track, .prog-trilho { background: #EEF2F4 !important; border: 1px solid #C9D2D9; }
+        .stat-bar-fill, .prog-trilho i { opacity: .55; }
+        .hist-bar { opacity: .6 !important; stroke: #1F3A5F; stroke-width: .8; }
+        .donut-svg circle[stroke-dasharray] { opacity: .6; }
+        .chart-svg rect[fill="#8496A8"] { fill: #C3CDD6; stroke: #5C7186; stroke-width: 1; }
+        .meta-status.ok, .meta-status.pend, .lei-tipo, .traj-leg { background: #fff !important; }
+        .watermark { opacity: 0.03; }
+        .page-footer-fixed .pf-selo, .id-status { background: #fff !important; }
+
+        /* ---- Padrão de formatação: Times New Roman, tamanho 12, espaçamento 1,5 ---- */
+        body, body *:not(svg):not(svg *):not(.watermark):not(.page-header-fixed *):not(.page-footer-fixed *):not(.reg-badge *):not(.traj-badge *):not(.parte-n):not(.marco-ponto) {
+          font-family: 'Times New Roman', Times, serif !important;
+          font-size: 12pt !important;
+          line-height: 1.5 !important;
+        }
+        .page-header-fixed *, .page-footer-fixed *, .reg-badge *, .traj-badge * { font-family: 'Times New Roman', Times, serif !important; }
+        .reg-badge, .traj-badge { line-height: 1.1; }
 
         @media screen {
           .page-header-fixed, .page-footer-fixed, .watermark { display: none; }
