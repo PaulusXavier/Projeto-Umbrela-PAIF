@@ -34,9 +34,9 @@
   /* ------------------------------------------------------------------ CONFIGURAÇÃO */
 
   // Endereço do Worker do Paulus na Cloudflare (termina em .workers.dev). Veja docs/DEPLOY.md do Paulus.
-  // Exemplo: "https://paulus-ia.SEU-NOME.workers.dev"
+  // Worker compartilhado do Paulus (o mesmo do Argo e do Anona; tem o bloco "umbrella" em worker/apps.mjs).
   // Vazio = IA desligada: o painel continua funcionando só com a base de normas (no aparelho).
-  const PAULUS_ENDPOINT = "";
+  const PAULUS_ENDPOINT = "https://paulus-ia.paulo-ae18.workers.dev";
 
   // Base de normas leve (pacote "geral": leis e decretos). Cópia local, serve também offline.
   const PAULUS_CONHECIMENTO = "conhecimento.json";
