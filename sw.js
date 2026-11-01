@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paf-paif-v93';
+const CACHE_NAME = 'paf-paif-v94';
 
 // Arquivos "essenciais" do app: sempre tentamos buscar a versão mais nova na rede
 // primeiro, e só usamos o cache se o dispositivo estiver offline. Isso garante que
