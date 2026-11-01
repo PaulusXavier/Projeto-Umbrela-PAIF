@@ -2417,7 +2417,7 @@ textarea, input[type="text"] { text-align: left; }
 
 /* ==========================================================================
    Caixas de escrita: crescem para mostrar todo o texto e seguem o padrão
-   Times New Roman 12 pt · espaçamento 1,5 · justificado · 1ª linha 1,25 cm
+   Times New Roman 12 pt · espaçamento 1,5 · justificado · sem recuo na 1ª linha
    ========================================================================== */
 #mainArea textarea {
   font-family: "Times New Roman", Times, serif;
@@ -2431,7 +2431,7 @@ textarea, input[type="text"] { text-align: left; }
   resize: none;
   max-height: none;
 }
-/* recuo de 1,25 cm na primeira linha: campos de texto corrido */
+/* sem recuo na primeira linha nos campos de texto corrido e nas anotações */
 #mainArea .f textarea,
 #mainArea .diario-texto textarea,
 #mainArea .meta-nota textarea,
@@ -2439,7 +2439,7 @@ textarea, input[type="text"] { text-align: left; }
 #mainArea .hist-novo textarea,
 #mainArea .hist-edit textarea,
 #mainArea textarea[data-field] {
-  text-indent: 1.25cm;
+  text-indent: 0;
 }
 /* células de tabela e legendas: mesma fonte/espaçamento, sem recuo (colunas estreitas) */
 #mainArea .dyn-table textarea,
@@ -2458,7 +2458,7 @@ textarea, input[type="text"] { text-align: left; }
   font-size: 12pt;
   line-height: 1.5;
   text-align: justify;
-  text-indent: 1.25cm;
+  text-indent: 0;
 }
 
 
@@ -2941,3 +2941,42 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
   .section-nav-label { max-width: 100%; white-space: normal; }
   .section-nav-spacer { display: none; }
 }
+
+/* ==========================================================================
+   Parte 7: menu de seções — rótulos alinhados à esquerda e rolagem discreta
+   ========================================================================== */
+.tab-item { width: 100%; text-align: left; justify-content: flex-start; padding-top: 8px; padding-bottom: 8px; line-height: 1.25; }
+.tab-item-label { flex: 1 1 auto; text-align: left; }
+.tab-item.active .tab-item-label { color: var(--accent-dark); }
+.tab-rail { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.tab-rail::-webkit-scrollbar { width: 6px; }
+.tab-rail::-webkit-scrollbar-thumb { background: var(--line); border: 0; border-radius: 999px; }
+.tab-rail:hover::-webkit-scrollbar-thumb { background: #C9C1AB; }
+
+/* ==========================================================================
+   Parte 8: prioridades e acabamentos gerais
+   ========================================================================== */
+.priority-row { grid-template-columns: 150px 44px minmax(0, 1fr) 190px 84px; gap: 14px; }
+.priority-meta { align-items: flex-end; text-align: right; }
+.priority-dias { text-align: right; white-space: normal; max-width: 190px; }
+.priority-badge { justify-self: start; white-space: nowrap; }
+.priority-list { border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.notas-grupo { background: #fff; margin-bottom: 14px; }
+.notas-grupo[open] > summary { border-bottom: 1px solid var(--line); }
+.notas-grupo > .nota-tecnica { margin: 10px 14px; }
+@media (max-width: 900px) {
+  .priority-row { grid-template-columns: 40px 1fr; }
+  .priority-dias { max-width: none; text-align: left; }
+}
+
+/* histórico: cartões de números e cartão de novo marco mais limpos */
+.hist-stats { gap: 10px; }
+.hist-stats .stat-box { border-radius: var(--radius); }
+.hist-novo { border-radius: var(--radius-lg); }
+.hist-novo .timeline-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hist-novo .timeline-row > .f[style*="span 2"] { grid-column: 1 / -1 !important; }
+@media (max-width: 700px) { .hist-novo .timeline-row { grid-template-columns: 1fr; } }
+
+/* detalhes de foco e toque */
+.btn:focus-visible, .filter-chip:focus-visible, .topbar-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.record-row, .priority-row { transition: background .15s; }
