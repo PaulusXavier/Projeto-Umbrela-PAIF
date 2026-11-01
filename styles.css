@@ -2368,3 +2368,48 @@ main:has(> .footer-bar) .footer-bar { padding-right: 84px; } /* espaço para o m
 .traj-vazio { text-align: center; font-size: var(--text-xs); color: #8A6423; border-top: 1px dashed var(--gold-soft, #D7C39A); border-bottom: 1px dashed var(--gold-soft, #D7C39A); margin: 12px 0 4px; padding: 4px; background: #FBF6EA; border-radius: 4px; }
 [hidden].traj-item { display: none !important; }
 @media print { .traj-item { break-inside: avoid; } }
+
+/* =====================================================================================
+   Padrão ABNT na tela
+   Texto: Times New Roman 12 pt, espaçamento 1,5, justificado.
+   Exceções: títulos (negrito, alinhados à esquerda, sem justificar), notas/legendas/rótulos
+   pequenos (10 pt, espaçamento simples) e controles de interface (botões, campos, abas).
+   ===================================================================================== */
+:root {
+  --font-display: "Times New Roman", Times, serif;
+  --font-body: "Times New Roman", Times, serif;
+  --font-mono: "Times New Roman", Times, serif;
+  --font-serif: "Times New Roman", Times, serif;
+  /* Notas, legendas e rótulos pequenos */
+  --text-micro: 10pt;
+  --text-2xs: 10pt;
+  --text-xs: 10pt;
+  --text-sm: 10pt;
+  /* Texto principal */
+  --text-base: 12pt;
+  --text-md: 12pt;
+  /* Títulos e números de destaque (exceção): mesma família, só um pouco maiores */
+  --text-lg: 12pt;
+  --text-xl: 14pt;
+  --text-2xl: 16pt;
+  --text-3xl: 18pt;
+}
+* { letter-spacing: normal; }
+html, body, input, select, textarea, button { font-family: "Times New Roman", Times, serif; }
+body { font-size: 12pt; line-height: 1.5; font-weight: 400; }
+p, li, dd, blockquote, .nota-tecnica, .hint, .muted { text-align: justify; line-height: 1.5; }
+/* Notas, dicas e legendas: 10 pt, espaçamento simples */
+.hint, .nota-tecnica, .chart-insight, .chart-nota, .muted, small, figcaption, .field-hint, .help {
+  font-size: 10pt; line-height: 1.15;
+}
+/* Títulos: alinhados à esquerda, negrito, espaçamento simples */
+h1, h2, h3, h4, h5, h6, .display {
+  font-family: "Times New Roman", Times, serif; font-weight: 700; text-align: left; line-height: 1.2; letter-spacing: normal;
+}
+/* Controles de interface: espaçamento simples, sem justificar */
+button, input, select, textarea, label, th, td, .tab-rail *, .topbar *, .filter-chip, .status-opt, .btn {
+  line-height: 1.25;
+}
+button, .btn, .topbar, .tab-rail, .filter-chip, .status-opt, th { text-align: center; }
+td, label { text-align: left; }
+textarea, input[type="text"] { text-align: left; }
