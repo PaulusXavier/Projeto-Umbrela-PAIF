@@ -108,7 +108,14 @@
   function iniciarPaulus() {
     Paulus.init(Object.assign({
       app: APP_ID,
-      endpoint: PAULUS_ENDPOINT
+      endpoint: PAULUS_ENDPOINT,
+      // Token do usuário logado no Firebase: o Worker só responde a quem estiver autenticado.
+      obterToken: function () {
+        try {
+          const u = window.firebase && firebase.auth && firebase.auth().currentUser;
+          return u ? u.getIdToken() : Promise.resolve('');
+        } catch (e) { return Promise.resolve(''); }
+      }
       // "fichas" omitido de propósito: o Umbrella não tem diretório público, e dado de família jamais vai à IA.
     }, baseMesclada ? { conhecimento: baseMesclada } : { conhecimentoUrl: PAULUS_CONHECIMENTO }));
   }
