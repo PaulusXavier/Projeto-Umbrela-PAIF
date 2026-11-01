@@ -618,6 +618,7 @@ const MAX_FICHAS = 10;
 const PADRAO = {
   app: '',
   endpoint: '',            // endereço do Worker; vazio = IA desligada
+  obterToken: null,        // opcional: async () => token (ID token do Firebase) enviado em Authorization: Bearer
   maxPergunta: 1200,
   maxHistorico: 6,         // mensagens (3 trocas) enviadas à IA
   porMinuto: 8,            // limite local (o Worker também limita)
@@ -650,6 +651,7 @@ function init(opcoes) {
   cfg = Object.assign({}, PADRAO, o);
   cfg.app = String(o.app || '').toLowerCase();
   cfg.endpoint = String(o.endpoint || '').replace(/\/+$/, '');
+  cfg.obterToken = typeof o.obterToken === 'function' ? o.obterToken : null;
   estado.fichas = typeof o.fichas === 'function' ? o.fichas : null;
   estado.historico = [];
   estado.envios = [];
@@ -854,9 +856,15 @@ async function pedirIA(texto, opcoes) {
   }
 
   try {
+    const cabecalhos = { 'Content-Type': 'application/json', 'Accept': 'text/event-stream, application/json' };
+    if (cfg.obterToken) {
+      let token = '';
+      try { token = await cfg.obterToken(); } catch (e) { /* sem login: o Worker responde 401 */ }
+      if (token) cabecalhos['Authorization'] = 'Bearer ' + token;
+    }
     const resp = await fetch(cfg.endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream, application/json' },
+      headers: cabecalhos,
       body: JSON.stringify(corpo),
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
