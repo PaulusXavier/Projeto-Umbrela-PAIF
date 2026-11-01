@@ -13,8 +13,10 @@ watch_dir = "../docs"
 ALLOWED_ORIGINS = "https://paulusxavier.github.io"
 # ID do projeto Firebase (o mesmo "projectId" do firebase-config.js). Obrigatório: o Worker só atende quem estiver logado.
 FIREBASE_PROJECT_ID = "paif-d2ab8"
-# OPCIONAL: UIDs autorizados (separe por vírgula). Vazio = qualquer conta do seu projeto Firebase.
-ALLOWED_UIDS = ""
+# UIDs autorizados (separe por vírgula). Use os mesmos UIDs do firestore.rules (função dono()).
+# ATENÇÃO: vazio = QUALQUER conta do projeto Firebase, e como a chave do firebase-config.js é pública,
+# qualquer pessoa pode criar uma conta e gastar a sua cota da API da IA. Deixe sempre preenchido.
+ALLOWED_UIDS = "yVnVPeyAIGdVxIIGzwljmZzR2tQ2"
 # Teto de perguntas por usuário por dia (precisa do KV).
 COTA_USUARIO_DIA = "100"
 # Modelo do Claude. Haiku é o mais barato e responde bem a perguntas assim; troque por "claude-sonnet-5-5" se quiser mais capricho.
