@@ -1277,6 +1277,13 @@ function uid() {
   return "paf_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9);
 }
 
+// Nome do arquivo ao salvar (PDF pelo título da janela de impressão; Word pelo download):
+// "Nome do Responsável - Plano de Acompanhamento Familiar".
+function nomeArquivoPAF(paf) {
+  const nome = String((paf && paf.responsavel) || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() || "Responsável não informado";
+  return `${nome} - Plano de Acompanhamento Familiar`;
+}
+
 function todayISO() {
   // Data local (não UTC): em Boa Vista (UTC-4), depois das 20h o UTC já é "amanhã".
   return dataISOLocal(new Date());
@@ -3305,6 +3312,28 @@ const ABNT_PRINT_CSS = `
   .anotacao, .traj-texto, .reg-evolucao, .campo-preenchido, p { text-indent: 0 !important; }
   /* seções vazias ocupam uma linha só */
   .campo-preenchido:empty, .anotacao:empty { display: none !important; }
+
+  /* título do mês trajetória: nome do mês à esquerda, contador à direita, sempre com respiro entre eles */
+  .traj-mes { display: flex !important; justify-content: space-between; align-items: baseline; gap: 12pt; }
+  .traj-mes-res { margin-left: 12pt; white-space: nowrap; }
+  /* gráficos: altura máxima maior para que os rótulos fiquem legíveis no papel */
+  .gbox-hist .chart-svg, .gbox .histograma-chart { max-height: 55mm !important; }
+  .gbox-largo .chart-svg { max-height: 50mm !important; }
+  /* folha-síntese: página 1 inteira dedicada ao plano, em linhas numeradas (situação → objetivos → caminhos → metas) */
+  .sintese-plano { break-after: page; page-break-after: always; margin: 0 0 6pt; }
+  .sintese-plano, .sintese-plano * { font-size: 10.5pt !important; line-height: 1.3 !important; }
+  .sintese-plano .tag { font-size: 10pt !important; padding: 0 3pt !important; }
+  .sp-lin { display: grid; grid-template-columns: 30mm 1fr; gap: 0 8pt; border: 1px solid #000; border-bottom: 0; padding: 3pt 6pt; break-inside: avoid; }
+  .sp-lin:last-child { border-bottom: 1px solid #000; }
+  .sp-rot { font-weight: bold !important; text-align: left !important; }
+  .sp-val, .sp-val * { text-align: left !important; }
+  .sp-val .tag { display: inline-block; margin: 0 3pt 3pt 0; }
+  .sp-sub { margin-top: 3pt; }
+  .sp-metas { width: 100%; margin: 0; }
+  .sp-metas th, .sp-metas td { border: 1px solid #000; padding: 2pt 4pt; font-size: 10pt !important; line-height: 1.25 !important; }
+  .sem-registro { margin-top: 10pt; font-size: 10pt !important; }
+  /* caixa de leitura do acompanhamento não se parte entre páginas */
+  .lei-texto { break-inside: avoid !important; page-break-inside: avoid !important; }
 
   @media screen { .page-header-fixed, .page-footer-fixed, .watermark { display: none; } }
 `;
@@ -6862,12 +6891,70 @@ async function exportPDF(paf) {
       <p class="lei-nota">Leitura gerada automaticamente a partir dos registros da ficha; serve de apoio e não substitui a avaliação técnica.</p>`;
   })();
 
+  /* ---------- Folha-síntese do plano (1ª página) e auxiliares de leitura ---------- */
+  const _arr = a => (a || []).filter(Boolean);
+  const _tags = (arr, outro) => {
+    const t = [..._arr(arr).map(v => `<span class="tag">${escapeHtml(v)}</span>`), ...(outro ? [`<span class="tag">${escapeHtml(outro)}</span>`] : [])];
+    return t.join("");
+  };
+  const sintesePlanoHTML = (() => {
+    const linha = (rotulo, conteudo) => conteudo ? `<div class="sp-lin"><span class="sp-rot">${rotulo}</span><div class="sp-val">${conteudo}</div></div>` : "";
+    const vulns = _tags(paf.vulnerabilidades, paf.vulnerabilidadesOutros);
+    const potenc = _arr((paf.potencialidades || []).filter(x => x.situacao).map(x => x.potencial)).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("");
+    const objet = _tags(paf.objetivosPaif, paf.objetivosPaifOutros);
+    const estrat = _tags(paf.estrategias, paf.estrategiasOutras);
+    const eixos = _tags(paf.eixos, paf.eixosOutros);
+    const segur = _tags(paf.segurancasSocioassistenciais, paf.segurancasSocioassistenciaisOutras);
+    const rede = _tags([...(paf.servBasica || []), ...(paf.servMedia || []), ...(paf.servAlta || [])]);
+    const nEnc = (paf.encaminhamentosForm || []).length;
+    const metasLin = metasAtivas.map(m => {
+      const notas = metaNotas(m).filter(n => (n.texto || "").trim());
+      const ult = notas.length ? notas[notas.length - 1] : null;
+      return `<tr>
+        <td>${escapeHtml(m.meta)}</td>
+        <td>${escapeHtml(m.prazo) || "—"}</td>
+        <td>${ult ? "Com resultado registrado" : "Sem resultado registrado"}</td>
+        <td>${ult ? (ult.data ? fmtDateBR(ult.data) + " — " : "") + escapeHtml(ult.texto.trim().slice(0, 160)) + (ult.texto.trim().length > 160 ? "…" : "") : "—"}</td>
+      </tr>`;
+    }).join("");
+    const atends = paf.atendimentos || [];
+    const ultAt = [...atends].sort((a, b) => (b.data || "").localeCompare(a.data || ""))[0];
+    const prazos = [
+      paf.dataElaboracao ? `Elaborado em <b>${fmtDateBR(paf.dataElaboracao)}</b>` : "",
+      paf.prazoExecucaoPlano ? `Execução: <b>${escapeHtml(paf.prazoExecucaoPlano)}</b>` : "",
+      paf.prazoAvaliacaoPlano ? `Avaliação: <b>${escapeHtml(paf.prazoAvaliacaoPlano)}</b>` : "",
+      paf.familiaParticipou ? `Família participou da elaboração: <b>${escapeHtml(paf.familiaParticipou)}</b>` : ""
+    ].filter(Boolean).join(" · ");
+    const andamento = [
+      paf.dataInicial ? `Em acompanhamento desde <b>${fmtDateBR(paf.dataInicial)}</b>` : "",
+      `<b>${atends.length}</b> atendimento${atends.length === 1 ? "" : "s"} registrado${atends.length === 1 ? "" : "s"}`,
+      ultAt && ultAt.data ? `último em <b>${fmtDateBR(ultAt.data)}</b>` : "",
+      nEnc ? `<b>${nEnc}</b> encaminhamento${nEnc === 1 ? "" : "s"}` : ""
+    ].filter(Boolean).join(" · ");
+    return `
+      <div class="sep-cadastro parte"><span class="parte-n">Síntese</span> O plano em uma página <small>da situação da família ao que foi pactuado — o detalhamento vem nas páginas seguintes</small></div>
+      <div class="sintese-plano">
+        ${linha("1 · Situação da família", `${vulns || "<span class='muted'>Vulnerabilidades não registradas</span>"}${potenc ? `<div class="sp-sub"><b>Potencialidades:</b> ${potenc}</div>` : ""}${paf.barreirasDesafios ? `<div class="sp-sub"><b>Barreiras e desafios:</b> ${escapeHtml(String(paf.barreirasDesafios).slice(0, 300))}${String(paf.barreirasDesafios).length > 300 ? "…" : ""}</div>` : ""}`)}
+        ${linha("2 · O que se pretende alcançar", `${objet || "<span class='muted'>Objetivos não registrados</span>"}${segur ? `<div class="sp-sub"><b>Seguranças afiançadas:</b> ${segur}</div>` : ""}`)}
+        ${linha("3 · Por quais caminhos", `${estrat ? `<div><b>Estratégias:</b> ${estrat}</div>` : ""}${eixos ? `<div class="sp-sub"><b>Eixos:</b> ${eixos}</div>` : ""}${!estrat && !eixos ? "<span class='muted'>Estratégias e eixos não registrados</span>" : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b> ${rede}</div>` : ""}`)}
+        <div class="sp-lin"><span class="sp-rot">4 · Metas e resultados</span><div class="sp-val">
+          ${metasLin ? `<table class="sp-metas"><thead><tr><th>Meta</th><th>Prazo</th><th>Situação</th><th>Último registro</th></tr></thead><tbody>${metasLin}</tbody></table>` : "<span class='muted'>Nenhuma meta definida</span>"}
+        </div></div>
+        ${linha("5 · Andamento", andamento)}
+        ${linha("6 · Prazos do plano", prazos || "<span class='muted'>Prazos não definidos</span>")}
+      </div>`;
+  })();
+
+  // Seções sem nenhum registro não ganham caixa própria: viram uma linha única ("Sem registro: ...").
+  const _vazias = [];
+  const _secao = (titulo, temDados, corpoHTML) => { if (temDados) return `<h2>${titulo}</h2>${corpoHTML}`; _vazias.push(titulo); return ""; };
+
   const html = `
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
-      <title>Prontuário PAF nº ${protocoloNumero(paf)} - ${escapeHtml(paf.responsavel)} - ${todayISO()}</title>
+      <title>${escapeHtml(nomeArquivoPAF(paf))}</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
       ${anexosPdf.length ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></' + 'script>' : ""}
@@ -7489,7 +7576,9 @@ async function exportPDF(paf) {
         </div>
       </div>
 
-      <div class="sep-cadastro parte"><span class="parte-n">Parte 1</span> Conhecendo a família <small>Composição, moradia, renda e condições de vida</small></div>
+      ${sintesePlanoHTML}
+
+      <div class="sep-cadastro parte nova-pagina"><span class="parte-n">Parte 1</span> Conhecendo a família <small>Composição, moradia, renda e condições de vida</small></div>
 
       <div class="sum-boxes sintese-fam">
         <div class="sum-box"><span class="n">${_membros.length || "—"}</span><span class="l">Pessoas na família</span><span class="s">${_idades.length ? `${_faixa(0, 17)} menor${_faixa(0, 17) === 1 ? "" : "es"} de 18 · ${_faixa(60, 200)} idoso${_faixa(60, 200) === 1 ? "" : "s"}` : "&nbsp;"}</span></div>
@@ -7560,76 +7649,43 @@ async function exportPDF(paf) {
       <div class="tags-wrap">${(paf.vulnerabilidades || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
       ${paf.vulnerabilidadesOutros ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
 
-      <div class="sep-cadastro parte nova-pagina"><span class="parte-n">Parte 2</span> Acompanhamento <small>Resumo, metas, evolução, atendimentos e plano de intervenção</small></div>
+      <div class="sep-cadastro parte nova-pagina"><span class="parte-n">Parte 2</span> Plano de acompanhamento <small>leitura técnica → plano de intervenção → rede acionada → evolução</small></div>
 
-      <div class="sub-parte"><b>2A</b> Evolução do acompanhamento <small>o que já foi feito e como a família respondeu</small></div>
+      <div class="sub-parte"><b>2A</b> Leitura técnica <small>o que a equipe compreende sobre a situação da família</small></div>
 
       ${leituraAcompanhamentoHTML}
 
-      ${resumoAcompanhamentoHTML}
-
-      <h2>Gráficos do acompanhamento</h2>
-      ${graficosAcompanhamentoPrintHTML(paf)}
-
-      <h2>Metas e Evolução</h2>
-      ${metasHTML}
-
-      ${historicoPdfTrajetoriaHTML(paf)}
-
-      ${historicoPdfHTML(paf)}
-
-      <div class="sub-parte"><b>2B</b> Leitura técnica <small>situações, potencialidades e barreiras</small></div>
-
-      <h2>Situações Sociais Registradas</h2>
-      <table>
-        <thead><tr><th>Situação Social</th><th>Membros</th><th>Superada</th></tr></thead>
-        <tbody>${situacoesHTML}</tbody>
-      </table>
-
-      <h2>Potencialidades da Família</h2>
-      <table>
-        <thead><tr><th>Potencial</th><th>Situação</th><th>Observações</th></tr></thead>
-        <tbody>${potencialidadesHTML}</tbody>
-      </table>
-      ${paf.barreirasDesafios ? `<p class="muted" style="margin:6px 0 0;"><strong>Barreiras e desafios:</strong> ${diarioBr(paf.barreirasDesafios)}</p>` : ""}
-
+      ${_secao("Situações Sociais Registradas", !!situacoesHTML && !situacoesHTML.includes("Nenhuma situação registrada"), `<table><thead><tr><th>Situação Social</th><th>Membros</th><th>Superada</th></tr></thead><tbody>${situacoesHTML}</tbody></table>`)}
+      ${_secao("Potencialidades da Família", !potencialidadesHTML.includes("Nenhuma potencialidade registrada"), `<table><thead><tr><th>Potencial</th><th>Situação</th><th>Observações</th></tr></thead><tbody>${potencialidadesHTML}</tbody></table>`)}
+      ${paf.barreirasDesafios ? `<h2>Barreiras e Desafios</h2><p class="anotacao">${diarioBr(paf.barreirasDesafios)}</p>` : ""}
       ${(paf.instrumentaisTecnicos || []).length || paf.aspectosPsicossociaisObs ? `
       <h2>Aspectos Psicossociais e Instrumentais Técnicos</h2>
       ${(paf.instrumentaisTecnicos || []).length ? `<div>${paf.instrumentaisTecnicos.map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
       ${paf.aspectosPsicossociaisObs ? `<p class="muted" style="margin:6px 0 0;">${diarioBr(paf.aspectosPsicossociaisObs)}</p>` : ""}` : ""}
 
-      <div class="sub-parte"><b>2C</b> Plano de intervenção <small>o que se pretende alcançar e por quais caminhos</small></div>
+      <div class="sub-parte"><b>2B</b> Plano de intervenção <small>o que se pretende alcançar, por quais caminhos e com quais metas</small></div>
 
-      <h2>Estratégias e Eixos de Intervenção</h2>
+      ${_secao("Objetivos do PAIF Trabalhados no Plano", _arr(paf.objetivosPaif).length || paf.objetivosPaifOutros, `<div class="tags-wrap">${_tags(paf.objetivosPaif, paf.objetivosPaifOutros)}</div>`)}
+      ${_secao("Seguranças Socioassistenciais Afiançadas", _arr(paf.segurancasSocioassistenciais).length || paf.segurancasSocioassistenciaisOutras, `<div class="tags-wrap">${_tags(paf.segurancasSocioassistenciais, paf.segurancasSocioassistenciaisOutras)}</div>`)}
+      ${_secao("Estratégias e Eixos de Intervenção", _arr(paf.estrategias).length || _arr(paf.eixos).length || paf.estrategiasOutras || paf.eixosOutros, `
       <div class="grid">
         <div class="field"><span class="label">Estratégias</span>${(paf.estrategias || []).map(escapeHtml).join(", ") || "—"}${paf.estrategiasOutras ? " · Outras: " + escapeHtml(paf.estrategiasOutras) : ""}</div>
         <div class="field"><span class="label">Eixos de intervenção</span>${(paf.eixos || []).map(escapeHtml).join(", ") || "—"}${paf.eixosOutros ? " · Outros: " + escapeHtml(paf.eixosOutros) : ""}</div>
-      </div>
+      </div>`)}
+      ${_secao("Trabalho Social Coletivo do PAIF", _arr(paf.atividadesColetivas).length || paf.atividadesColetivasOutras, `<div class="tags-wrap">${_tags(paf.atividadesColetivas, paf.atividadesColetivasOutras)}</div>`)}
 
-      <h2>Objetivos do PAIF Trabalhados no Plano</h2>
-      <div class="tags-wrap">${(paf.objetivosPaif || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
-      ${paf.objetivosPaifOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.objetivosPaifOutros)}</p>` : ""}
+      <h2>Metas e Evolução</h2>
+      ${metasHTML}
 
-      <h2>Seguranças Socioassistenciais Afiançadas</h2>
-      <div class="tags-wrap">${(paf.segurancasSocioassistenciais || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma selecionada</span>"}</div>
-      ${paf.segurancasSocioassistenciaisOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.segurancasSocioassistenciaisOutras)}</p>` : ""}
+      <div class="sub-parte"><b>2C</b> Rede e encaminhamentos <small>serviços, apoios e benefícios acionados</small></div>
 
-      <h2>Trabalho Social Coletivo do PAIF</h2>
-      <div class="tags-wrap">${(paf.atividadesColetivas || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhuma registrada</span>"}</div>
-      ${paf.atividadesColetivasOutras ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.atividadesColetivasOutras)}</p>` : ""}
-
-      <div class="sub-parte"><b>2D</b> Rede e encaminhamentos <small>serviços, apoios e benefícios acionados</small></div>
-
-      <h2>Serviços da Rede Socioassistencial</h2>
+      ${_secao("Serviços da Rede Socioassistencial", _arr(paf.servBasica).length || _arr(paf.servMedia).length || _arr(paf.servAlta).length, `
       <div class="grid">
         <div class="field"><span class="label">Proteção Social Básica</span>${(paf.servBasica || []).map(escapeHtml).join(", ") || "—"}</div>
         <div class="field"><span class="label">Média Complexidade</span>${(paf.servMedia || []).map(escapeHtml).join(", ") || "—"}</div>
         <div class="field"><span class="label">Alta Complexidade</span>${(paf.servAlta || []).map(escapeHtml).join(", ") || "—"}</div>
-      </div>
-
-      <h2>Recursos do Território (Rede de Apoio)</h2>
-      <div class="tags-wrap">${(paf.redeApoio || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
-      ${paf.redeApoioOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.redeApoioOutros)}</p>` : ""}
+      </div>`)}
+      ${_secao("Recursos do Território (Rede de Apoio)", _arr(paf.redeApoio).length || paf.redeApoioOutros, `<div class="tags-wrap">${_tags(paf.redeApoio, paf.redeApoioOutros)}</div>`)}
 
       ${(paf.encaminhamentosForm || []).length ? `
       <h2>Encaminhamentos Realizados</h2>
@@ -7644,6 +7700,20 @@ async function exportPDF(paf) {
         <thead><tr><th>Data</th><th>Modalidade</th><th>Situação/motivo</th><th>Forma</th><th>Valor</th><th>Situação</th><th>Concedido em</th></tr></thead>
         <tbody>${paf.beneficiosEventuaisForm.map(b => `<tr><td>${fmtDateBR(b.data)}</td><td>${escapeHtml(b.tipo)}</td><td>${escapeHtml(b.situacaoMotivadora)}${b.situacaoDetalhe ? " — " + escapeHtml(b.situacaoDetalhe) : ""}</td><td>${escapeHtml(b.formaConcessao)}</td><td>${escapeHtml(b.valor)}</td><td>${escapeHtml(b.situacaoRequerimento) || "—"}</td><td>${fmtDateBR(b.dataConcessao) || "—"}</td></tr>`).join("")}</tbody>
       </table>` : ""}
+
+      <div class="sub-parte"><b>2D</b> Evolução do acompanhamento <small>o que já foi feito e como a família respondeu</small></div>
+
+      ${resumoAcompanhamentoHTML}
+
+      <h2>Gráficos do acompanhamento</h2>
+      ${graficosAcompanhamentoPrintHTML(paf)}
+
+      ${historicoPdfTrajetoriaHTML(paf)}
+
+      ${historicoPdfHTML(paf)}
+
+      ${_vazias.length ? `<p class="muted sem-registro"><b>Sem registro nesta ficha:</b> ${_vazias.map(escapeHtml).join(" · ")}.</p>` : ""}
+
 
       <h2>Elaboração e Encerramento</h2>
       <div class="grid">
@@ -8032,7 +8102,7 @@ async function exportWord(paf) {
 
   const content = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-    <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
+    <head><meta charset='utf-8'><title>${escapeHtml(nomeArquivoPAF(paf))}</title>
     <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
     <style>
       /* ABNT NBR 14724: A4; margens sup. 3 cm, esq. 3 cm, inf. 2 cm, dir. 2 cm; numeração no canto superior direito, a 2 cm da borda. */
@@ -8239,7 +8309,7 @@ async function exportWord(paf) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `PAF_${(paf.responsavel || "registro").replace(/\s+/g, "_")}.doc`;
+  a.download = `${nomeArquivoPAF(paf)}.doc`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
