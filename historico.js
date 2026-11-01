@@ -1063,30 +1063,82 @@ function histSinteseExportacao(paf) {
 function histSinteseLinhasHTML(sint, estiloCelula) {
   let secAnt = null;
   return sint.map(r => {
-    const cab = r.secao !== secAnt ? `<tr><td colspan="5" style="background:#E8EDF3;font-weight:bold;color:#1F3A5F">${escapeHtml(histSecaoLabel(r.secao))}</td></tr>` : "";
+    const nSec = sint.filter(x => x.secao === r.secao).length;
+    const cab = r.secao !== secAnt ? `<tr><td colspan="5" style="background:#E8EDF3;font-weight:bold;color:#1F3A5F">${escapeHtml(histSecaoLabel(r.secao))} <span style="font-weight:normal;color:#52667C">· ${nSec} ${nSec === 1 ? "alteração" : "alterações"}</span></td></tr>` : "";
     secAnt = r.secao;
     return cab + `<tr><td style="vertical-align:top"><strong>${escapeHtml(r.campo)}</strong></td><td style="vertical-align:top">${histLinhasHTML(r.inicial)}</td><td style="vertical-align:top">${histLinhasHTML(r.atual)}</td><td style="vertical-align:top;white-space:nowrap">${r.periodo}</td><td style="text-align:center;vertical-align:top">${r.n}</td></tr>`;
   }).join("");
 }
 
+// Marcos do acompanhamento (impressão): os pontos de virada em ordem cronológica, com o tempo decorrido desde o início.
+function histMarcosPdfHTML(paf) {
+  const E = escapeHtml;
+  const iso = d => (d && /^\d{4}-\d{2}-\d{2}/.test(String(d))) ? String(d).slice(0, 10) : "";
+  const ms = [];
+  const add = (data, rotulo, texto, cor, icone) => { const d = iso(data); if (d) ms.push({ data: d, rotulo, texto: texto || "", cor, icone: icone || "●" }); };
+  const inicio = iso(paf.dataInicial) || iso(paf.createdAt);
+  add(inicio, "Início do acompanhamento", paf.periodicidade ? "Periodicidade combinada: " + paf.periodicidade : "", "#1F3A5F", "◆");
+  const ats = (paf.atendimentos || []).filter(a => iso(a.data)).sort((a, b) => a.data.localeCompare(b.data));
+  if (ats.length) {
+    add(ats[0].data, "Primeiro atendimento", ats[0].tipo || "", "#2E7D6B");
+    if (ats.length > 1) add(ats[ats.length - 1].data, "Atendimento mais recente", ats[ats.length - 1].tipo || "", "#2E7D6B");
+  }
+  histH(paf).filter(e => e.tipo === "manual").forEach(e => {
+    const s = histSentido(e);
+    add(e.data, "Marco de evolução · " + HIST_SENTIDOS[s].label, (e.nota || "").trim().slice(0, 260), s === "avanco" ? "#2E7D6B" : s === "retrocesso" ? "#B5473F" : "#B98A34", HIST_SENTIDOS[s].icone);
+  });
+  const notasMeta = [];
+  (paf.metas || []).forEach(m => (Array.isArray(m.anotacoes) ? m.anotacoes : []).forEach(n => { if ((n.texto || "").trim() && iso(n.data)) notasMeta.push({ data: iso(n.data), meta: m.meta || "" }); }));
+  notasMeta.sort((a, b) => a.data.localeCompare(b.data));
+  if (notasMeta.length) add(notasMeta[0].data, "Primeiro resultado de meta registrado", notasMeta[0].meta, "#B98A34");
+  const encs = (paf.encaminhamentosForm || []).filter(e => iso(e.data)).sort((a, b) => a.data.localeCompare(b.data));
+  if (encs.length) add(encs[0].data, "Primeiro encaminhamento à rede", [encs[0].area, encs[0].orgaoDestino].filter(Boolean).join(" · "), "#B5473F");
+  const bens = (paf.beneficiosEventuaisForm || []).filter(b => iso(b.data)).sort((a, b) => a.data.localeCompare(b.data));
+  if (bens.length) add(bens[0].data, "Primeiro benefício eventual", bens[0].tipo || "", "#6B5B95");
+  if (iso(paf.encerramentoData)) add(paf.encerramentoData, "Encerramento do acompanhamento", (typeof ENCERRAMENTO_MOTIVOS !== "undefined" && (ENCERRAMENTO_MOTIVOS.find(m => m.v === paf.encerramentoMotivo) || {}).label) || "", "#52667C", "■");
+  if (ms.length < 2) return `<p class="muted">Ainda não há marcos suficientes para montar a linha de evolução. Registre atendimentos e marcos de evolução para que apareçam aqui.</p>`;
+  ms.sort((a, b) => a.data.localeCompare(b.data));
+  const t0 = inicio ? new Date(inicio + "T12:00:00").getTime() : null;
+  const apos = d => {
+    if (t0 == null) return "";
+    const n = Math.round((new Date(d + "T12:00:00").getTime() - t0) / 86400000);
+    if (n <= 0) return "";
+    return n < 60 ? n + (n === 1 ? " dia" : " dias") + " após o início" : Math.round(n / 30.4) + " meses após o início";
+  };
+  return `<div class="marcos-lista">${ms.map(m => `
+    <div class="marco-item" style="--c:${m.cor}">
+      <span class="marco-ponto">${m.icone}</span>
+      <div class="marco-corpo">
+        <div class="marco-topo"><b>${E(m.rotulo)}</b><span>${fmtDateBR(m.data)}${apos(m.data) ? ` · <em>${apos(m.data)}</em>` : ""}</span></div>
+        ${m.texto ? `<p>${E(m.texto)}</p>` : ""}
+      </div>
+    </div>`).join("")}</div>`;
+}
+
 function historicoPdfTrajetoriaHTML(paf) {
-  return `<h2>Trajetória do acompanhamento <small>(do início até hoje, mês a mês)</small></h2>
+  return `<h2>Marcos do acompanhamento <small>(os pontos de virada, em ordem)</small></h2>
+      ${histMarcosPdfHTML(paf)}
+      <h2>Trajetória do acompanhamento <small>(tudo o que foi registrado, mês a mês)</small></h2>
       ${histTrajetoriaMesesHTML(paf, { ordem: "asc", pdf: true })}`;
 }
 
 function historicoPdfHTML(paf) {
-  const l = histLinhasExportacao(paf);
-  if (!l.length) return "";
   const sint = histSinteseExportacao(paf);
-  if (!sint.length) return "";
+  if (!sint.length) return `
+      <h2>Situação inicial × situação atual</h2>
+      <p class="muted">Nenhuma alteração nos dados da família foi registrada no histórico desde o início do acompanhamento.</p>`;
+  const porSecao = {};
+  sint.forEach(r => { const l = histSecaoLabel(r.secao); porSecao[l] = (porSecao[l] || 0) + 1; });
+  const chips = Object.keys(porSecao).map(l => `<span class="tag">${escapeHtml(l)} · ${porSecao[l]}</span>`).join("");
   return `
       <h2>Situação inicial × situação atual</h2>
-      ${sint.length ? `
-      <p style="margin:0 0 6px;"><strong>Síntese:</strong> situação inicial e situação atual dos dados que mudaram durante o acompanhamento, por seção.</p>
-      <table>
-        <thead><tr><th style="width:24%">Campo</th><th style="width:28%">Situação inicial</th><th style="width:30%">Situação atual</th><th style="width:12%">Período</th><th style="width:6%">Alterações</th></tr></thead>
+      <p class="hist-intro"><strong>Como ler:</strong> compara o que constava quando a ficha começou a ser registrada com o que consta hoje. Aparecem apenas os dados que mudaram durante o acompanhamento, agrupados por seção.</p>
+      <p class="hist-intro"><strong>${sint.length}</strong> ${sint.length === 1 ? "dado mudou" : "dados mudaram"} em <strong>${Object.keys(porSecao).length}</strong> ${Object.keys(porSecao).length === 1 ? "seção" : "seções"}:</p>
+      <div class="tags-wrap">${chips}</div>
+      <table class="tab-sintese">
+        <thead><tr><th style="width:22%">Dado</th><th style="width:28%">Situação inicial</th><th style="width:30%">→ Situação atual</th><th style="width:14%">Quando mudou</th><th style="width:6%">Vezes</th></tr></thead>
         <tbody>${histSinteseLinhasHTML(sint)}</tbody>
-      </table>` : ""}`;
+      </table>`;
 }
 
 function historicoWordLinhas(paf) {
@@ -1326,10 +1378,28 @@ function histTrajetoriaMesesHTML(paf, opt) {
     c.dados ? `<span class="traj-leg" style="--c:#52667C">${pl(c.dados, "atualização de dados", "atualizações de dados")}</span>` : "",
     c.outros ? `<span class="traj-leg" style="--c:#6B5B95">${pl(c.outros, "outro registro", "outros registros")}</span>` : ""
   ].join("");
+  // Resumo de cada mês (só na impressão): quantos atendimentos, marcos e atualizações aconteceram.
+  const resumoMes = {};
+  if (opt.pdf) {
+    const porMes = {};
+    ev.forEach(e => { const k = (e.data || "").slice(0, 7); (porMes[k] = porMes[k] || []).push(e); });
+    Object.keys(porMes).forEach(k => {
+      const cm = histTrajetoriaContagem(porMes[k]);
+      resumoMes[k] = [
+        cm.atendimento ? pl(cm.atendimento, "atendimento", "atendimentos") : "",
+        cm.avanco ? "▲ " + pl(cm.avanco, "avanço", "avanços") : "",
+        cm.retrocesso ? "▼ " + pl(cm.retrocesso, "retrocesso", "retrocessos") : "",
+        cm.observacao ? pl(cm.observacao, "observação", "observações") : "",
+        cm.meta ? pl(cm.meta, "resultado de meta", "resultados de metas") : "",
+        cm.dados ? pl(cm.dados, "atualização de dados", "atualizações de dados") : "",
+        cm.outros ? pl(cm.outros, "outro registro", "outros registros") : ""
+      ].filter(Boolean).join(" · ");
+    });
+  }
   let mesAnt = null, ultData = null;
   const itens = ev.map(e => {
     const mk = (e.data || "").slice(0, 7);
-    const cab = mk !== mesAnt ? `<div class="hist-mes traj-mes">${escapeHtml(e.data ? histNomeMes(e.data) : "Sem data informada")}</div>` : "";
+    const cab = mk !== mesAnt ? `<div class="hist-mes traj-mes"><span>${escapeHtml(e.data ? histNomeMes(e.data) : "Sem data informada")}</span>${opt.pdf && resumoMes[mk] ? `<span class="traj-mes-res">${resumoMes[mk]}</span>` : ""}</div>` : "";
     mesAnt = mk;
     const b = dateBadgeParts(e.data);
     let gap = "";
