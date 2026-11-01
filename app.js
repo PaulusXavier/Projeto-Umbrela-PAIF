@@ -4434,7 +4434,7 @@ function renderApp() {
   attachGlobalHandlers();
   if (state.view === "home") attachHomeHandlers();
   else if (state.view === "dashboard") attachDashboardHandlers();
-  else if (state.view === "prioridades") attachPrioridadesHandlers();
+  else if (state.view === "prioridades") { attachPrioridadesHandlers(); agruparNotasTecnicas(); }
   else { attachEditorHandlers(); agruparNotasTecnicas(); }
   updateTopbarTabs();
   iniciarAtalhos();
