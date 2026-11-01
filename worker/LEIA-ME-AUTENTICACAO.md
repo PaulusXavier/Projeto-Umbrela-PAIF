@@ -8,7 +8,7 @@ Para publicar:
 3. Crie o KV das cotas e descomente o bloco no `wrangler.toml`:
    `npx wrangler kv namespace create LIMITES`
 4. `npx wrangler deploy`
-5. Publique o front-end (o `sw.js` já foi para v93, então os aparelhos atualizam sozinhos).
+5. Publique o front-end (o `sw.js` já foi para v94, então os aparelhos atualizam sozinhos).
 
 Cotas: `COTA_USUARIO_DIA` (por usuário, padrão 100) e `COTA_DIA` (total). Sem o KV só vale o limite por minuto (10/usuário).
 Teste: `node worker/teste-local.mjs`
