@@ -185,7 +185,7 @@ function histItemHTML(it) {
 }
 
 const HIST_ABERTOS = new Map(); // id -> aberto (true/false); sem entrada = padrão
-const HIST_UI = { view: "linha", secao: "", periodo: "", tipo: "", busca: "", usuario: "", de: "", ate: "" };
+const HIST_UI = { view: "trajetoria", secao: "", periodo: "", tipo: "", busca: "", usuario: "", de: "", ate: "" };
 try { Object.assign(HIST_UI, JSON.parse(sessionStorage.getItem("paif_hist_ui") || "{}")); } catch (e) { /* ignora */ }
 function histSalvarUI() { try { sessionStorage.setItem("paif_hist_ui", JSON.stringify(HIST_UI)); } catch (e) { /* ignora */ } }
 
@@ -823,7 +823,8 @@ function historicoSectionHTML(paf) {
   <div class="section-card">
     <div class="hist-barra">
       <div class="status-picker">
-        <button class="status-opt ${HIST_UI.view === "linha" ? "selected andamento" : ""}" data-hist-view="linha">Linha do tempo</button>
+        <button class="status-opt ${HIST_UI.view === "trajetoria" ? "selected andamento" : ""}" data-hist-view="trajetoria">Trajetória completa</button>
+        <button class="status-opt ${HIST_UI.view === "linha" ? "selected andamento" : ""}" data-hist-view="linha">Alterações de dados</button>
         <button class="status-opt ${HIST_UI.view === "campo" ? "selected andamento" : ""}" data-hist-view="campo">Por campo</button>
         <button class="status-opt ${HIST_UI.view === "comparar" ? "selected andamento" : ""}" data-hist-view="comparar">Comparar datas</button>
         <button class="status-opt ${HIST_UI.view === "diario" ? "selected andamento" : ""}" data-hist-view="diario">Anotações por dia</button>
@@ -848,7 +849,7 @@ function historicoSectionHTML(paf) {
       ${(HIST_UI.secao || HIST_UI.periodo || HIST_UI.tipo || HIST_UI.busca || HIST_UI.usuario) ? `<button type="button" class="btn btn-ghost btn-sm" id="histLimpar">Limpar filtros</button>` : ""}
       <span class="hist-contagem" id="histContagem" aria-live="polite"></span>
     </div>
-    <div id="histConteudo">${carregando && !st.registros ? `<p class="hint" style="margin:10px 0 0">Carregando o histórico…</p>` : HIST_UI.view === "comparar" ? histCompararHTML(paf, HIST_UI.secao) : HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}</div>
+    <div id="histConteudo">${carregando && !st.registros && HIST_UI.view !== "trajetoria" ? `<p class="hint" style="margin:10px 0 0">Carregando o histórico…</p>` : HIST_UI.view === "trajetoria" ? histTrajetoriaMesesHTML(paf, { secao: HIST_UI.secao, periodo: true }) : HIST_UI.view === "comparar" ? histCompararHTML(paf, HIST_UI.secao) : HIST_UI.view === "diario" ? histDiarioHTML(paf, HIST_UI.secao) : vazio ? `<p class="hint" style="margin:10px 0 0">O histórico começa a ser registrado a partir da próxima alteração feita neste PAF.</p>` : (HIST_UI.view === "campo" ? histPorCampoHTML(paf, HIST_UI.secao) : histLinhaTempoHTML(paf, HIST_UI.secao))}</div>
   </div>`;
 }
 
@@ -1008,7 +1009,7 @@ function histSinteseExportacao(paf) {
     .sort((a, b) => (a.data || "").localeCompare(b.data || "") || (a.criadoEm || "").localeCompare(b.criadoEm || ""));
   const simples = new Map(), ents = new Map(), extras = [];
   const ord = a => (Array.isArray(a) ? [...a].sort() : a);
-  cron.forEach(e => (e.mudancas || []).filter(histMudVisivel).forEach(m => {
+  cron.forEach(e => (e.mudancas || []).filter(m => histMudVisivel(m) && !HIST_EXCLUI_MUDANCA.test(String(m.k || ''))).forEach(m => {
     const partes = String(m.k || "").split("|");
     if (m.tipo === "valor" && partes.length >= 3 && partes[1] !== "+" && partes[1] !== "-") {
       const gk = partes.slice(0, -1).join("|"), f = partes[partes.length - 1];
@@ -1068,23 +1069,24 @@ function histSinteseLinhasHTML(sint, estiloCelula) {
   }).join("");
 }
 
+function historicoPdfTrajetoriaHTML(paf) {
+  return `<h2>Trajetória do acompanhamento <small>(do início até hoje, mês a mês)</small></h2>
+      ${histTrajetoriaMesesHTML(paf, { ordem: "asc", pdf: true })}`;
+}
+
 function historicoPdfHTML(paf) {
   const l = histLinhasExportacao(paf);
   if (!l.length) return "";
   const sint = histSinteseExportacao(paf);
+  if (!sint.length) return "";
   return `
-      <h2>Evolução da Família</h2>
+      <h2>Situação inicial × situação atual</h2>
       ${sint.length ? `
       <p style="margin:0 0 6px;"><strong>Síntese:</strong> situação inicial e situação atual dos dados que mudaram durante o acompanhamento, por seção.</p>
       <table>
         <thead><tr><th style="width:24%">Campo</th><th style="width:28%">Situação inicial</th><th style="width:30%">Situação atual</th><th style="width:12%">Período</th><th style="width:6%">Alterações</th></tr></thead>
         <tbody>${histSinteseLinhasHTML(sint)}</tbody>
-      </table>` : ""}
-      <p style="margin:10px 0 6px;"><strong>Registro cronológico:</strong> o que foi alterado nos dados da família, do mais recente para o mais antigo.</p>
-      <table>
-        <thead><tr><th style="width:11%">Data</th><th style="width:34%">Campo</th><th>Alteração / anotação</th></tr></thead>
-        <tbody>${histLinhasTabelaHTML(paf)}</tbody>
-      </table>`;
+      </table>` : ""}`;
 }
 
 function historicoWordLinhas(paf) {
@@ -1226,4 +1228,131 @@ function histDiarioHTML(paf, secaoFiltro) {
       <p>${diarioBr(t.texto)}</p>
     </div>`).join("")}</div>
   <p class="hint">Para editar uma anotação, volte ao campo correspondente (o texto aqui é só leitura).</p>`;
+}
+
+
+/* =====================================================================
+   Trajetória completa do acompanhamento
+   Junta numa só linha do tempo, mês a mês: atendimentos, marcos de evolução, resultados de metas,
+   anotações por dia, encaminhamentos, benefícios eventuais e atualizações nos dados da família.
+   Serve para a tela (aba Histórico) e para o PDF da ficha.
+   ===================================================================== */
+const HIST_EXCLUI_MUDANCA = /^(atendimentos|metas\|.*\|(resultados|anotacoes))/;
+
+function histTrajetoriaEventos(paf, opt) {
+  opt = opt || {};
+  const sec = opt.secao || "";
+  const ev = [];
+  const cores = (typeof TIPO_ATENDIMENTO_COR !== "undefined") ? TIPO_ATENDIMENTO_COR : {};
+  const add = (e) => { if (e.data == null) e.data = ""; if (opt.periodo && !histPeriodoOk(e.data)) return; ev.push(e); };
+
+  if (!sec || sec === "metas") {
+    (paf.atendimentos || []).forEach(a => {
+      if (!a || (!a.data && !a.evolucao && !a.encaminhamentos)) return;
+      add({ data: a.data || "", kind: "atendimento", cor: cores[a.tipo] || "#8496A8", rotulo: a.tipo || "Atendimento",
+        titulo: "", texto: a.evolucao || "", extra: a.encaminhamentos ? "Encaminhamentos: " + a.encaminhamentos : "", quem: a.tecnico || paf.tecnicoReferencia || "" });
+    });
+    (paf.metas || []).forEach(m => {
+      const notas = Array.isArray(m.anotacoes) ? m.anotacoes : ((m.resultados || "").trim() ? [{ data: "", texto: m.resultados }] : []);
+      notas.filter(n => (n.texto || "").trim()).forEach(n =>
+        add({ data: n.data || "", kind: "meta", cor: "#B98A34", rotulo: "Resultado de meta", titulo: m.meta || "", texto: n.texto.trim(), extra: "", quem: "" }));
+    });
+  }
+  const dia = paf.diario || {};
+  DIARIO_CAMPOS.forEach(k => {
+    if (sec && histSecaoId(k) !== sec) return;
+    (dia[k] || []).forEach(n => {
+      if (n && String(n.texto || "").trim())
+        add({ data: n.data || "", kind: "diario", cor: "#3E6B8A", rotulo: "Anotação · " + (DIARIO_ROTULOS[k] || k), titulo: "", texto: String(n.texto).trim(), extra: "", quem: "" });
+    });
+  });
+  if (!sec || sec === "encaminhamentos") (paf.encaminhamentosForm || []).forEach(e => {
+    if (!e) return;
+    add({ data: e.data || "", kind: "encam", cor: "#B5473F", rotulo: "Encaminhamento" + (e.area ? " · " + e.area : ""), titulo: e.orgaoDestino || "", texto: e.objetivo || "", extra: e.contraReferencia ? "Contra-referência: " + e.contraReferencia : "", quem: "" });
+  });
+  if (!sec || sec === "beneficioEventual") (paf.beneficiosEventuaisForm || []).forEach(b => {
+    if (!b) return;
+    add({ data: b.data || "", kind: "benef", cor: "#6B5B95", rotulo: "Benefício eventual" + (b.tipo ? " · " + b.tipo : ""), titulo: "", texto: [b.situacaoMotivadora, b.situacaoDetalhe].filter(Boolean).join(" — "), extra: "", quem: "" });
+  });
+  histOrdenar(paf).forEach(({ e }) => {
+    const manual = e.tipo === "manual";
+    if (manual) {
+      if (sec) return;
+      const s = histSentido(e);
+      add({ data: e.data, kind: "marco-" + s, cor: s === "avanco" ? "#2E7D6B" : s === "retrocesso" ? "#B5473F" : "#B98A34",
+        rotulo: HIST_SENTIDOS[s].icone + " Marco de evolução · " + HIST_SENTIDOS[s].label, titulo: "", texto: e.nota || "", extra: "", quem: "" });
+      return;
+    }
+    const muds = (e.mudancas || []).filter(m => histMudVisivel(m) && !HIST_EXCLUI_MUDANCA.test(String(m.k || "")) && (!sec || m.secao === sec));
+    const itens = histAgrupar(muds).map(it => ({ secao: it.secao, t: histItemTexto(it) }));
+    if (!itens.length && (!e.nota || sec)) return;
+    add({ data: e.data, kind: "dados", cor: "#52667C", rotulo: "Dados da família atualizados", titulo: "", texto: e.nota || "", extra: "",
+      itens: itens.map(x => ({ secao: histSecaoLabel(x.secao), campo: x.t.campo, linhas: x.t.linhas })), quem: "" });
+  });
+  return ev;
+}
+
+function histTrajetoriaContagem(ev) {
+  const c = { atendimento: 0, avanco: 0, retrocesso: 0, observacao: 0, meta: 0, dados: 0, outros: 0 };
+  ev.forEach(e => {
+    if (e.kind === "atendimento") c.atendimento++;
+    else if (e.kind.startsWith("marco-")) c[e.kind.slice(6)]++;
+    else if (e.kind === "meta") c.meta++;
+    else if (e.kind === "dados") c.dados++;
+    else c.outros++;
+  });
+  return c;
+}
+
+// opt: { secao, periodo (aplica filtro da tela), ordem: "desc" | "asc", pdf }
+function histTrajetoriaMesesHTML(paf, opt) {
+  opt = opt || {};
+  const ev = histTrajetoriaEventos(paf, opt);
+  if (!ev.length) return `<p class="hint">Nenhum registro${opt.secao ? " nesta seção" : ""} ainda. Atendimentos, marcos, anotações e resultados de metas aparecem aqui assim que forem registrados.</p>`;
+  const asc = opt.ordem === "asc";
+  ev.forEach((e, i) => { e._i = i; });
+  ev.sort((a, b) => {
+    if (!a.data !== !b.data) return a.data ? -1 : 1;           // sem data sempre no fim
+    return (asc ? 1 : -1) * (a.data || "").localeCompare(b.data || "") || (asc ? a._i - b._i : b._i - a._i);
+  });
+  const c = histTrajetoriaContagem(ev);
+  const pl = (n, s, p) => n + " " + (n === 1 ? s : p);
+  const partes = [
+    c.atendimento ? `<span class="traj-leg" style="--c:#2E7D6B">${pl(c.atendimento, "atendimento", "atendimentos")}</span>` : "",
+    c.avanco ? `<span class="traj-leg" style="--c:#2E7D6B">▲ ${pl(c.avanco, "avanço", "avanços")}</span>` : "",
+    c.retrocesso ? `<span class="traj-leg" style="--c:#B5473F">▼ ${pl(c.retrocesso, "retrocesso", "retrocessos")}</span>` : "",
+    c.observacao ? `<span class="traj-leg" style="--c:#B98A34">● ${pl(c.observacao, "observação", "observações")}</span>` : "",
+    c.meta ? `<span class="traj-leg" style="--c:#B98A34">${pl(c.meta, "resultado de meta", "resultados de metas")}</span>` : "",
+    c.dados ? `<span class="traj-leg" style="--c:#52667C">${pl(c.dados, "atualização de dados", "atualizações de dados")}</span>` : "",
+    c.outros ? `<span class="traj-leg" style="--c:#6B5B95">${pl(c.outros, "outro registro", "outros registros")}</span>` : ""
+  ].join("");
+  let mesAnt = null, ultData = null;
+  const itens = ev.map(e => {
+    const mk = (e.data || "").slice(0, 7);
+    const cab = mk !== mesAnt ? `<div class="hist-mes traj-mes">${escapeHtml(e.data ? histNomeMes(e.data) : "Sem data informada")}</div>` : "";
+    mesAnt = mk;
+    const b = dateBadgeParts(e.data);
+    let gap = "";
+    if (!opt.pdf && ultData && e.data && ultData !== e.data) {
+      const dd = Math.abs(Math.round((new Date(ultData + "T12:00:00") - new Date(e.data + "T12:00:00")) / 86400000));
+      if (dd >= 45) gap = `<div class="traj-vazio">${dd >= 60 ? Math.round(dd / 30) + " meses" : dd + " dias"} sem registros</div>`;
+    }
+    if (opt.pdf && ultData && e.data && ultData !== e.data) {
+      const dd = Math.abs(Math.round((new Date(ultData + "T12:00:00") - new Date(e.data + "T12:00:00")) / 86400000));
+      if (dd >= 45) gap = `<div class="traj-vazio">${dd >= 60 ? Math.round(dd / 30) + " meses" : dd + " dias"} sem registros</div>`;
+    }
+    ultData = e.data || ultData;
+    const texto = e.texto ? `<p class="traj-texto">${escapeHtml(e.texto).replace(/\n/g, "<br>")}</p>` : (e.kind === "atendimento" ? `<p class="traj-texto traj-sem">Sem observações registradas.</p>` : "");
+    const lista = e.itens && e.itens.length ? `<ul class="traj-lista">${e.itens.map(it => `<li><b>${escapeHtml(it.campo)}</b>${it.linhas && it.linhas.length ? ` — ${it.linhas.map(escapeHtml).join("; ")}` : ""} <span class="traj-sec">${escapeHtml(it.secao)}</span></li>`).join("")}</ul>` : "";
+    return gap + cab + `
+    <div class="hist-item traj-item" style="--c:${e.cor}">
+      <div class="traj-badge"><span class="dia">${escapeHtml(b.dia)}</span><span class="mes">${escapeHtml(b.mes)}</span></div>
+      <div class="traj-corpo">
+        <div class="traj-topo"><span class="traj-tipo">${escapeHtml(e.rotulo)}</span>${e.quem ? `<span class="traj-quem">${escapeHtml(e.quem)}</span>` : ""}</div>
+        ${e.titulo ? `<p class="traj-titulo">${escapeHtml(e.titulo)}</p>` : ""}${texto}${lista}
+        ${e.extra ? `<p class="traj-extra">${escapeHtml(e.extra)}</p>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="traj-legendas">${partes}</div><div class="traj-lista-meses">${itens}</div>`;
 }
