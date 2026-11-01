@@ -85,9 +85,9 @@ function semAcento(s) {
 // Servem a duas listas: o cartão de crise e o "nunca é pergunta técnica". Só entram expressões que quase não têm outro sentido
 // no trabalho do SUAS ("não aguento mais a demanda" NÃO entra; "não aguento mais viver" entra).
 const SINAIS_SUICIDIO = [
-  'nao (?:aguento|suporto|consigo) mais (?:viver|essa vida|esta vida|continuar vivo|continuar viva)',
+  'nao (?:aguento|aguenta|suporto|suporta|consigo|consegue) mais (?:viver|essa vida|esta vida|continuar vivo|continuar viva)',
   '(?:minha|sua|a) vida nao tem (?:mais )?sentido',
-  'nao (?:vejo|tenho) (?:mais )?(?:sentido em viver|sentido na vida|razao (?:pra|para) viver|motivo (?:pra|para) viver)',
+  'nao (?:vejo|ve|tenho|tem) (?:mais )?(?:sentido em viver|sentido na vida|razao (?:pra|para) viver|motivo (?:pra|para) viver)',
   'quer(?:o|ia|endo)? (?:sumir|desaparecer) (?:de vez|para sempre|pra sempre|do mundo|deste mundo|dessa vida)',
   'quer(?:o|ia|endo)? (?:estar|ficar) morto|quer(?:o|ia|endo)? (?:estar|ficar) morta|quer(?:o|ia|endo)? nao ter nascido',
   'vontade de morrer|desejo de morrer|(?:seria|era|sera) melhor (?:se )?(?:eu |ela |ele )?(?:nao existisse|estivesse mort[oa]|sem mim)',
@@ -111,6 +111,22 @@ const PEDIDO_DE_METODO = /\b(metodos?|meios?|doses?|dosagem|comprimidos?|quantos
 // Quem fala de si.
 const PRIMEIRA_PESSOA = /\b(me matar|quero morrer|nao quero mais viver|(?:tirar|acabar com) minha vida|me cortando|me cortar|(?:estou|to|ando) pensando em (?:morrer|suicid\w*)|penso em (?:morrer|suicid\w*)|tenho (?:vontade|pensamentos?|ideias?) de (?:morrer|me matar))\b/;
 
+// Tema técnico reconhecido (texto sem acento). Só vale com abertura de pergunta; a palavra solta ("suicidio") devolve null e mantém o cartão.
+const TECNICA_ABERTURA = /^(?:como|qual|quais|o que|que|quando|onde|por que|porque|existe|ha|e (?:correto|verdade|possivel)|devo|posso|pode)\b/;
+const TECNICAS_SUICIDIO = [
+  ['avaliacao', /\b(?:avali\w+|identific\w+|reconhec\w+|sinais|fatores?|escala|instrumento|triagem|manejo|abord\w+|conduzir|conducao)\b/],
+  ['mitos', /\b(?:mitos?|crencas?|tabus?|verdade|e verdade)\b/],
+  ['posvencao', /\b(?:posvencao|pos-vencao|luto|sobreviventes?)\b/],
+  ['prevencao', /\b(?:prevenc\w+|protocolo|fluxo|rede|caps|cvv|notificac\w+|encaminh\w+|setembro amarelo|politica)\b/],
+  ['conceito', /\b(?:o que e|conceito|definicao|diferenca entre|ideacao|tentativa|comportamento suicida)\b/]
+];
+function tipoDePerguntaSuicidio(t) {
+  const q = String(t || '').trim();
+  if (!TECNICA_ABERTURA.test(q)) return null;
+  for (const [tipo, re] of TECNICAS_SUICIDIO) if (re.test(q)) return tipo;
+  return null;
+}
+
 // Pergunta TÉCNICA geral sobre suicídio ("como avaliar o risco?", "quais os mitos?", "o que é posvenção?"): vai para a IA e a cartilha.
 // Na dúvida, é socorro: relato de caso, momento, primeira pessoa, pedido de método e a palavra solta mantêm o cartão de crise.
 function ehPerguntaTecnicaSuicidio(texto) {
@@ -125,7 +141,7 @@ function ehPerguntaTecnicaSuicidio(texto) {
 const GERAL_ABERTURA = /^(?:como|qual|quais|quanto|quantos|quantas|o que|quando|onde|existe|ha)\b/;
 const GERAL_SINAL = /\b(?:caso de|casos de|em casos|fluxo|protocolo|procedimento|quantos?|quantas?|atende|atendem|quando (?:a |o |uma |um )?(?:crianca|adolescente|idos[oa]|mulher|pessoa|familia)s?)\b/;
 // Relato de violência sexual ou de abuso só vira cartão quando há caso ("a criança relatou...", "hoje", "ontem"); sem caso é dúvida técnica.
-const CASO_VIOLENCIA = new RegExp(CASO_OU_MOMENTO.source + '|\\b(?:revelou|relata|sofre|sofreu|sofrendo|vitima de)\\b');
+const CASO_VIOLENCIA = new RegExp(CASO_OU_MOMENTO.source + '|\\b(?:revelou|relata|sofre|sofreu|sofrendo|vitima de|foi (?:\\w+ )?(?:estuprad|abusad|violentad|molestad)\\w*|vem sendo|sendo)\\b');
 function perguntaGeral(t) { return GERAL_ABERTURA.test(t.trim()) && GERAL_SINAL.test(t) && !CASO_OU_MOMENTO.test(t); }
 
 const PADROES = [
@@ -162,7 +178,7 @@ const PADROES = [
     // violência sexual e abuso: só com caso (ver CASO_VIOLENCIA)
     tipo: 'violencia',
     titulo: 'Relato de violência: proteja a pessoa e acione a rede',
-    re: /\b(?:abuso sexual|abusad[oa]|abusou|estupr\w+|violencia sexual|violentad[oa]|molestad[oa]|molestou)\b/,
+    re: /\b(?:abuso sexual|abusad[oa]|abusou|abus(?:a|am|ando|ava|avam) (?:d(?:ela|ele|elas|eles)|d[aoe]s? (?:crianc\w+|menin\w+|filh\w+|adolescent\w+|entead\w+|sobrinh\w+|net[ao]))|(?:sofre|sofreu|sofrendo|sofria|vitima de) abuso|estupr\w+|violencia sexual|violentad[oa]|molestad[oa]|molestou)\b/,
     exigeCaso: true,
     texto: 'RELATO',
     numeros: ['190', '180', '100']
