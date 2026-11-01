@@ -3083,9 +3083,11 @@ function attachDashboardHandlers() {
    - Quebras: títulos nunca ficam órfãos, cartões/linhas não se partem, mas seções grandes podem
      fluir entre páginas (evita grandes espaços em branco). */
 const PRINT_COMMON_CSS = `
+  /* ABNT NBR 14724: A4; margens superior 3 cm, esquerda 3 cm, inferior 2 cm, direita 2 cm;
+     numeração de páginas no canto superior direito, a 2 cm da borda, fonte 10. */
   @page {
-    size: A4; margin: 14mm 14mm 18mm;
-    @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 8px 'Times New Roman', Times, serif; color: #8496A8; }
+    size: A4; margin: 30mm 20mm 20mm 30mm;
+    @top-right { content: counter(page); font: 10pt 'Times New Roman', Times, serif; color: #000; vertical-align: top; padding-top: 20mm; }
   }
   html, body, * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   html { -webkit-text-size-adjust: 100%; }
@@ -3099,6 +3101,190 @@ const PRINT_COMMON_CSS = `
   .chart-svg { max-width: calc(var(--w, 9999px) * 1.5) !important; max-height: 95mm; margin: 0 auto; }
   .resumo-secao { break-inside: auto !important; page-break-inside: auto !important; }
   @media print { body { background: #fff !important; } }
+`;
+
+/* ---------------------------- Padrão ABNT para as folhas impressas ----------------------------
+   Texto: Times New Roman 12 pt, espaçamento 1,5, justificado, cor preta.
+   Exceções (NBR 14724 / 6024):
+   - Títulos de seção: alinhados à esquerda, sem recuo, 12 pt; primários em negrito e CAIXA ALTA,
+     secundários em negrito, com numeração arábica e 1,5 linha de espaço antes e depois.
+   - Notas, legendas, fontes, cabeçalho/rodapé e paginação: 10 pt, espaçamento simples.
+   - Tabelas: 10 pt, espaçamento simples.
+   Entra DEPOIS dos estilos de cada folha, por isso prevalece sobre eles. */
+const ABNT_PRINT_CSS = `
+  /* ===== ABNT: base ===== */
+  html, body { background: #fff !important; }
+  body {
+    margin: 0 !important; padding: 0 !important; color: #000 !important;
+    font-family: 'Times New Roman', Times, serif !important; font-size: 12pt !important;
+    line-height: 1.5 !important; text-align: justify; font-weight: normal;
+  }
+  body :where(*:not(svg):not(svg *)) {
+    font-family: 'Times New Roman', Times, serif !important;
+    font-size: 12pt !important; line-height: 1.5 !important; letter-spacing: normal !important;
+  }
+  body :where(*:not(svg):not(svg *):not(.marco-ponto):not(.parte-n)) { color: #000 !important; }
+  svg text { font-family: 'Times New Roman', Times, serif !important; }
+  p, li, .anotacao, .reg-evolucao, .reg-encam, .traj-texto, .traj-extra, .traj-titulo,
+  .lei-texto, .corpo .linha, .campo, .campo-preenchido, .marco-corpo p, .meta-notas li { text-align: justify !important; }
+  .field, .field .v, .id-grid .v, .id-grid .k { text-align: left !important; }
+  b, strong { font-weight: bold; }
+  .muted, .alerta, .sit-ok, .sit-pend { color: #000 !important; }
+
+  /* Sem decoração: caixas, faixas e fundos coloridos viram texto/linha fina, em tom neutro */
+  .orgao-header, .capa-header, .titulo-band, .id-band, .grid, .tags-wrap, .reg-item, .meta-card,
+  .fechamento, .gbox, .sum-box, .sum-cols > div, .sum-ultimo, .sum-tempo, .lei-texto, .lei-cols > div,
+  .fam-resumo, .kpi-card, .chart-box, .resumo-cols > div, .sumario-box, .filtro-box, .corpo, .canhoto,
+  .traj-item, .marco-corpo, .contra .campo, .anotacao, p[style] {
+    background: #fff !important; background-image: none !important; box-shadow: none !important;
+    border-color: #000 !important; border-radius: 0 !important;
+  }
+  .capa-ficha { background: #fff !important; border-color: #000 !important; border-radius: 0 !important; box-shadow: none !important; }
+  .orgao-header { border-bottom: 1px solid #000 !important; }
+  .orgao-header .brasao-selo, .watermark { display: none !important; }
+  .reg-item, .meta-card, .traj-item, .marco-corpo { border-left-width: 1px !important; }
+
+  /* ===== ABNT: títulos ===== */
+  body { counter-reset: secao subsecao; }
+  h1, h2, h4, .sep-cadastro, .sub-parte, .traj-mes, .contra h2, .graficos-print-secao h4 {
+    display: block !important; background: none !important; border: 0 !important; border-radius: 0 !important;
+    padding: 0 !important; margin: 10pt 0 4pt !important; text-align: left !important; text-indent: 0 !important;
+    color: #000 !important; font-weight: bold !important; line-height: 1.2 !important; opacity: 1 !important;
+    break-after: avoid !important; page-break-after: avoid !important; break-inside: avoid !important;
+  }
+  h1, h2, .sep-cadastro, .contra h2, .resumo-secao > h4 { text-transform: uppercase !important; }
+  .graficos-print-secao h4, .sub-parte, .traj-mes { text-transform: none !important; }
+  h2 { counter-increment: secao; }
+  h2::before, h2:nth-of-type(3n+2)::before, h2:nth-of-type(3n+3)::before { content: counter(secao) "\\00a0\\00a0" !important; display: inline !important; width: auto !important; height: auto !important;
+    font-family: 'Times New Roman', Times, serif !important; font-size: 12pt !important; line-height: 1.2 !important; padding: 0 !important; margin: 0 !important;
+    background: none !important; border: 0 !important; color: #000 !important; font-weight: bold !important; border-radius: 0 !important; }
+  h2 small, .sep-cadastro small, .sub-parte small, .traj-mes-res { font-size: 10pt !important; line-height: 1 !important; font-weight: normal !important; text-transform: none !important; }
+  .sep-cadastro .parte-n, .sep-cadastro.parte .parte-n { background: none !important; border: 0 !important; color: #000 !important; padding: 0 !important; margin-right: 6pt !important; }
+  h4::before, h2:nth-of-type(n)::after { background: none !important; }
+  h1 { margin: 0 0 4pt !important; }
+  .capa-eyebrow, .capa-linha, .tb-linha { display: none !important; }
+  .id-nome, .meta-titulo, .id-grid .k, .label, .lbl, .gbox > strong, .resumo-cols strong, .sum-cols strong,
+  .sum-ultimo strong, .sum-tempo > strong, .lei-cols strong, .sum-box .l, .kpi-label, .stat-label,
+  .assinatura .titulo, .assinatura .linha { text-transform: none !important; font-weight: bold !important; }
+  .id-nome { margin: 0 !important; }
+
+  /* ===== ABNT: notas, legendas, fontes, cabeçalho/rodapé e paginação (10 pt, espaçamento simples) ===== */
+  .hint, .chart-insight, .chart-nota, .lei-nota, .rodape-doc, .rodape-print, .fam-apelido,
+  .anexo-print-item span, .anexo-pdf-fallback-link, .chart-legend-inline, .dash-comparativo-hint,
+  .assinatura .cpf-linha, .assinatura-local, .assinatura-cargo, .kpi-delta, .stat-bar-value em,
+  .donut-legend, .donut-total-label, .prog-topo em, .traj-sem, .traj-vazio,
+  .page-header-fixed *, .page-footer-fixed *, .orgao-header .orgao-contato,
+  .reg-badge *, .traj-badge * {
+    font-size: 10pt !important; line-height: 1.15 !important; font-weight: normal !important;
+  }
+  .rodape-doc, .rodape-print { border: 0 !important; border-top: 1px solid #000 !important; padding: 6pt 0 0 !important; text-align: justify !important; }
+  .page-header-fixed .ph-row { border-bottom: 1px solid #000 !important; margin-bottom: 2mm !important; padding-bottom: 2px !important; }
+  .page-footer-fixed .pf-row { border-top: 1px solid #000 !important; margin-top: 1mm !important; padding-top: 2px !important; }
+  .page-header-fixed .ph-org { font-weight: bold !important; }
+  .page-footer-fixed .pf-selo { border: 0 !important; padding: 0 !important; background: none !important; text-transform: none !important; }
+  .page-header-fixed .ph-right b { font-weight: bold !important; }
+
+  /* ===== ABNT: tabelas (10 pt, espaçamento simples, linhas finas pretas) ===== */
+  table:not(.print-shell), table:not(.print-shell) :where(th, td) {
+    font-size: 10pt !important; line-height: 1.15 !important;
+  }
+  table:not(.print-shell) th, table:not(.print-shell) td {
+    border: 1px solid #000 !important; background: #fff !important; color: #000 !important; padding: 3pt 5pt !important;
+  }
+  table:not(.print-shell) th { font-weight: bold !important; text-transform: none !important; text-align: center; }
+  table:not(.print-shell) tbody tr td { background: #fff !important; }
+  .tab-sintese tbody td:nth-child(3) { border-left: 1px solid #000 !important; }
+
+  /* ===== Largura útil menor (margens ABNT): grades em menos colunas e sem estouro lateral ===== */
+  .print-shell { table-layout: fixed !important; width: 100% !important; }
+  .print-shell > tbody > tr > td, .print-shell > thead > tr > td, .print-shell > tfoot > tr > td { min-width: 0; max-width: 100%; word-wrap: break-word; }
+  .sum-boxes, .hist-stats, .kpi-grid, .kpi-grid-hero { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .kpi-grid-sec, .id-grid, .grid.g3, .resumo-cols { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .grid, .sum-cols, .lei-cols, .fam-graf, .g-par, .resumo-cols-donut { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .grid > *, .id-grid > *, .sum-boxes > *, .resumo-cols > *, .fam-graf > *, .gbox { min-width: 0; }
+  .resumo-cols > div:has(.pareto-chart), .resumo-cols > div:has(.histograma-chart) { grid-column: 1 / -1 !important; }
+  .id-grid { border-left: 0 !important; padding-left: 0 !important; }
+  .capa-header, .titulo-band, .id-band { flex-wrap: wrap; }
+  .sumario-lista { grid-template-columns: 1fr !important; }
+
+  /* ===== Menos espaço em branco: rótulo na mesma linha do valor, margens e preenchimentos mínimos ===== */
+  .label, .id-grid .k, .lbl { display: inline !important; margin: 0 4pt 0 0 !important; }
+  .label::after, .id-grid .k::after { content: ":"; }
+  .id-grid .v, .field .v { display: inline !important; }
+  .field { margin: 0 !important; }
+  .grid, .id-band, .tags-wrap, .fam-resumo { padding: 3pt 6pt !important; margin: 0 0 4pt !important; gap: 0 14pt !important; }
+  .id-grid { gap: 0 14pt !important; }
+  .capa-header, .titulo-band { padding: 4pt 8pt !important; margin: 0 0 6pt !important; gap: 8pt !important; }
+  .orgao-header { padding: 4pt 8pt !important; }
+  .sum-boxes, .sum-cols, .lei-cols, .g-par, .fam-graf, .kpi-grid, .kpi-grid-hero, .kpi-grid-sec, .hist-stats, .resumo-cols { gap: 4pt !important; margin-bottom: 4pt !important; }
+  .sum-box, .kpi-card, .gbox, .sum-cols > div, .sum-ultimo, .sum-tempo, .lei-texto, .lei-cols > div, .resumo-cols > div, .chart-box, .stat-box, .reg-item, .traj-item, .meta-card, .marco-corpo, .canhoto, .corpo {
+    padding: 3pt 6pt !important; margin-bottom: 4pt !important; }
+  .resumo-secao, .gbox-largo, .sintese-fam, .traj-lista, .meta-notas { margin: 0 0 4pt !important; }
+  .fechamento, .assinatura-bloco, .assinaturas, .contra { margin-top: 10pt !important; padding-top: 4pt !important; padding-bottom: 4pt !important; }
+  .rodape-doc, .rodape-print { margin-top: 6pt !important; }
+  .anotacao, p[style], .contra .campo { padding: 3pt 6pt !important; margin: 3pt 0 0 !important; min-height: 0 !important; }
+  p, ul, ol { margin-top: 0; margin-bottom: 0; }
+  .chart-svg { max-height: 40mm !important; }
+  .sum-boxes, .sum-cols, .lei-cols, .g-par, .fam-graf, .kpi-grid, .hist-stats, .grid, .resumo-cols, .sum-tempo { break-inside: auto !important; page-break-inside: auto !important; }
+  h2 + *, h4 + * { break-before: avoid; }
+
+  /* ===== Compactação extra: indicadores em linha, sem ícones, gráficos e selos menores ===== */
+  .kpi-card svg, .kpi-spark-wrap, .sum-box svg, .stat-box svg, .gbox-icone, .section-icon, .kpi-icone { display: none !important; }
+  .kpi-grid, .kpi-grid-hero, .kpi-grid-sec, .sum-boxes, .hist-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .kpi-card, .sum-box, .stat-box { text-align: left !important; border-top-width: 1px !important; }
+  .kpi-card > *, .sum-box > *, .stat-box > * { display: inline !important; margin: 0 4pt 0 0 !important; padding: 0 !important; }
+  .kpi-valor, .sum-box .n, .stat-num { font-size: 12pt !important; }
+  .kpi-label, .sum-box .l, .sum-box .s, .stat-label, .kpi-delta { font-size: 10pt !important; }
+  .sum-box .prog { display: block !important; height: 3pt !important; margin: 1pt 0 0 !important; }
+  .sumario-lista { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0 12pt !important; }
+  .sumario-lista li { font-size: 10pt !important; line-height: 1.15 !important; border-bottom: 0 !important; padding: 0 !important; }
+  .sumario-box h5 { margin: 0 0 2pt !important; }
+  .reg-badge, .traj-badge { flex: 0 0 30pt !important; width: 30pt !important; height: 30pt !important; }
+  .reg-item, .traj-item, .marco-item { gap: 6pt !important; }
+  .donut-svg { width: 56pt !important; height: 56pt !important; }
+  .donut-wrap { gap: 6pt !important; }
+  .chart-svg { max-height: 32mm !important; }
+  .gbox .histograma-chart, .gbox-largo .chart-svg { max-height: 30mm !important; }
+  .stat-bar-row, .prog-linha, .prog-topo { padding: 0 !important; margin-bottom: 1pt !important; }
+  .stat-bar-row { gap: 4pt !important; }
+  .prog-trilho, .stat-bar-track { height: 4pt !important; }
+  .traj-lista li, .lei-cols li, .sum-cols li, .meta-notas li { margin: 0 !important; }
+  .gbox > strong, .resumo-cols strong, .sum-cols strong, .lei-cols strong, .sum-tempo > strong { margin-bottom: 1pt !important; }
+  .orgao-header { margin-bottom: 0 !important; }
+  .id-band, .capa-header { gap: 6pt !important; }
+
+  /* ===== Anexos: cada um com título "Anexo A – ...", ajustado à página (sem cortar nem gerar folhas em branco) ===== */
+  .anexo-lista, .anexo-pdf-pagina { break-before: page !important; page-break-before: always !important; padding: 0 !important; margin: 0 !important; }
+  .anexo-lista + .anexo-pdf-pagina { break-before: page !important; }
+  .anexo-titulo { text-align: center !important; font-weight: bold !important; line-height: 1.2 !important; margin: 0 0 6pt !important;
+    break-after: avoid !important; page-break-after: avoid !important; }
+  .anexo-print-item { display: block !important; width: 100% !important; text-align: center !important; margin: 0 0 10pt !important;
+    break-inside: avoid !important; page-break-inside: avoid !important; }
+  .anexo-print-item img { display: block !important; width: auto !important; height: auto !important; max-width: 100% !important;
+    max-height: 105mm !important; margin: 0 auto !important; object-fit: contain; background: none !important; border: 1px solid #000 !important; border-radius: 0 !important; }
+  .anexo-pdf-alvo { text-align: center; }
+  .anexo-pdf-pg { display: block !important; width: auto !important; height: auto !important; max-width: 100% !important; max-height: 198mm !important;
+    margin: 0 auto !important; border: 0 !important; break-inside: avoid !important; page-break-inside: avoid !important; }
+  .anexo-pdf-pg + .anexo-pdf-pg { break-before: page !important; page-break-before: always !important; margin-top: 0 !important; }
+  .anexo-pdf-embed { width: 100% !important; height: 198mm !important; }
+
+  /* ===== Etiquetas, selos e números em destaque: mesmo tipo de letra, sem cores de fundo ===== */
+  .tag, .chip-tag, .id-status, .reg-tipo, .meta-status, .lei-tipo, .traj-leg, .traj-sec, .filtro-chip-pdf, .kpi-delta {
+    background: none !important; border: 1px solid #000 !important; border-radius: 0 !important; color: #000 !important;
+    padding: 0 4pt !important; text-transform: none !important;
+  }
+  .kpi-valor, .sum-box .n, .stat-num, .capa-ficha .num, .donut-total-num { font-weight: bold !important; }
+  .assinatura-linha, .assinatura .linha, .assinatura .linha-ass { border-top: 1px solid #000 !important; }
+  .assinatura, .assinatura-bloco, .assinaturas { text-align: center !important; }
+  .campo-preenchido { border-bottom: 1px solid #000 !important; }
+  .canhoto { border-style: dashed !important; }
+  .stat-bar-label, .donut-legend-label, .donut-legend-item { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+  .donut-wrap { flex-wrap: wrap; }
+  .donut-legend { min-width: 45mm; }
+  .sep-cadastro, .sep-cadastro *:not(.marco-ponto), .sub-parte *, h2 small { color: #000 !important; }
+  .stat-bar-fill, .prog-trilho i, .hist-bar { opacity: 1 !important; }
+
+  @media screen { .page-header-fixed, .page-footer-fixed, .watermark { display: none; } }
 `;
 
 function imprimirResumoMensal(geral, grupos, contexto) {
@@ -3328,6 +3514,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           margin-top: 24px; padding: 9px 12px; border: 1px dashed #D7E0E6; border-radius: 6px;
           font-size: 8.6px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: normal;
         }
+        ${ABNT_PRINT_CSS}
       </style>
 
     </head>
@@ -6509,21 +6696,23 @@ async function exportPDF(paf) {
 
   const anexosImg = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
   const anexosPdf = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
-  const anexosHTML = (anexosImg.length || anexosPdf.length) ? `
-    <h2>Anexos</h2>
-    ${anexosImg.length ? `<div class="anexos-print-grid">${anexosImg.map(a => `
+  // Anexos (ABNT NBR 14724): identificados por letras maiúsculas ("Anexo A – título"), no fim do documento,
+  // cada um com título próprio; imagens ajustadas à página e PDFs desenhados uma página por vez, sem estourar a folha.
+  const letraAnexo = (n) => { let r = ""; do { r = String.fromCharCode(65 + (n % 26)) + r; n = Math.floor(n / 26) - 1; } while (n >= 0); return r; };
+  const anexosHTML = anexosImg.length ? `
+    <div class="anexo-lista">
+    ${anexosImg.map((a, k) => `
       <div class="anexo-print-item">
-        <img src="${a.dataURL}">
-        <span>${escapeHtml(a.legenda || a.nome)}</span>
-      </div>`).join("")}</div>` : ""}
-    ${anexosPdf.length ? `<p class="muted">Documentos PDF anexados (incluídos a seguir, uma página por documento): ${anexosPdf.map(a => escapeHtml(a.nome)).join(", ")}</p>` : ""}
-  ` : "";
+        <p class="anexo-titulo">Anexo ${letraAnexo(k)} – ${escapeHtml(a.legenda || a.nome)}</p>
+        <img src="${a.dataURL}" alt="">
+      </div>`).join("")}
+    </div>` : "";
 
   // PDFs anexados: desenhados página a página (pdf.js) para sair de verdade na impressão;
   // um PDF dentro de <iframe> costuma sair em BRANCO no Chrome. Sem internet, cai no iframe antigo.
   const anexosPdfPaginasHTML = anexosPdf.map((a, i) => `
     <div class="anexo-pdf-pagina">
-      <p class="anexo-pdf-titulo">Anexo — ${escapeHtml(a.nome)}</p>
+      <p class="anexo-titulo">Anexo ${letraAnexo(anexosImg.length + i)} – ${escapeHtml(a.nome)}</p>
       <div class="anexo-pdf-alvo" id="anexoPdfAlvo${i}"><p class="muted">Carregando páginas do anexo…</p></div>
     </div>`).join("");
   const anexosPdfDados = JSON.stringify(anexosPdf.map(a => ({ nome: a.nome, dataURL: a.dataURL }))).replace(/</g, "\\u003c");
@@ -7145,7 +7334,6 @@ async function exportPDF(paf) {
         .page-header-fixed .ph-row { margin-bottom: 4mm; }
         .page-footer-fixed .pf-row { margin-top: 3mm; }
         h2, .sub-parte, .sep-cadastro, .traj-mes { break-after: avoid; page-break-after: avoid; }
-        @page { size: A4; margin: 10mm 13mm 12mm; }
         body { padding: 0; }
         th, td { padding: 5px 8px; }
         .grid { gap: 6px 16px; padding: 8px 12px; margin-bottom: 4px; }
@@ -7215,18 +7403,7 @@ async function exportPDF(paf) {
         .watermark { opacity: 0.03; }
         .page-footer-fixed .pf-selo, .id-status { background: #fff !important; }
 
-        /* ---- Padrão de formatação: Times New Roman, tamanho 12, espaçamento 1,5 ---- */
-        body, body *:not(svg):not(svg *):not(.watermark):not(.page-header-fixed *):not(.page-footer-fixed *):not(.reg-badge *):not(.traj-badge *):not(.parte-n):not(.marco-ponto) {
-          font-family: 'Times New Roman', Times, serif !important;
-          font-size: 12pt !important;
-          line-height: 1.5 !important;
-        }
-        .page-header-fixed *, .page-footer-fixed *, .reg-badge *, .traj-badge * { font-family: 'Times New Roman', Times, serif !important; }
-        .reg-badge, .traj-badge { line-height: 1.1; }
-
-        @media screen {
-          .page-header-fixed, .page-footer-fixed, .watermark { display: none; }
-        }
+        ${ABNT_PRINT_CSS}
       </style>
     </head>
     <body>
@@ -7461,8 +7638,6 @@ async function exportPDF(paf) {
 
       ${paf.observacoes ? `<h2>Observações Gerais</h2><p class="anotacao">${diarioBr(paf.observacoes)}</p>` : ""}
 
-      ${anexosHTML}
-
       <div class="fechamento">
         <p class="local-data">Boa Vista/RR, ${fmtDateBR(todayISO())}.</p>
         <div class="assinaturas">
@@ -7483,6 +7658,8 @@ async function exportPDF(paf) {
         Documento gerado eletronicamente pelo sistema de gestão do PAF/PAIF do CRAS Cristiana Vicente Nunes em ${fmtDateBR(todayISO())}, para uso exclusivo da equipe técnica do SUAS — sujeito a sigilo profissional.<br>
         Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </div>
+
+      ${anexosHTML}
 
       ${anexosPdfPaginasHTML}
 
@@ -7626,6 +7803,7 @@ function imprimirEncaminhamento(paf, enc) {
           margin-top: 28px; padding: 10px 12px; border: 1px dashed #D7E0E6; border-radius: 6px;
           font-size: 9px; color: #A6B4C0; text-align: center; line-height: 1.55; font-style: normal;
         }
+        ${ABNT_PRINT_CSS}
       </style>
     </head>
     <body>
@@ -7697,6 +7875,20 @@ function imprimirEncaminhamento(paf, enc) {
 
 /* ---------------------------- Exportação: Word (.doc) ---------------------------- */
 
+/* Padroniza o HTML do Word conforme a ABNT: Times New Roman, sem cores (texto preto, fundos brancos,
+   linhas pretas), tamanhos em dois níveis — 12 pt (texto e títulos) e 10 pt (notas, rótulos e legendas) —
+   e sem caixa alta/espaçamento entre letras decorativos. Os títulos (classe titulo-secao) já saem prontos. */
+function abntWordHTML(h) {
+  return h
+    .replace(/font-family:\s*'Courier New',\s*monospace;?/g, "")
+    .replace(/font-size:\s*([\d.]+)pt/g, (m, n) => `font-size:${parseFloat(n) <= 10.5 ? 10 : 12}pt`)
+    .replace(/text-transform:\s*uppercase;?/g, "")
+    .replace(/letter-spacing:[^;"']+;?/g, "")
+    .replace(/(^|[;"'\s{])color:\s*#[0-9a-fA-F]{3,6}/g, "$1color:#000000")
+    .replace(/(^|[;"'\s{])background:\s*#[0-9a-fA-F]{3,6}/g, "$1background:#ffffff")
+    .replace(/(border(?:-bottom|-top|-left)?):\s*([\d.]+pt)\s+(solid|dashed)\s+#[0-9a-fA-F]{3,6}/g, "$1:$2 $3 #000000");
+}
+
 async function exportWord(paf) {
   if (!paf) return;
   await garantirAnexosCarregados(paf, { forcar: true });
@@ -7714,14 +7906,16 @@ async function exportWord(paf) {
     rowFn(item, i).replace("<tr>", `<tr style="${i % 2 ? `background:${C.faixa};` : ""}">`)
   ).join("");
 
-  // Cabeçalho de seção numerado (célula colorida + título), no padrão Word-safe (tabela, sem CSS3)
-  const secao = (num, titulo) => `
-    <table style="width:100%;border-collapse:collapse;margin:22pt 0 8pt;" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="width:24pt;background:${C.verde};color:#ffffff;font-family:'Courier New',monospace;font-size: 9.5pt;font-weight:bold;text-align:center;padding:5pt 0;">${num}</td>
-        <td style="border-bottom:1.5pt solid ${C.verdeClaro};padding:6pt 0 6pt 8pt;font-family:'Times New Roman', Times, serif;font-size: 14pt;color:${C.verde};font-weight:bold;">${titulo}</td>
-      </tr>
-    </table>`;
+  // Título de seção ABNT (NBR 6024): numeração arábica sequencial (1, 1.1, 1.2 ...), alinhado à esquerda;
+  // seção primária em negrito e CAIXA ALTA, secundária em negrito. 12 pt, 1,5 linha de espaço antes e depois.
+  let numPrim = 0, numSec = 0;
+  const secao = (num, titulo) => {
+    const primaria = /^\d+$/.test(String(num));
+    if (primaria) { numPrim++; numSec = 0; } else { numSec++; }
+    const rot = primaria ? String(numPrim) : `${numPrim}.${numSec}`;
+    const txt = primaria ? String(titulo).toUpperCase() : titulo;
+    return `<p class="titulo-secao" style="margin:10pt 0 4pt;text-align:left;font-weight:bold;font-size:12pt;line-height:115%;page-break-after:avoid;">${rot}&nbsp;&nbsp;${txt}</p>`;
+  };
 
   const pill = (texto, corTexto, corFundo) =>
     `<span style="background:${corFundo};color:${corTexto};padding:2pt 8pt;font-size: 9.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:.02em;">${texto}</span>`;
@@ -7730,7 +7924,7 @@ async function exportWord(paf) {
     `<span style="background:${C.verdeClaro};color:${C.verde};padding:2pt 7pt;font-size: 10pt;font-weight:bold;margin-right:4pt;">${escapeHtml(texto)}</span>`;
 
   const campo = (label, valor) => `
-    <td style="border:1pt solid ${C.borda};padding:5pt 10pt;vertical-align:top;width:50%;background:${C.faixa};">
+    <td style="border:1pt solid ${C.borda};padding:2pt 6pt;vertical-align:top;width:50%;background:${C.faixa};">
       <span style="display:block;font-size: 8.8pt;text-transform:uppercase;letter-spacing:.03em;color:${C.cinza};font-weight:bold;">${label}</span>
       <span style="font-size: 11pt;font-weight:normal;">${valor || "—"}</span>
     </td>`;
@@ -7802,16 +7996,14 @@ async function exportWord(paf) {
     if (!(paf.anexos || []).length) return "";
     const imgs = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
     const pdfs = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
+    const letra = (n) => { let r = ""; do { r = String.fromCharCode(65 + (n % 26)) + r; n = Math.floor(n / 26) - 1; } while (n >= 0); return r; };
     let out = secao("07", "Anexos");
-    if (imgs.length) {
-      out += `<table style="border:none;" cellpadding="0" cellspacing="0"><tr>` + imgs.map(a => `
-        <td style="border:none;text-align:center;padding:6pt;vertical-align:top;">
-          <img src="${a.dataURL}" style="max-width:200px;max-height:200px;border:1pt solid ${C.borda};"><br>
-          <span style="font-size: 8.8pt;color:${C.cinza};">${escapeHtml(a.nome)}</span>
-        </td>`).join("") + `</tr></table>`;
-    }
+    imgs.forEach((a, k) => {
+      out += `<p style="text-align:center;font-weight:bold;margin:8pt 0 4pt;line-height:115%;page-break-after:avoid;">Anexo ${letra(k)} – ${escapeHtml(a.legenda || a.nome)}</p>
+        <p style="text-align:center;margin:0 0 8pt;"><img src="${a.dataURL}" width="380" style="border:1pt solid ${C.borda};"></p>`;
+    });
     if (pdfs.length) {
-      out += `<p style="font-size: 10pt;color:${C.cinza};"><b>Documentos PDF anexados</b> (não incorporados a este arquivo — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map(a => escapeHtml(a.nome)).join(", ")}</p>`;
+      out += `<p style="font-size: 10pt;line-height:115%;"><b>Documentos PDF anexados</b> (não incorporados a este arquivo — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map((a, k) => "Anexo " + letra(imgs.length + k) + " – " + escapeHtml(a.nome)).join("; ")}</p>`;
     }
     return out;
   })();
@@ -7819,55 +8011,52 @@ async function exportWord(paf) {
   const content = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>PAF - ${escapeHtml(paf.responsavel)}</title>
+    <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
     <style>
-      body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal; line-height: 1.5; text-align: left; color: ${C.azul}; }
+      /* ABNT NBR 14724: A4; margens sup. 3 cm, esq. 3 cm, inf. 2 cm, dir. 2 cm; numeração no canto superior direito, a 2 cm da borda. */
+      @page Section1 { size: 595.3pt 841.9pt; margin: 85.05pt 56.7pt 56.7pt 85.05pt; mso-header-margin: 56.7pt; mso-footer-margin: 28.35pt; mso-header: h1; mso-page-orientation: portrait; }
+      div.Section1 { page: Section1; }
+      /* Texto: Times New Roman 12, espaçamento 1,5, justificado, preto */
+      body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal; line-height: 150%; text-align: justify; color: #000000; }
       h1 { font-family: 'Times New Roman', Times, serif; }
+      p { margin: 0 0 0; line-height: 150%; text-align: justify; }
       table { border-collapse: collapse; }
+      td { text-align: left; }
+      /* Tabelas (exceção): 10 pt, espaçamento simples */
       table.dados { width: 100%; margin-top: 6pt; }
-      table.dados th, table.dados td { border: 1pt solid ${C.borda}; padding: 5pt 7pt; font-size: 10.5pt; text-align: left; vertical-align: top; font-weight: normal; }
-      table.dados th { background: ${C.fundo}; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .02em; color: ${C.verde}; border-bottom: 1.5pt solid ${C.verde}; font-weight: bold; }
-      p { margin: 4pt 0; }
-      /* Anotações: texto livre redigido pelo(a) técnico(a) — não-negrito, 12pt, justificado, em caixa */
-      .anotacao {
-        display: block; font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal;
-        text-align: justify; line-height: 1.5; border: 1pt solid ${C.borda}; padding: 7pt 9pt; background: ${C.faixa};
-      }
+      table.dados th, table.dados td { border: 1pt solid #000000; padding: 3pt 5pt; font-size: 10pt; line-height: 115%; text-align: left; vertical-align: top; font-weight: normal; }
+      table.dados th { background: #ffffff; font-size: 10pt; color: #000000; font-weight: bold; text-align: center; }
+      /* Anotações: texto livre redigido pelo(a) técnico(a) — 12 pt, 1,5, justificado */
+      .anotacao { font-family: 'Times New Roman', Times, serif; font-size: 12pt; font-weight: normal; text-align: justify; line-height: 150%; border: 1pt solid #000000; padding: 7pt 9pt; background: #ffffff; }
+      table.dados td.anotacao { font-size: 10pt; line-height: 115%; border: 1pt solid #000000; padding: 3pt 5pt; }
+      /* Cabeçalho (paginação): 10 pt, à direita */
+      p.MsoHeader { text-align: right; font-size: 10pt; line-height: 115%; margin: 0; }
     </style>
     </head>
     <body>
+    <div style="mso-element:header" id="h1"><p class="MsoHeader" style="text-align:right;"><span style="mso-field-code:' PAGE '"></span></p></div>
+    <div class="Section1">
 
-      <!-- Faixa institucional -->
-      <table style="width:100%;background:${C.azulEscuro};margin-bottom:0;" cellpadding="0" cellspacing="0">
+      <!-- Identificação institucional -->
+      <table style="width:100%;border-bottom:1pt solid #000000;margin-bottom:6pt;" cellpadding="0" cellspacing="0">
         <tr>
-          <td style="padding:10pt 14pt;color:#ffffff;">
-            <span style="font-family:'Times New Roman', Times, serif;font-size: 12pt;font-weight:bold;">Prefeitura Municipal de Boa Vista</span><br>
-            <span style="font-size: 9.2pt;color:#C9D6DE;">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS) · CRAS Cristiana Vicente Nunes</span>
+          <td style="padding:0 0 4pt;">
+            <span style="font-size:12pt;font-weight:bold;">Prefeitura Municipal de Boa Vista</span><br>
+            <span style="font-size:10pt;">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS) · CRAS Cristiana Vicente Nunes</span>
           </td>
-          <td style="padding:10pt 14pt;color:#A9BBCB;font-size: 9.2pt;text-align:right;">
+          <td style="padding:0 0 6pt;font-size:10pt;text-align:right;">
             Rua Santo Agostinho, 193b – Centenário<br>Boa Vista/RR · (95) 98402-6627<br>crascentenariosemges@gmail.com
           </td>
         </tr>
       </table>
 
-      <!-- Capa / título -->
-      <table style="width:100%;border:1pt solid ${C.azul};border-bottom:2.5pt solid ${C.azul};margin-bottom:14pt;" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="padding:12pt 14pt;">
-            <span style="display:block;font-size: 8.8pt;text-transform:uppercase;letter-spacing:.1em;color:${C.dourado};font-weight:bold;">Prontuário SUAS · Proteção Social Básica</span>
-            <span style="display:block;font-family:'Times New Roman', Times, serif;font-size: 17pt;color:${C.azul};font-weight:bold;margin-top:2pt;">Plano de Acompanhamento Familiar</span>
-            <span style="display:block;font-size: 11pt;color:${C.verde};font-weight:bold;margin-top:2pt;">Serviço de Proteção e Atendimento Integral à Família (PAIF)${paf.crasNome ? " · " + escapeHtml(paf.crasNome) : ""}</span>
-          </td>
-          <td style="padding:12pt 14pt;text-align:right;background:${C.doradoBg};border-left:1pt solid ${C.doradoBorda};width:150pt;">
-            <span style="display:block;font-size: 8pt;text-transform:uppercase;letter-spacing:.06em;color:${C.cinzaClaro};">Ficha nº</span>
-            <span style="display:block;font-family:'Courier New',monospace;font-size: 14pt;font-weight:bold;color:#7A5A1E;">${protocoloNumero(paf)}</span>
-            <span style="display:block;font-size: 8pt;text-transform:uppercase;letter-spacing:.06em;color:${C.cinzaClaro};margin-top:4pt;">Emitido em</span>
-            <span style="font-size: 9.5pt;">${fmtDateBR(todayISO())}</span>
-          </td>
-        </tr>
-      </table>
+      <!-- Título -->
+      <p style="margin:8pt 0 4pt;text-align:left;font-weight:bold;line-height:115%;">PLANO DE ACOMPANHAMENTO FAMILIAR</p>
+      <p style="margin:0 0 6pt;text-align:left;font-weight:bold;line-height:115%;">Serviço de Proteção e Atendimento Integral à Família (PAIF)${paf.crasNome ? " · " + escapeHtml(paf.crasNome) : ""}</p>
+      <p style="margin:0 0 6pt;text-align:left;font-size:10pt;line-height:115%;">Prontuário SUAS · Proteção Social Básica · Ficha nº ${protocoloNumero(paf)} · Emitido em ${fmtDateBR(todayISO())}</p>
 
       <!-- Faixa de identificação -->
-      <table style="width:100%;background:${C.fundo};border:1pt solid ${C.borda};margin-bottom:14pt;" cellpadding="10" cellspacing="0">
+      <table style="width:100%;background:${C.fundo};border:1pt solid ${C.borda};margin-bottom:6pt;" cellpadding="10" cellspacing="0">
         <tr>
           <td style="border:none;vertical-align:top;">
             <span style="display:block;font-family:'Times New Roman', Times, serif;font-size: 15pt;font-weight:bold;color:${C.azul};">${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
@@ -7998,9 +8187,9 @@ async function exportWord(paf) {
       ${anexosWordHTML}
 
       <!-- Fechamento e assinaturas -->
-      <table style="width:100%;margin-top:34pt;border:1pt solid ${C.borda};background:${C.faixa};" cellpadding="16" cellspacing="0">
+      <table style="width:100%;margin-top:12pt;border:1pt solid ${C.borda};background:${C.faixa};" cellpadding="6" cellspacing="0">
         <tr>
-          <td colspan="2" style="border:none;font-size: 10pt;color:${C.cinza};padding-bottom:26pt;text-align:left;">Boa Vista/RR, ${fmtDateBR(todayISO())}.</td>
+          <td colspan="2" style="border:none;font-size: 10pt;color:${C.cinza};padding-bottom:12pt;text-align:left;">Boa Vista/RR, ${fmtDateBR(todayISO())}.</td>
         </tr>
         <tr>
           <td style="border:none;border-top:1pt solid ${C.azul};text-align:center;padding-top:5pt;width:50%;">
@@ -8015,15 +8204,16 @@ async function exportWord(paf) {
         </tr>
       </table>
 
-      <p style="margin-top:22pt;padding:8pt 10pt;border:1pt dashed ${C.borda};font-size: 8.6pt;color:${C.cinzaClaro};text-align:center;font-style:normal;">
+      <p style="margin-top:8pt;padding:4pt 6pt;border:1pt dashed ${C.borda};font-size: 8.6pt;color:${C.cinzaClaro};text-align:center;font-style:normal;">
         Documento gerado eletronicamente pelo sistema de gestão do PAF/PAIF do CRAS Cristiana Vicente Nunes em ${fmtDateBR(todayISO())}, para uso exclusivo da equipe técnica do SUAS — sujeito a sigilo profissional.<br>
         Plano de Acompanhamento Familiar (PAF) · Serviço de Proteção e Atendimento Integral à Família (PAIF) — Paulo Xavier, CRP-20/09816, Psicólogo
       </p>
+    </div>
     </body>
     </html>
   `;
 
-  const blob = new Blob(['\ufeff' + content], { type: 'application/msword' });
+  const blob = new Blob(['\ufeff' + abntWordHTML(content)], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
