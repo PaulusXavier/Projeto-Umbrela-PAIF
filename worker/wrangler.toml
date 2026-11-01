@@ -10,7 +10,7 @@ watch_dir = "../docs"
 [vars]
 # Só o DOMÍNIO onde o Umbrella está publicado (sem caminho, sem barra no fim). Separe vários por vírgula.
 # Ex.: "https://SEU-USUARIO.github.io"
-ALLOWED_ORIGINS = "https://SEU-USUARIO.github.io"
+ALLOWED_ORIGINS = "https://paulusxavier.github.io"
 # Modelo do Claude. Haiku é o mais barato e responde bem a perguntas assim; troque por "claude-sonnet-5-5" se quiser mais capricho.
 MODELO = "claude-haiku-5-5"
 # Teto de perguntas por dia (só vale se você criar o KV abaixo).
