@@ -321,7 +321,7 @@
   function lembreteBackup() {
     try {
       if (typeof state === "undefined" || !state.pafs || !state.pafs.length) return;
-      const hoje = new Date().toISOString().slice(0, 10);
+      const d0 = new Date(), hoje = d0.getFullYear() + "-" + String(d0.getMonth() + 1).padStart(2, "0") + "-" + String(d0.getDate()).padStart(2, "0"); // data local, não UTC
       if (localStorage.getItem("umbrela_lembrete_backup") === hoje) return;
       const ult = Number(localStorage.getItem("umbrela_ultimo_backup")) || 0;
       if (ult && Date.now() - ult < 30 * 86400000) return;
