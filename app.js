@@ -6263,10 +6263,20 @@ async function exportPDF(paf) {
     .map(p => `<tr><td>${escapeHtml(p.potencial)}</td><td>${escapeHtml(p.situacao)}</td><td>${escapeHtml(p.observacoes)}</td></tr>`)
     .join("") || "<tr><td colspan='3'>Nenhuma potencialidade registrada</td></tr>";
 
-  const metasHTML = (paf.metas || [])
-    .filter(m => m.prazo || m.resultados)
-    .map(m => `<tr><td>${escapeHtml(m.meta)}</td><td>${escapeHtml(m.prazo)}</td><td>${escapeHtml(m.resultados).replace(/\n/g, "<br>")}</td></tr>`)
-    .join("") || "<tr><td colspan='3'>Nenhuma meta informada</td></tr>";
+  const metasAtivas = (paf.metas || []).filter(m => m.prazo || m.resultados);
+  const metasHTML = metasAtivas.length ? metasAtivas.map(m => {
+    const notas = metaNotas(m).filter(n => (n.texto || "").trim());
+    const status = notas.length ? `<span class="meta-status ok">${notas.length} registro${notas.length > 1 ? "s" : ""} de resultado</span>` : `<span class="meta-status pend">Sem resultado registrado</span>`;
+    return `
+    <div class="meta-card">
+      <div class="meta-topo">
+        <span class="meta-titulo">${escapeHtml(m.meta)}</span>
+        <span class="meta-prazo">${m.prazo ? "Prazo: " + escapeHtml(m.prazo) : "Sem prazo definido"}</span>
+        ${status}
+      </div>
+      ${notas.length ? `<ul class="meta-notas">${notas.map(n => `<li>${n.data ? `<b>${fmtDateBR(n.data)}</b> — ` : ""}${escapeHtml(n.texto.trim()).replace(/\n/g, "<br>")}</li>`).join("")}</ul>` : ""}
+    </div>`;
+  }).join("") : `<p class="muted">Nenhuma meta informada.</p>`;
 
   const atendimentosOrdenados = [...(paf.atendimentos || [])].sort((a, b) => (b.data || "").localeCompare(a.data || ""));
   const meses = mesesEmAcompanhamento(paf.dataInicial);
@@ -6293,6 +6303,58 @@ async function exportPDF(paf) {
         </div>`;
       }).join("")
     : `<p class="muted">Nenhum atendimento registrado.</p>`;
+
+  const resumoAcompanhamentoHTML = (() => {
+    const inicioISO = paf.dataInicial || (paf.createdAt || "").slice(0, 10);
+    const inicioOk = inicioISO && !isNaN(new Date(inicioISO + "T00:00:00").getTime());
+    const comData = atendimentosOrdenados.filter(a => a.data);
+    const diasUlt = ultimoAtendimento ? diasDesde(ultimoAtendimento.data) : null;
+    const tMs = (iso) => new Date(String(iso).slice(0, 10) + "T12:00:00").getTime();
+    const intervalo = comData.length >= 2
+      ? Math.round((tMs(comData[0].data) - tMs(comData[comData.length - 1].data)) / 86400000 / (comData.length - 1)) : null;
+    const sits = (paf.situacoesSociais || []).filter(x => x.membros || x.superada);
+    const sitsSup = sits.filter(x => x.superada).length;
+    const metasComRes = metasAtivas.filter(m => metaNotas(m).some(n => (n.texto || "").trim())).length;
+    const vul = [...(paf.vulnerabilidades || [])];
+    const ultEvo = atendimentosOrdenados.find(a => a.data && (a.evolucao || "").trim()) || ultimoAtendimento;
+    const ultResumo = ultEvo ? (ultEvo.evolucao || "").trim() : "";
+    const ultTxt = ultResumo.length > 450 ? ultResumo.slice(0, 450).replace(/\s+\S*$/, "") + "…" : ultResumo;
+    const blocoTempo = tempoAcompanhamentoBlocoHTML(paf);
+    const linhaTempoPdf = `<div class="sum-tempo"><strong>Linha do tempo</strong>${blocoTempo
+      .replace(/<h4>[\s\S]*?<\/h4>/, "").replace(/<div class="hist-stats"[\s\S]*?<\/span><\/div>\s*<\/div>/, "")}</div>`;
+    const per = String(paf.periodicidade || "").toLowerCase();
+    const prazoPer = /seman/.test(per) ? 7 : /quinzen/.test(per) ? 15 : /bimes/.test(per) ? 60 : /trimes/.test(per) ? 90 : /mensal|mes/.test(per) ? 30 : null;
+    const atrasado = prazoPer !== null && diasUlt !== null && diasUlt > prazoPer;
+    const pctMetas = metasAtivas.length ? Math.round(metasComRes / metasAtivas.length * 100) : 0;
+    const caixa = (n, l, sub) => `<div class="sum-box"><span class="n">${n}</span><span class="l">${l}</span>${sub ? `<span class="s">${sub}</span>` : ""}</div>`;
+    return `
+      <h2>Resumo do acompanhamento</h2>
+      <div class="sum-boxes">
+        ${caixa(inicioOk ? escapeHtml(tempoAcompanhamentoTexto(inicioISO)) : "—", "Tempo de acompanhamento", inicioOk ? "desde " + fmtDateBR(inicioISO) : "")}
+        ${caixa(atendimentosOrdenados.length, "Atendimentos registrados", intervalo === null ? "" : "a cada " + intervalo + (intervalo === 1 ? " dia" : " dias") + ", em média")}
+        ${caixa(ultimoAtendimento ? fmtDateBR(ultimoAtendimento.data) : "—", "Último atendimento", ultimoAtendimento ? (diasUlt === 0 ? "hoje" : "há " + diasUlt + (diasUlt === 1 ? " dia" : " dias")) + (atrasado ? ` <b class="alerta">· acima da periodicidade (${escapeHtml(paf.periodicidade)})</b>` : "") : "nenhum com data")}
+        ${caixa(metasAtivas.length ? metasComRes + " de " + metasAtivas.length : "—", "Metas com resultado registrado", metasAtivas.length ? `<span class="prog"><i style="width:${pctMetas}%"></i></span>` + (paf.periodicidade ? "Periodicidade: " + escapeHtml(paf.periodicidade) : "") : (paf.periodicidade ? "Periodicidade: " + escapeHtml(paf.periodicidade) : ""))}
+      </div>
+      ${linhaTempoPdf}
+      <div class="sum-cols">
+        <div>
+          <strong>Situações sociais</strong>
+          <p>${sits.length ? `<b>${sitsSup}</b> superada${sitsSup === 1 ? "" : "s"} de <b>${sits.length}</b> identificada${sits.length === 1 ? "" : "s"}.` : "Nenhuma situação registrada."}</p>
+          ${sits.length ? `<ul>${sits.map(x => `<li><span class="${x.superada ? "sit-ok" : "sit-pend"}">${x.superada ? "✔ Superada" : "● Em acompanhamento"}</span> ${escapeHtml(x.situacao)}</li>`).join("")}</ul>` : ""}
+        </div>
+        <div>
+          <strong>Vulnerabilidades identificadas</strong>
+          ${vul.length ? `<div>${vul.map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>` : `<p class="muted">Nenhuma selecionada.</p>`}
+          ${paf.vulnerabilidadesOutros ? `<p><b>Outras:</b> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
+        </div>
+      </div>
+      ${ultEvo ? `
+      <div class="sum-ultimo">
+        <strong>Última evolução registrada — ${fmtDateBR(ultEvo.data)} · ${escapeHtml(ultEvo.tipo) || "Atendimento"}</strong>
+        <p>${ultTxt ? escapeHtml(ultTxt) : "<span class='muted'>Sem observações registradas.</span>"}</p>
+        ${ultEvo.encaminhamentos ? `<p><b>Encaminhamentos:</b> ${escapeHtml(ultEvo.encaminhamentos)}</p>` : ""}
+      </div>` : ""}`;
+  })();
 
   const anexosImg = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
   const anexosPdf = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
@@ -6448,12 +6510,6 @@ async function exportPDF(paf) {
         }
         .id-grid .k { display: block; font-size: 9.2px; text-transform: uppercase; letter-spacing: .04em; color: #8496A8; margin-bottom: 2px; font-weight: bold; }
         .id-grid .v { display: block; font-weight: normal; }
-        .id-stats { display: flex; gap: 8px; flex: 0 0 auto; border-left: 1px solid #D7E0E6; padding-left: 16px; }
-        .id-stat { text-align: center; background: #fff; border: 1px solid #D7E0E6; border-top: 2.5px solid #B98A34; border-radius: 7px; padding: 7px 11px; min-width: 58px; }
-        .id-stat:nth-child(2) { border-top-color: #2E7D6B; }
-        .id-stat:nth-child(3) { border-top-color: #1F3A5F; }
-        .id-stat .n { display: block; font-family: 'Times New Roman', Times, serif; font-size: 17px; font-weight: bold; color: #1F3A5F; line-height: 1; }
-        .id-stat .l { display: block; font-size: 8.5px; text-transform: uppercase; color: #8496A8; margin-top: 4px; letter-spacing: .02em; }
 
         body { counter-reset: secao; }
         h2 {
@@ -6607,6 +6663,135 @@ async function exportPDF(paf) {
         @media print {
           .capa-header, h2 { page-break-after: avoid; }
         }
+
+        /* ================= LEGIBILIDADE (fontes maiores, mais contraste) ================= */
+        body { font-size: 13.5px; line-height: 1.55; color: #17304F; }
+        .reg-evolucao, .reg-encam, .anotacao, p[style] { font-size: 13.5px; line-height: 1.55; }
+        h2 { font-size: 16.5px; margin: 26px 0 10px; }
+        h2 small { font-family: Inter, Arial, sans-serif; font-size: 11px; font-weight: 500; color: #52667C; margin-left: 6px; }
+        h2::before { width: 22px; height: 22px; font-size: 10.5px; }
+        table { font-size: 12.5px; }
+        th { font-size: 11px; padding: 7px 8px; }
+        th, td { padding: 7px 8px; }
+        .label { font-size: 11px; color: #3F546B; }
+        .field { font-size: 13px; }
+        .tag { font-size: 12px; padding: 3px 10px; }
+        .muted, .hint { color: #52667C; }
+        .hint { font-size: 11.5px; }
+        .capa-titulos .capa-eyebrow { font-size: 10.5px; }
+        .capa-titulos p { font-size: 12.5px; }
+        .capa-ficha { font-size: 11px; } .capa-ficha .lbl { font-size: 9.5px; }
+        .id-nome { font-size: 19px; }
+        .id-status { font-size: 11px; }
+        .id-grid { font-size: 12.5px; }
+        .id-grid .k { font-size: 10.5px; color: #52667C; }
+        .reg-item { padding: 11px 13px; }
+        .reg-badge { width: 48px; height: 48px; }
+        .reg-badge .dia { font-size: 17px; } .reg-badge .mes { font-size: 9.5px; }
+        .reg-tipo { font-size: 11px; padding: 2px 9px; }
+        .reg-tecnico { font-size: 11.5px; }
+        .resumo-cols strong { font-size: 11px; color: #52667C; }
+        .stat-bar-row { font-size: 11.5px; } .donut-legend { font-size: 11px; }
+        .chip-tag { font-size: 11px; }
+        .chart-insight { font-size: 11px; }
+        .pareto-bar-label, .pareto-pct-num, .hist-eixo-num, .hist-bar-pct { font-size: 9.5px; }
+        .hist-bar-num, .hist-bar-label, .chart-bar-saldo { font-size: 10px; }
+        .donut-total-label { font-size: 8.5px; }
+        .graficos-print-secao h4 { font-size: 14px; }
+        .fechamento .local-data, .assinatura .titulo, .assinatura .cpf-linha { font-size: 11.5px; }
+        .rodape-doc { font-size: 10px; color: #6B7D8F; }
+        .anexo-print-item span { font-size: 10.5px; }
+        .page-header-fixed .ph-org { font-size: 10.5px; }
+        .page-header-fixed .ph-sub, .page-header-fixed .ph-right { font-size: 9.5px; color: #52667C; }
+        .page-header-fixed .ph-right b { font-size: 10.5px; }
+        .page-footer-fixed .pf-row { font-size: 9.5px; color: #52667C; }
+        .page-footer-fixed .pf-selo { font-size: 8.5px; }
+
+        /* ---- Resumo do acompanhamento ---- */
+        .sum-boxes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 10px; }
+        .sum-box { border: 1px solid #D7E0E6; border-top: 3px solid #B98A34; border-radius: 7px; background: #FBFCFC; padding: 9px 11px; break-inside: avoid; }
+        .sum-box:nth-child(2) { border-top-color: #2E7D6B; } .sum-box:nth-child(3) { border-top-color: #3E6B8A; } .sum-box:nth-child(4) { border-top-color: #1F3A5F; }
+        .sum-box .n { display: block; font-family: 'Times New Roman', Times, serif; font-size: 19px; font-weight: bold; color: #1F3A5F; line-height: 1.15; }
+        .sum-box .l { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; color: #3F546B; font-weight: bold; margin-top: 4px; }
+        .sum-box .s { display: block; font-size: 11px; color: #52667C; margin-top: 2px; }
+        .sum-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 10px; }
+        .sum-cols > div, .sum-ultimo { border: 1px solid #D7E0E6; border-radius: 7px; background: #FBFCFC; padding: 10px 12px; break-inside: avoid; }
+        .sum-cols strong, .sum-ultimo strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: #3F546B; margin-bottom: 5px; }
+        .sum-ultimo strong { text-transform: none; font-size: 12.5px; color: #1F3A5F; }
+        .sum-cols p, .sum-ultimo p { margin: 3px 0; font-size: 13px; }
+        .sum-cols ul { margin: 4px 0 0; padding: 0; list-style: none; font-size: 12.5px; }
+        .sum-cols li { margin: 3px 0; }
+        .sit-ok { color: #1F5C4E; font-weight: bold; } .sit-pend { color: #8A6423; font-weight: bold; }
+        .sum-cols .tag { font-size: 11.5px; }
+        .sep-cadastro {
+          margin: 30px 0 4px; padding: 7px 12px; background: #1F3A5F; color: #fff; border-radius: 6px;
+          font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; font-weight: bold; break-after: avoid; page-break-after: avoid;
+        }
+
+
+        /* ---- Ajustes de quebra e caixas vazias ---- */
+        .tags-wrap:empty { display: none; }
+        .hist-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+        .stat-box { border: 1px solid #D7E0E6; border-radius: 7px; background: #FBFCFC; padding: 8px 10px; break-inside: avoid; }
+        .stat-box .stat-num { display: block; font-family: 'Times New Roman', Times, serif; font-weight: bold; color: #1F3A5F; }
+        .stat-box .stat-label { display: block; font-size: 10.5px; color: #52667C; margin-top: 3px; }
+        .chart-legend-inline { font-size: 11px; color: #3F546B; margin: 4px 0; }
+
+
+        /* ---- Rodada 2: cabeçalho compacto, linha do tempo, alerta, barra de progresso ---- */
+        .capa-header { padding: 9px 14px; margin-bottom: 10px; gap: 12px; }
+        .capa-selo { width: 36px; height: 36px; font-size: 17px; }
+        .capa-titulos h1 { font-size: 17px; }
+        .capa-titulos .capa-linha { margin: 5px 0; }
+        .capa-ficha { padding: 5px 11px; line-height: 1.5; }
+        .id-band { padding: 10px 14px; margin-bottom: 10px; }
+        .id-nome { margin-bottom: 4px; }
+        .id-grid { gap: 5px 16px; }
+        h2:first-of-type { margin-top: 14px; }
+        .sum-tempo { border: 1px solid #D7E0E6; border-radius: 7px; background: #FBFCFC; padding: 9px 12px 4px; margin-bottom: 10px; break-inside: avoid; }
+        .sum-tempo > strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: #3F546B; }
+        .sum-tempo .resumo-secao { margin: 0; }
+        .sum-tempo .tempo-chart, .sum-tempo svg { max-height: 38mm; }
+        .alerta { color: #A63D33; }
+        .sum-box .prog { display: block; height: 6px; background: #E4EAEE; border-radius: 3px; margin: 2px 0 5px; overflow: hidden; }
+        .sum-box .prog i { display: block; height: 100%; background: #2E7D6B; }
+        .sep-cadastro { margin-top: 16px; }
+        .chart-svg { max-height: 56mm !important; }
+        .resumo-secao { margin-bottom: 10px; }
+
+
+        /* ---- Trajetória do acompanhamento (mês a mês) ---- */
+        .traj-legendas { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 2px 0 10px; }
+        .traj-leg { font-size: 11.5px; font-weight: bold; color: var(--c); border: 1.2px solid var(--c); border-radius: 999px; padding: 2px 10px; background: #fff; }
+        .traj-mes { margin: 16px 0 8px; padding: 5px 12px; background: #E8EDF3; color: #1F3A5F; border-radius: 6px; font-size: 12.5px; font-weight: bold; text-transform: uppercase; letter-spacing: .05em; break-after: avoid; page-break-after: avoid; }
+        .traj-item { display: flex; gap: 11px; border: 1px solid #D7E0E6; border-left: 4px solid var(--c); border-radius: 7px; padding: 9px 12px; margin-bottom: 7px; background: #FBFCFC; break-inside: avoid; page-break-inside: avoid; }
+        .traj-badge { flex: 0 0 46px; height: 46px; border: 1.4px solid var(--c); color: var(--c); border-radius: 7px; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .traj-badge .dia { font-family: 'Times New Roman', Times, serif; font-size: 17px; font-weight: bold; line-height: 1; }
+        .traj-badge .mes { font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
+        .traj-corpo { flex: 1; min-width: 0; }
+        .traj-topo { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 3px; }
+        .traj-tipo { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; color: var(--c); }
+        .traj-quem { font-size: 11.5px; color: #52667C; }
+        .traj-titulo { margin: 2px 0 !important; font-weight: bold; color: #1F3A5F; font-size: 13.5px; border: 0 !important; padding: 0 !important; background: none !important; }
+        .traj-texto, .traj-extra { margin: 2px 0 !important; border: 0 !important; padding: 0 !important; background: none !important; font-size: 13.5px; line-height: 1.55; text-align: justify; }
+        .traj-extra { color: #3F546B; }
+        .traj-sem { color: #52667C; }
+        .traj-lista { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; }
+        .traj-lista li { margin: 2px 0; }
+        .traj-sec { font-size: 10px; color: #52667C; background: #E8EDF3; border-radius: 4px; padding: 1px 6px; margin-left: 4px; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+        .traj-vazio { text-align: center; font-size: 11.5px; color: #8A6423; border-top: 1px dashed #D7C39A; border-bottom: 1px dashed #D7C39A; margin: 8px 0; padding: 3px; background: #FBF6EA; }
+
+        /* ---- Metas ---- */
+        .meta-card { border: 1px solid #D7E0E6; border-left: 4px solid #B98A34; border-radius: 7px; background: #FBFCFC; padding: 9px 12px; margin-bottom: 8px; break-inside: avoid; }
+        .meta-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+        .meta-titulo { font-weight: bold; font-size: 13.5px; flex: 1 1 60%; color: #1F3A5F; }
+        .meta-prazo { font-size: 11.5px; color: #3F546B; }
+        .meta-status { font-size: 10.5px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; padding: 2px 9px; border-radius: 999px; }
+        .meta-status.ok { background: #DEEAE6; color: #1F5C4E; border: 1px solid #C3DCD5; }
+        .meta-status.pend { background: #F3E7D0; color: #7A5A1E; border: 1px solid #E3CFA3; }
+        .meta-notas { margin: 7px 0 0; padding-left: 18px; font-size: 13px; }
+        .meta-notas li { margin: 3px 0; }
+
         @media screen {
           .page-header-fixed, .page-footer-fixed, .watermark { display: none; }
         }
@@ -6671,12 +6856,18 @@ async function exportPDF(paf) {
           <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
           <div><span class="k">Periodicidade</span><span class="v">${escapeHtml(paf.periodicidade) || "—"}</span></div>
         </div>
-        <div class="id-stats">
-          <div class="id-stat"><span class="n">${(paf.atendimentos || []).length}</span><span class="l">Atendimentos</span></div>
-          <div class="id-stat"><span class="n">${meses === null ? "—" : meses}</span><span class="l">Meses</span></div>
-          <div class="id-stat"><span class="n" style="font-size: 11px;">${ultimoAtendimento ? fmtDateBR(ultimoAtendimento.data) : "—"}</span><span class="l">Último atend.</span></div>
-        </div>
       </div>
+
+      ${resumoAcompanhamentoHTML}
+
+      <h2>Metas e Evolução</h2>
+      ${metasHTML}
+
+      ${historicoPdfTrajetoriaHTML(paf)}
+
+      ${historicoPdfHTML(paf)}
+
+      <div class="sep-cadastro">Dados cadastrais e diagnóstico da família</div>
 
       <h2>Membros da Família</h2>
       <table>
@@ -6757,17 +6948,6 @@ async function exportPDF(paf) {
       <div class="tags-wrap">${(paf.redeApoio || []).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("") || "<span class='muted'>Nenhum selecionado</span>"}</div>
       ${paf.redeApoioOutros ? `<p style="margin:6px 0 0;"><strong>Outros:</strong> ${escapeHtml(paf.redeApoioOutros)}</p>` : ""}
 
-      <h2>Registro de Atendimentos</h2>
-      ${atendimentosHTML}
-
-      ${historicoPdfHTML(paf)}
-
-      <h2>Metas e Evolução</h2>
-      <table>
-        <thead><tr><th>Meta</th><th>Prazo</th><th>Resultados</th></tr></thead>
-        <tbody>${metasHTML}</tbody>
-      </table>
-
       <h2>Estratégias e Eixos de Intervenção</h2>
       <div class="grid">
         <div class="field"><span class="label">Estratégias</span>${(paf.estrategias || []).map(escapeHtml).join(", ") || "—"}${paf.estrategiasOutras ? " · Outras: " + escapeHtml(paf.estrategiasOutras) : ""}</div>
@@ -6798,7 +6978,7 @@ async function exportPDF(paf) {
       ${paf.observacoes ? `<h2>Observações Gerais</h2><p class="anotacao">${diarioBr(paf.observacoes)}</p>` : ""}
 
       <h2>Gráficos da Família</h2>
-      <div class="graficos-print-secao">${graficosFamiliaBlocosHTML(paf)}</div>
+      <div class="graficos-print-secao">${graficosFamiliaBlocosHTML(paf).replace(tempoAcompanhamentoBlocoHTML(paf), "")}</div>
 
       ${anexosHTML}
 
