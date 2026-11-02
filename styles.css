@@ -1100,7 +1100,7 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 
 .stat-bars { display: flex; flex-direction: column; gap: 5px; }
-.stat-bar-row { display: grid; grid-template-columns: 1fr 90px 70px; align-items: center; gap: 8px; border-radius: 4px; padding: 1px 3px; transition: background .15s ease; cursor: default; }
+.stat-bar-row { display: grid; grid-template-columns: minmax(0, 1fr) 72px auto; align-items: center; gap: 8px; border-radius: 4px; padding: 1px 3px; transition: background .15s ease; cursor: default; }
 .stat-bar-row:hover { background: var(--accent-soft); }
 .stat-bar-label { font-size: var(--text-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-bar-track { height: 7px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; }
@@ -1165,6 +1165,8 @@ main { flex: 1; display: flex; min-height: 0; }
 /* SVGs escalam com o contêiner; em telas estreitas rolam na horizontal (texto nunca fica minúsculo) */
 .chart-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; max-width: 100%; scrollbar-width: thin; }
 .chart-svg { display: block; width: 100%; height: auto; min-width: min(var(--w), 100%); max-width: calc(var(--w) * 1.25); }
+/* histograma e Pareto: tamanho natural (sem esticar o texto), centralizados na caixa */
+.chart-svg.histograma-chart, .chart-svg.pareto-chart { max-width: calc(var(--w) * 1.2); margin-inline: auto; }
 .chart-vazio { font-size: 12px; }
 .chart-insight { font-size: var(--text-xs); color: var(--ink-soft); margin-top: 6px; line-height: 1.5; }
 .chart-insight b { color: var(--ink); }
@@ -3005,3 +3007,17 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
 .donut-total-label { font-size: 10px; }
 /* destaque suave também nas barras do histograma e do Pareto ao focar */
 .hist-bar:hover, .hist-bar:focus-visible, .pareto-bar:hover, .pareto-bar:focus-visible { filter: brightness(1.08) drop-shadow(0 2px 3px rgba(31,58,95,.25)); }
+
+
+/* ---- Barra empilhada 100% (respostas Sim/Não) e medidor semicircular ---- */
+.pilha-barra { display: flex; height: 30px; border-radius: 8px; overflow: hidden; background: var(--accent-soft); }
+.pilha-seg { display: flex; align-items: center; justify-content: center; min-width: 0; color: #fff; font-size: var(--text-xs); font-weight: 700; transition: filter .15s ease; }
+.pilha-seg + .pilha-seg { box-shadow: inset 2px 0 0 var(--paper-soft, #fff); }
+.pilha-seg:hover { filter: brightness(1.12); }
+.pilha-legenda { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 9px; font-size: var(--text-xs); color: var(--ink-soft); }
+.pilha-leg i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.pilha-leg b { color: var(--ink); }
+.pilha-leg em { color: var(--ink-faint); font-style: normal; }
+.pilha-total { margin-top: 6px; font-size: var(--text-xs); color: var(--ink-faint); }
+.pilha-total b { color: var(--ink); font-size: var(--text-md); }
+.medidor-wrap { gap: 18px; flex-wrap: wrap; }
