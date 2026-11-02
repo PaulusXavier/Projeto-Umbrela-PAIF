@@ -1279,6 +1279,14 @@ function uid() {
 
 // Nome do arquivo ao salvar (PDF pelo título da janela de impressão; Word pelo download):
 // "Nome do Responsável - Plano de Acompanhamento Familiar".
+// Na impressão, o que já está preenchido no prontuário sai em negrito e o que está vazio ("—") sai
+// em cinza e sem negrito, para a equipe enxergar de relance o que consta e o que falta.
+function marcarVaziosImpressao(html) {
+  return String(html)
+    .replace(/(<span class="label">[^<]*<\/span>)\s*—(\s*<\/div>)/g, '$1<span class="vazio">—</span>$2')
+    .replace(/<span class="v">—<\/span>/g, '<span class="v vazio">—</span>');
+}
+
 function nomeArquivoPAF(paf) {
   const nome = String((paf && paf.responsavel) || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() || "Responsável não informado";
   return `${nome} - Plano de Acompanhamento Familiar`;
@@ -3094,7 +3102,7 @@ const PRINT_COMMON_CSS = `
      numeração de páginas no canto superior direito, a 2 cm da borda, fonte 10. */
   @page {
     size: A4; margin: 30mm 20mm 20mm 30mm;
-    @top-right { content: counter(page); font: 10pt 'Times New Roman', Times, serif; color: #000; vertical-align: top; padding-top: 20mm; }
+    @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 10pt 'Times New Roman', Times, serif; color: #000; vertical-align: top; padding-top: 4mm; }
   }
   html, body, * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   html { -webkit-text-size-adjust: 100%; }
@@ -3319,8 +3327,49 @@ const ABNT_PRINT_CSS = `
   /* gráficos: altura máxima maior para que os rótulos fiquem legíveis no papel */
   .gbox-hist .chart-svg, .gbox .histograma-chart { max-height: 55mm !important; }
   .gbox-largo .chart-svg { max-height: 50mm !important; }
+  /* cabeçalho e rodapé: linha dupla no topo, endereço em duas linhas, selo de sigilo à direita */
+  .page-header-fixed .ph-row { border-bottom: 2px solid #000 !important; align-items: center !important; }
+  .page-header-fixed .ph-right b { display: block; }
+  .page-header-fixed .ph-right span, .page-header-fixed .ph-right b { white-space: nowrap; }
+  .page-footer-fixed .pf-row { align-items: flex-end !important; }
+  .page-footer-fixed .pf-end span { display: block; }
+  .page-footer-fixed .pf-selo { font-weight: bold !important; text-align: right; max-width: 60mm; white-space: normal !important; }
+  /* fundo branco só no <html>: com fundo no <body> a marca d'água (z-index negativo) ficaria escondida */
+  body { background: transparent !important; }
+  /* listas de itens marcados (objetivos, seguranças, vulnerabilidades, programas...): um item por linha, com marcador (•), sem caixinha */
+  .tags-wrap { display: block !important; }
+  .tags-wrap .tag { display: list-item !important; list-style: disc outside !important; margin: 0 0 1pt 14pt !important;
+    padding: 0 !important; border: 0 !important; background: none !important; font-weight: bold !important; }
+  /* marca d'água "DOCUMENTO SIGILOSO": diagonal, bem clara e ATRÁS do conteúdo, repetida em cada página */
+  .watermark { display: block !important; position: fixed !important; top: 50% !important; left: 50% !important;
+    transform: translate(-50%, -50%) rotate(-38deg) !important; z-index: -1 !important;
+    width: 140mm !important; text-align: center !important;
+    font-size: 54pt !important; line-height: 1.1 !important; font-weight: bold !important; letter-spacing: .04em !important;
+    color: #000 !important; opacity: .035 !important; white-space: normal !important; pointer-events: none; }
+  /* caixas sem fundo branco, para a marca d'água aparecer por trás de todo o conteúdo */
+  .gbox, .kpi-card, .sum-box, .stat-box, .chart-box, .sum-cols > div, .sum-ultimo, .sum-tempo, .lei-texto, .lei-cols > div,
+  .fam-resumo, .meta-card, .reg-item, .traj-item, .marco-corpo, .resumo-cols > div, .sumario-box, .filtro-box, .corpo,
+  .grid, .id-band, .capa-header, .titulo-band, .id-nome-wrap, .fechamento, .tags-wrap, .sintese-plano, .sp-lin,
+  table:not(.print-shell) td, table:not(.print-shell) { background: transparent !important; }
+  /* menos espaço em branco: entrelinha e margens enxutas nos campos, títulos e caixas */
+  .field, .field *, .id-grid > *, .id-grid *, .sp-val, .sp-val *, .tags-wrap, .tags-wrap * { line-height: 1.25 !important; }
+  .grid .field, .id-grid > * { padding: 0 !important; }
+  .grid, .id-band, .tags-wrap, .fam-resumo { padding: 2pt 6pt !important; margin-bottom: 3pt !important; }
+  .id-nome-wrap { margin: 0 !important; padding: 0 !important; }
+  .tag { margin: 1pt 3pt 1pt 0 !important; }
+  h1, h2, h4, .sep-cadastro, .sub-parte, .traj-mes, .contra h2, .graficos-print-secao h4 { margin: 7pt 0 2pt !important; }
+  .fam-graf, .g-par { align-items: stretch !important; }
+  .kpi-card, .sum-box, .gbox, .meta-card, .reg-item, .traj-item, .marco-corpo, .lei-texto, .lei-cols > div, .sum-cols > div, .sum-ultimo { padding-top: 2pt !important; padding-bottom: 2pt !important; margin-bottom: 3pt !important; }
+  .gbox, .sum-cols > div, .lei-cols > div { min-height: 0 !important; }
+  .donut-svg { width: 44pt !important; height: 44pt !important; }
+  p.muted, .anotacao { margin-top: 2pt !important; }
+  /* o que consta no prontuário em NEGRITO; rótulos em peso normal; campos vazios ("—") apagados */
+  .field, .grid .field, .id-grid .v, .tags-wrap .tag, .tag { font-weight: bold !important; }
+  .label, .id-grid .k, .lbl { font-weight: normal !important; color: #333 !important; }
+  .vazio, .field .vazio, .id-grid .v.vazio { font-weight: normal !important; color: #777 !important; }
+  .muted { font-weight: normal !important; }
   /* folha-síntese: página 1 inteira dedicada ao plano, em linhas numeradas (situação → objetivos → caminhos → metas) */
-  .sintese-plano { break-after: page; page-break-after: always; margin: 0 0 6pt; }
+  .sintese-plano { margin: 0 0 6pt; }
   .sintese-plano, .sintese-plano * { font-size: 10.5pt !important; line-height: 1.3 !important; }
   .sintese-plano .tag { font-size: 10pt !important; padding: 0 3pt !important; }
   .sp-lin { display: grid; grid-template-columns: 30mm 1fr; gap: 0 8pt; border: 1px solid #000; border-bottom: 0; padding: 3pt 6pt; break-inside: avoid; }
@@ -3661,7 +3710,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
       <script>window.onload = () => { var go = () => setTimeout(() => window.print(), 200); (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 2500))]) : Promise.resolve()).then(go, go); };<\/script>
     </body>
     </html>`;
-  printWin.document.write(html);
+  printWin.document.write(marcarVaziosImpressao(html));
   printWin.document.close();
 }
 
@@ -6932,8 +6981,8 @@ async function exportPDF(paf) {
       nEnc ? `<b>${nEnc}</b> encaminhamento${nEnc === 1 ? "" : "s"}` : ""
     ].filter(Boolean).join(" · ");
     return `
-      <div class="sep-cadastro parte"><span class="parte-n">Síntese</span> O plano em uma página <small>da situação da família ao que foi pactuado — o detalhamento vem nas páginas seguintes</small></div>
       <div class="sintese-plano">
+        <div class="sep-cadastro parte"><span class="parte-n">Síntese</span> Resumo do plano <small>da situação da família ao que foi pactuado — o detalhamento vem a seguir</small></div>
         ${linha("1 · Situação da família", `${vulns || "<span class='muted'>Vulnerabilidades não registradas</span>"}${potenc ? `<div class="sp-sub"><b>Potencialidades:</b> ${potenc}</div>` : ""}${paf.barreirasDesafios ? `<div class="sp-sub"><b>Barreiras e desafios:</b> ${escapeHtml(String(paf.barreirasDesafios).slice(0, 300))}${String(paf.barreirasDesafios).length > 300 ? "…" : ""}</div>` : ""}`)}
         ${linha("2 · O que se pretende alcançar", `${objet || "<span class='muted'>Objetivos não registrados</span>"}${segur ? `<div class="sp-sub"><b>Seguranças afiançadas:</b> ${segur}</div>` : ""}`)}
         ${linha("3 · Por quais caminhos", `${estrat ? `<div><b>Estratégias:</b> ${estrat}</div>` : ""}${eixos ? `<div class="sp-sub"><b>Eixos:</b> ${eixos}</div>` : ""}${!estrat && !eixos ? "<span class='muted'>Estratégias e eixos não registrados</span>" : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b> ${rede}</div>` : ""}`)}
@@ -7516,7 +7565,7 @@ async function exportPDF(paf) {
       </style>
     </head>
     <body>
-      <div class="watermark">CONFIDENCIAL</div>
+      <div class="watermark">DOCUMENTO SIGILOSO</div>
 
       <table class="print-shell">
       <thead class="page-header-fixed"><tr><td>
@@ -7526,18 +7575,21 @@ async function exportPDF(paf) {
           </div>
           <div>
             <span class="ph-org">Prefeitura Municipal de Boa Vista · SEMADS</span>
-            <span class="ph-sub">CRAS Cristiana Vicente Nunes — Prontuário PAF/PAIF</span>
+            <span class="ph-sub">CRAS Cristiana Vicente Nunes · Proteção Social Básica · PAIF</span>
           </div>
           <div class="ph-right">
-            <b>Ficha nº ${protocoloNumero(paf)}</b>
-            <span>${escapeHtml(paf.responsavel) || "Responsável não informado"}</span>
+            <b>Plano de Acompanhamento Familiar</b>
+            <span>${escapeHtml(paf.responsavel) || "Responsável não informado"} · Ficha nº ${protocoloNumero(paf)}</span>
           </div>
         </div>
       </td></tr></thead>
       <tfoot class="page-footer-fixed"><tr><td>
         <div class="pf-row">
-          <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR · (95) 98402-6627 · crascentenariosemges@gmail.com</span>
-          <span class="pf-selo">Documento de uso interno · CRAS/SEMADS</span>
+          <div class="pf-end">
+            <span>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
+            <span>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
+          </div>
+          <span class="pf-selo">Documento sigiloso · uso exclusivo da equipe técnica</span>
         </div>
       </td></tr></tfoot>
       <tbody><tr><td>
@@ -7576,9 +7628,7 @@ async function exportPDF(paf) {
         </div>
       </div>
 
-      ${sintesePlanoHTML}
-
-      <div class="sep-cadastro parte nova-pagina"><span class="parte-n">Parte 1</span> Conhecendo a família <small>Composição, moradia, renda e condições de vida</small></div>
+      <div class="sep-cadastro parte"><span class="parte-n">Parte 1</span> Conhecendo a família <small>Composição, moradia, renda e condições de vida</small></div>
 
       <div class="sum-boxes sintese-fam">
         <div class="sum-box"><span class="n">${_membros.length || "—"}</span><span class="l">Pessoas na família</span><span class="s">${_idades.length ? `${_faixa(0, 17)} menor${_faixa(0, 17) === 1 ? "" : "es"} de 18 · ${_faixa(60, 200)} idoso${_faixa(60, 200) === 1 ? "" : "s"}` : "&nbsp;"}</span></div>
@@ -7650,6 +7700,8 @@ async function exportPDF(paf) {
       ${paf.vulnerabilidadesOutros ? `<p style="margin:6px 0 0;"><strong>Outras:</strong> ${escapeHtml(paf.vulnerabilidadesOutros)}</p>` : ""}
 
       <div class="sep-cadastro parte nova-pagina"><span class="parte-n">Parte 2</span> Plano de acompanhamento <small>leitura técnica → plano de intervenção → rede acionada → evolução</small></div>
+
+      ${sintesePlanoHTML}
 
       <div class="sub-parte"><b>2A</b> Leitura técnica <small>o que a equipe compreende sobre a situação da família</small></div>
 
@@ -7828,7 +7880,7 @@ async function exportPDF(paf) {
   `;
 
   printWin.document.open();
-  printWin.document.write(html);
+  printWin.document.write(marcarVaziosImpressao(html));
   printWin.document.close();
 }
 
@@ -7961,7 +8013,7 @@ function imprimirEncaminhamento(paf, enc) {
   `;
 
   printWin.document.open();
-  printWin.document.write(html);
+  printWin.document.write(marcarVaziosImpressao(html));
   printWin.document.close();
 }
 
