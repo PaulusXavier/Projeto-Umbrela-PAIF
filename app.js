@@ -6972,6 +6972,15 @@ const CAPA_SUMARIO_CSS = `
   .cp-base p.cp-lin { margin: .5mm 0 0 !important; }
   .cp-base p.cp-local { font-size: 12pt !important; font-weight: bold !important; margin: 3mm 0 0 !important; }
 
+  .contracapa { break-before: page; page-break-before: always; break-after: auto !important; page-break-after: auto !important; }
+  .cc-marca { position: absolute; left: 50%; top: 50%; width: 125mm; transform: translate(-50%, -50%); z-index: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cc-marca svg { display: block; width: 100%; height: auto; }
+  .contracapa .cp-moldura { position: relative; z-index: 1; background: transparent; }
+  .cc-meio { position: relative; z-index: 2; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .cc-meio p { margin: 0 !important; padding: 0 !important; text-align: center !important; text-indent: 0 !important; }
+  .cc-sigilo { font-size: 15pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .16em !important; line-height: 1.4 !important; }
+  .cc-meio p.cc-texto { max-width: 128mm; margin-top: 6mm !important; font-size: 11pt !important; line-height: 1.5 !important; }
   .frente-pagina { break-after: page; page-break-after: always; }
   .fr-titulo { margin: 2mm 0 0 !important; text-align: center !important; text-indent: 0 !important; font-size: 14pt !important; font-weight: bold !important;
     text-transform: uppercase; line-height: 1.3 !important; }
@@ -7026,6 +7035,28 @@ function capaPafHTML(paf) {
     </section>`;
 }
 
+// Contracapa: folha final com um guarda-chuva como marca d'água, protegendo as informações do PAF.
+function contracapaPafHTML(paf) {
+  const nome = String((paf && paf.responsavel) || "").replace(/\s+/g, " ").trim();
+  const marca = `<svg viewBox="0 0 100 124" aria-hidden="true"><path d="M50 10Q6.0 26.0 6 58Q17.0 49 28 58Q28.0 19.0 50 10Z" fill="#E4E4E4"/><path d="M50 10Q28.0 19.0 28 58Q39.0 49 50 58Q50.0 12.0 50 10Z" fill="#D3D3D3"/><path d="M50 10Q50.0 12.0 50 58Q61.0 49 72 58Q72.0 19.0 50 10Z" fill="#E4E4E4"/><path d="M50 10Q72.0 19.0 72 58Q83.0 49 94 58Q94.0 26.0 50 10Z" fill="#D3D3D3"/><path d="M50 10Q6 14 6 58M50 10Q94 14 94 58M50 10Q28 14 28 58M50 10Q72 14 72 58M50 10V58" fill="none" stroke="#fff" stroke-width="1.2"/><path d="M50 58V104a11 11 0 0 1-22 0" fill="none" stroke="#CFCFCF" stroke-width="3.6" stroke-linecap="round"/><path d="M50 3V10" stroke="#CFCFCF" stroke-width="3" stroke-linecap="round"/></svg>`;
+  return `
+    <section class="capa-pagina contracapa">
+      <div class="cc-marca">${marca}</div>
+      <div class="cp-moldura">
+        <div class="cp-topo"><p class="cp-lin">Plano de Acompanhamento Familiar${nome ? " · " + escapeHtml(nome) : ""}</p></div>
+        <div class="cc-meio">
+          <p class="cc-sigilo">Documento sigiloso</p>
+          <div class="cp-filete"></div>
+          <p class="cc-texto">As informações deste plano são protegidas pelo sigilo profissional e destinam-se exclusivamente à equipe técnica do SUAS. É vedada a reprodução, o repasse ou o uso fora do acompanhamento da família.</p>
+        </div>
+        <div class="cp-base">
+          <p class="cp-lin">Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
+          <p class="cp-lin">CRAS Cristiana Vicente Nunes · Boa Vista/RR</p>
+        </div>
+      </div>
+    </section>`;
+}
+
 // Folha de rosto: identificação do plano + sumário (a lista é preenchida na janela de impressão, com as páginas medidas).
 function folhaRostoSumarioHTML(paf) {
   const L = (k, v, largo) => `<div class="k">${k}</div><div${largo ? ' class="v3"' : ""}>${v || "—"}</div>`;
@@ -7049,7 +7080,7 @@ function folhaRostoSumarioHTML(paf) {
 
 /* Roda DENTRO da janela de impressão (injetada como texto via Function.toString — por isso é autossuficiente
    e não usa crase nem "${"). cfg = { larguraMm, alturaMm, paginasAntes }.
-   1) lista os títulos (Partes, subpartes, seções numeradas e anexos) que estão em #corpo-paf;
+   1) lista só o essencial (Partes, subpartes e uma linha para os anexos) que estão em #corpo-paf;
    2) clona a tabela-casca do documento para um contêiner de colunas com a largura e a altura exatas da área útil
       da folha, onde cada coluna equivale a uma página impressa; a coluna em que cada título cai é a sua página;
    3) escreve o sumário (com links internos) e os números. Se algo falhar, o sumário sai sem números. */
@@ -7071,7 +7102,7 @@ function sumarioPafNaJanela(cfg) {
   // ---- 1) itens do sumário ----
   var itens = [];
   var nos = corpo.querySelectorAll(".sep-cadastro.parte, .sub-parte, h2, .anexo-titulo");
-  var nSecao = 0, temSub = false;
+  var temSub = false, temAnexo = false;
   for (var i = 0; i < nos.length; i++) {
     var el = nos[i];
     if (!el.getClientRects().length) continue;   // oculto: não entra no sumário nem no contador de seções
@@ -7086,11 +7117,11 @@ function sumarioPafNaJanela(cfg) {
       rotulo = (b ? limpo(b.textContent) + "  " : "") + textoDe(el, "small, b");
       nivel = 1; temSub = true;
     } else if (el.tagName === "H2") {
-      nSecao++;
-      rotulo = nSecao + "  " + maiusc(textoDe(el, "small"));
-      nivel = temSub ? 2 : 1;
+      continue;   // sumário enxuto: só o essencial (Partes e subpartes); as seções numeradas ficam fora
     } else {
-      rotulo = limpo(el.textContent);
+      if (temAnexo) continue;   // todos os anexos entram numa única linha, apontando para o primeiro
+      temAnexo = true;
+      rotulo = "ANEXOS";
       nivel = 0; temSub = false;
     }
     if (!rotulo) continue;
@@ -8171,12 +8202,14 @@ async function exportPDFInterno(paf) {
           <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
           <div><span class="k">NIS</span><span class="v">${escapeHtml(paf.nis) || "—"}</span></div>
           <div><span class="k">Sexo</span><span class="v">${escapeHtml(rotuloSexo(paf.responsavelSexo) || paf.responsavelSexo) || "—"}</span></div>
+          <div><span class="k">Nascimento</span><span class="v">${paf.responsavelNascimento ? fmtDateBR(paf.responsavelNascimento) + (calcularIdade(paf.responsavelNascimento) != null ? " (" + calcularIdade(paf.responsavelNascimento) + " anos)" : "") : "—"}</span></div>
           <div><span class="k">Estado civil</span><span class="v">${escapeHtml(paf.responsavelEstadoCivil) || "—"}</span></div>
           <div><span class="k">Nacionalidade</span><span class="v">${escapeHtml(paf.responsavelNacionalidade) || "—"}${paf.responsavelEtnia ? " · " + escapeHtml(paf.responsavelEtnia) : ""}</span></div>
           <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
           <div><span class="k">Endereço</span><span class="v">${escapeHtml(enderecoCompleto(paf)) || "—"}</span></div>
           <div><span class="k">Início do Acompanhamento</span><span class="v">${fmtDateBR(paf.dataInicial) || "—"}</span></div>
           <div><span class="k">Periodicidade</span><span class="v">${escapeHtml(paf.periodicidade) || "—"}</span></div>
+          ${paf.situacaoPAF && paf.situacaoPAF !== "andamento" && paf.situacaoData ? `<div><span class="k">Data da situação</span><span class="v">${fmtDateBR(paf.situacaoData)}</span></div>` : ""}
         </div>
       </div>
 
@@ -8362,6 +8395,8 @@ async function exportPDFInterno(paf) {
       </div>
       </td></tr></tbody>
       </table>
+
+      ${contracapaPafHTML(paf)}
 
       <script>
         (function () {
@@ -8782,7 +8817,8 @@ async function exportWord(paf) {
       ${camposGrid([
         ["Nome / Apelido", escapeHtml(paf.responsavel) + (paf.apelido ? " (" + escapeHtml(paf.apelido) + ")" : "")],
         ["Nome da mãe", escapeHtml(paf.nomeMae)],
-        ["RG", [escapeHtml(paf.rg), escapeHtml(paf.rgOrgao), escapeHtml(paf.rgUf)].filter(Boolean).join("/")],
+        ["Nascimento", paf.responsavelNascimento ? fmtDateBR(paf.responsavelNascimento) : ""],
+        ["RG", [escapeHtml(paf.rg), escapeHtml(paf.rgOrgao), escapeHtml(paf.rgUf)].filter(Boolean).join("/") + (paf.rgDataEmissao ? " — emitido em " + fmtDateBR(paf.rgDataEmissao) : "")],
         ["Endereço", escapeHtml(enderecoCompleto(paf)) + (paf.localizacaoDomicilio ? " (" + escapeHtml(paf.localizacaoDomicilio) + ")" : "")],
         ["Ponto de referência", escapeHtml(paf.pontoReferencia)],
         ["Telefones", escapeHtml(paf.telefones)]
