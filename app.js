@@ -6976,27 +6976,29 @@ const CAPA_SUMARIO_CSS = `
     padding: 30mm 20mm 20mm 30mm; overflow: hidden; break-after: page; page-break-after: always; break-inside: avoid; }
   .cp-moldura { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
   .cp-topo, .cp-meio, .cp-base { text-align: center !important; }
-  .cp-topo { padding-bottom: 7mm; border-bottom: .6pt solid #000; }
-  .cp-base { padding-top: 6mm; border-top: .6pt solid #000; }
+  .cp-topo { padding-bottom: 6mm; border-bottom: 3pt double #000; }
+  .cp-base { padding-top: 5mm; border-top: 3pt double #000; }
   .cp-meio { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; }
   .cp-logo { display: block; height: 26mm; width: auto; max-width: none !important; margin: 0 auto 6mm; }
   .cp-topo p, .cp-meio p, .cp-base p { margin: 0 !important; padding: 0 !important; text-align: center !important; text-indent: 0 !important; }
-  .cp-inst { font-size: 14pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .04em !important; line-height: 1.35 !important; }
-  .cp-lin { font-size: 12pt !important; line-height: 1.4 !important; }
+  .cp-inst { font-size: 14pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .09em !important; line-height: 1.35 !important; }
+  .cp-lin { font-size: 12pt !important; line-height: 1.45 !important; }
   .cp-topo p.cp-lin { margin-top: 1mm !important; }
   .cp-topo p.cp-autor { margin-top: 8mm !important; font-size: 12pt !important; font-weight: bold !important; text-transform: uppercase; line-height: 1.4 !important; }
-  .cp-topo p.cp-autor-r { font-size: 11pt !important; font-style: italic; line-height: 1.3 !important; }
-  .cp-eyebrow { font-size: 17pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .05em !important; line-height: 1.35 !important; }
-  .cp-meio p.cp-servico { font-size: 13pt !important; line-height: 1.4 !important; margin: 5mm 0 0 !important; max-width: 125mm; }
+  .cp-topo p.cp-autor-r { font-size: 12pt !important; font-style: italic; line-height: 1.3 !important; }
+  .cp-meio p.cp-sobre { font-size: 12pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .32em !important; margin: 0 0 5mm !important; }
+  .cp-eyebrow { font-size: 14pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .07em !important; line-height: 1.3 !important; }
+  .cp-meio p.cp-servico { font-size: 12pt !important; font-style: italic; line-height: 1.45 !important; margin: 5mm 0 0 !important; max-width: 118mm; }
   .cp-filete { width: 70mm; border-top: 1.4pt solid #000; margin: 9mm auto 0 !important; height: 0; position: relative; }
   .cp-filete::after { content: ""; position: absolute; left: 0; right: 0; top: 2.4pt; border-top: .5pt solid #000; }
   .cp-filete-b { margin: 0 auto 9mm !important; }
   .cp-meio p.cp-nome { margin: 11mm 0 2mm !important; font-weight: bold !important; text-transform: uppercase; line-height: 1.25 !important;
     max-width: 100%; overflow-wrap: anywhere; hyphens: auto; }
-  .cp-nome-1 { font-size: 26pt !important; } .cp-nome-2 { font-size: 22pt !important; } .cp-nome-3 { font-size: 18pt !important; } .cp-nome-4 { font-size: 15pt !important; }
-  .cp-meio p.cp-papel { font-size: 12pt !important; font-style: italic; letter-spacing: .04em !important; line-height: 1.4 !important; margin: 0 0 9mm !important; }
+  .cp-nome-1, .cp-nome-2, .cp-nome-3, .cp-nome-4 { font-size: 14pt !important; }
+  .cp-meio p.cp-papel { font-size: 12pt !important; font-style: italic; letter-spacing: .06em !important; line-height: 1.4 !important; margin: 0 0 9mm !important; }
+  .cp-meio p.cp-ficha { display: inline-block; border: .8pt solid #000; padding: 1.4mm 7mm !important; font-size: 12pt !important; letter-spacing: .14em !important; text-transform: uppercase; line-height: 1.3 !important; }
   .cp-base p.cp-lin { margin: .5mm 0 0 !important; }
-  .cp-base p.cp-local { font-size: 12pt !important; font-weight: bold !important; margin: 3mm 0 0 !important; }
+  .cp-base p.cp-local { font-size: 12pt !important; font-weight: bold !important; letter-spacing: .06em !important; margin: 0 !important; }
 
   .cp-marca { width: 105mm; top: 52%; opacity: .32; }
   .capa-pagina:not(.contracapa) .cp-moldura { position: relative; z-index: 1; }
@@ -7013,8 +7015,13 @@ const CAPA_SUMARIO_CSS = `
   .contracapa .cp-moldura { position: relative; z-index: 1; background: transparent; }
   .cc-meio { position: relative; z-index: 2; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; }
   .cc-meio p { margin: 0 !important; padding: 0 !important; text-align: center !important; text-indent: 0 !important; }
-  .cc-sigilo { font-size: 15pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .16em !important; line-height: 1.4 !important; }
-  .cc-meio p.cc-texto { max-width: 128mm; margin-top: 6mm !important; font-size: 11pt !important; line-height: 1.5 !important; }
+  .cc-sigilo { font-size: 17pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .22em !important; line-height: 1.4 !important; }
+  .cc-meio p.cc-uso { margin-top: 2mm !important; font-size: 10pt !important; font-style: italic; letter-spacing: .08em !important; line-height: 1.4 !important; }
+  .cc-meio p.cc-texto { max-width: 120mm; margin-top: 0 !important; font-size: 11pt !important; line-height: 1.55 !important; }
+  .cc-meio .cp-filete { margin: 7mm auto 7mm !important; }
+  .cc-meio p.cc-lgpd { max-width: 120mm; margin-top: 5mm !important; font-size: 9pt !important; line-height: 1.45 !important; }
+  .contracapa .cp-topo p.cp-lin-b { font-weight: bold !important; text-transform: uppercase; letter-spacing: .08em !important; }
+  .contracapa .cp-topo p.cp-lin-n { margin-top: 1mm !important; font-style: italic; }
 
   /* folha de rosto e sumário: cada um em sua própria página */
   .frente-pagina { break-after: page; page-break-after: always; }
@@ -7036,17 +7043,25 @@ const CAPA_SUMARIO_CSS = `
 
   /* Sumário (NBR 6027): título centralizado em negrito e caixa alta, sem indicativo numérico; seções primárias em negrito e CAIXA ALTA;
      secundárias em tipo normal; numeração indicativa à esquerda, páginas alinhadas à direita com linha pontilhada. */
-  .fr-sumario-t { margin: 0 0 9mm !important; padding: 0; text-align: center !important; text-indent: 0 !important;
-    font-size: 12pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .04em !important; line-height: 1.5 !important; }
+  .fr-sumario-t { margin: 0 0 3mm !important; padding: 0; text-align: center !important; text-indent: 0 !important;
+    font-size: 14pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .24em !important; line-height: 1.5 !important; }
+  .fr-sumario-filete { width: 46mm; border-top: 1.2pt solid #000; margin: 0 auto 9mm; height: 0; position: relative; }
+  .fr-sumario-filete::after { content: ""; position: absolute; left: 0; right: 0; top: 2.2pt; border-top: .5pt solid #000; }
+  .sm-cab { display: flex; justify-content: space-between; box-sizing: border-box; padding: 0 0 1.4mm; margin: 0 0 3.5mm; border-bottom: .6pt solid #000;
+    font-size: 9pt !important; font-weight: bold; text-transform: uppercase; letter-spacing: .16em; line-height: 1.3; text-indent: 0 !important; }
   .sm-lin { display: flex; align-items: flex-end; box-sizing: border-box; padding: 0; color: #000 !important; text-decoration: none !important;
-    font-size: 12pt !important; line-height: 1.45 !important; text-align: left !important; text-indent: 0 !important; break-inside: avoid; page-break-inside: avoid; }
+    font-size: 12pt !important; line-height: 1.5 !important; text-align: left !important; text-indent: 0 !important; break-inside: avoid; page-break-inside: avoid; }
+  .sm-num { flex: 0 0 auto; box-sizing: border-box; font-weight: bold; white-space: nowrap; text-align: left !important; }
   .sm-t { flex: 0 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left !important; }
-  .sm-pt { flex: 1 1 8mm; min-width: 8mm; margin: 0 1.6mm 1.6mm; border-bottom: 1px dotted #000; }
+  .sm-pt { flex: 1 1 8mm; min-width: 8mm; margin: 0 1.6mm 1.7mm; border-bottom: 1pt dotted #000; }
   .sm-p { flex: 0 0 auto; min-width: 8mm; text-align: right !important; font-variant-numeric: tabular-nums; }
-  .sm-n0 { font-weight: bold; margin-top: 3.2mm; }
+  .sm-n0 { font-weight: bold; margin-top: 5mm; }
   .sm-n0:first-child { margin-top: 0; }
-  .sm-n1 { padding-left: 9mm; }
-  .sm-n2 { padding-left: 16mm; }
+  .sm-n0 .sm-num { width: 25mm; }
+  .sm-n0 .sm-p { font-weight: bold; }
+  .sm-n0.sm-solo .sm-num { display: none; }
+  .sm-n1 { padding-left: 25mm; font-size: 11.5pt !important; margin-top: 1mm; }
+  .sm-n1 .sm-num { width: 10mm; }
   .sm-sem-num .sm-pt, .sm-sem-num .sm-p { display: none; }
 `;
 
@@ -7070,13 +7085,14 @@ function capaPafHTML(paf) {
           ${tecnico ? `<p class="cp-autor">${escapeHtml(tecnico)}</p><p class="cp-autor-r">Técnico(a) de referência</p>` : ""}
         </div>
         <div class="cp-meio">
+          <p class="cp-sobre">Proteção Social Básica · SUAS</p>
           <p class="cp-eyebrow">Plano de Acompanhamento Familiar</p>
           <p class="cp-servico">Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
           <div class="cp-filete"></div>
           <p class="cp-nome cp-nome-${tam}">${escapeHtml(nome)}</p>
           <p class="cp-papel">Responsável Familiar</p>
           <div class="cp-filete cp-filete-b"></div>
-          <p class="cp-lin">Ficha nº ${protocoloNumero(paf)}</p>
+          <p class="cp-ficha">Ficha nº ${protocoloNumero(paf)}</p>
         </div>
         <div class="cp-base">
           <p class="cp-local">Boa Vista/RR</p>
@@ -7089,20 +7105,26 @@ function capaPafHTML(paf) {
 // Contracapa: folha final com um guarda-chuva como marca d'água, protegendo as informações do PAF.
 function contracapaPafHTML(paf) {
   const nome = String((paf && paf.responsavel) || "").replace(/\s+/g, " ").trim();
+  const crasNome = String((paf && paf.crasNome) || "").trim() || "CRAS Cristiana Vicente Nunes";
   const marca = UMBRELA_MARCA_SVG;
   return `
     <section class="capa-pagina contracapa">
       <div class="cc-marca">${marca}</div>
       <div class="cp-moldura">
-        <div class="cp-topo"><p class="cp-lin">Plano de Acompanhamento Familiar${nome ? " · " + escapeHtml(nome) : ""}</p></div>
+        <div class="cp-topo">
+          <p class="cp-lin cp-lin-b">Plano de Acompanhamento Familiar</p>
+          ${nome ? `<p class="cp-lin cp-lin-n">${escapeHtml(nome)}</p>` : ""}
+        </div>
         <div class="cc-meio">
           <p class="cc-sigilo">Documento sigiloso</p>
+          <p class="cc-uso">Uso restrito à equipe técnica do SUAS</p>
           <div class="cp-filete"></div>
           <p class="cc-texto">As informações deste plano são protegidas pelo sigilo profissional e destinam-se exclusivamente à equipe técnica do SUAS. É vedada a reprodução, o repasse ou o uso fora do acompanhamento da família.</p>
+          <p class="cc-lgpd">Os dados pessoais aqui registrados são tratados em conformidade com a Lei nº 13.709/2018 (LGPD).</p>
         </div>
         <div class="cp-base">
           <p class="cp-lin">Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
-          <p class="cp-lin">CRAS Cristiana Vicente Nunes · Boa Vista/RR</p>
+          <p class="cp-lin">${escapeHtml(crasNome)}</p>
         </div>
       </div>
     </section>`;
@@ -7132,6 +7154,8 @@ function folhaRostoSumarioHTML(paf) {
     </section>
     <section class="frente-pagina" id="sumario-pagina">
       <p class="fr-sumario-t">Sumário</p>
+      <div class="fr-sumario-filete"></div>
+      <div class="sm-cab"><span>Seção</span><span>Pág.</span></div>
       <div id="sumarioLista"></div>
     </section>`;
 }
