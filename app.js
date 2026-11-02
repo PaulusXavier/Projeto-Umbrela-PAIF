@@ -2263,12 +2263,13 @@ function kpiCardHTML(valor, label, iconId, delta, spark) {
 // (3) valores sempre visíveis + tooltip; (4) margens se adaptam a números grandes e rótulos longos;
 // (5) funcionam no PDF/impressão (todos os atributos têm cor de reserva, sem depender de variáveis CSS).
 
-const RESUMO_PALETA = ["#2E7D6B", "#B98A34", "#52667C", "#A63D33", "#8B6BAE", "#3D8FA0", "#C97B4A", "#1F5C4E"];
+// Paleta com tons bem distintos entre si (verde, dourado, azul, vermelho, roxo, laranja, ciano, grafite), legível também por quem tem daltonismo.
+const RESUMO_PALETA = ["#2E7D6B", "#C99A2E", "#3B6EA5", "#B5443A", "#8B6BAE", "#D9772F", "#3D9DB5", "#5E6B78"];
 const COR_NEUTRA = "#A9B5BF";
 // Cores fixas para rótulos com significado (o resto usa a paleta em ordem).
 const COR_SEMANTICA = {
-  "Em andamento": "#2E7D6B", "Encaminhado": "#B98A34", "Concluído": "#52667C", "Cancelado": "#A63D33",
-  "Superadas": "#2E7D6B", "Em acompanhamento": "#B98A34",
+  "Em andamento": "#2E7D6B", "Encaminhado": "#C99A2E", "Concluído": "#3B6EA5", "Cancelado": "#B5443A",
+  "Superadas": "#2E7D6B", "Em acompanhamento": "#C99A2E",
   "Sim": "#2E7D6B", "Não": COR_NEUTRA, "Outras": COR_NEUTRA,
   "Não informado": COR_NEUTRA, "Não informada": COR_NEUTRA
 };
@@ -2364,7 +2365,7 @@ function donutChartSVG(obj, opts) {
   let iLivre = 0;
   const cores = entradas.map(([k]) => COR_SEMANTICA[k] || livres[iLivre++ % (livres.length || 1)] || COR_NEUTRA);
 
-  const size = opts.size || 132, stroke = opts.stroke || 22;
+  const size = opts.size || 148, stroke = opts.stroke || 24;
   const r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
   const circ = 2 * Math.PI * r;
   const gap = entradas.length > 1 ? 2 : 0;
@@ -3588,6 +3589,55 @@ const ABNT_PRINT_CSS = `
   body .assinatura, body .assinatura *, body .assinatura-bloco, body .assinaturas,
   body .anexo-titulo, body .anexo-print-item { text-align: center !important; }
   body .page-footer-fixed .pf-selo { text-align: right !important; }
+
+  /* ===== Tabelas na impressão: leitura mais confortável (entra por último para valer sobre as regras acima) ===== */
+  table:not(.print-shell) { border-collapse: collapse !important; width: 100%; margin: 2pt 0 5pt; }
+  table:not(.print-shell) th, table:not(.print-shell) td {
+    padding: 3.5pt 6pt !important; line-height: 1.25 !important; overflow-wrap: break-word; word-break: normal;
+  }
+  /* cabeçalho: cinza um pouco mais marcado, centralizado na vertical e repetido em cada página */
+  table:not(.print-shell) th { background: #E2E2E2 !important; vertical-align: middle !important; }
+  table:not(.print-shell) thead { display: table-header-group; }
+  table:not(.print-shell) tfoot { display: table-row-group; }
+  table:not(.print-shell) thead tr, table:not(.print-shell) th { break-after: avoid; page-break-after: avoid; }
+  /* a primeira linha de dados não fica separada do cabeçalho */
+  table:not(.print-shell) thead + tbody tr:first-child { break-before: avoid; page-break-before: avoid; }
+  /* zebra bem suave: ajuda a acompanhar a linha e sai bem em preto e branco */
+  table:not(.print-shell):not(.tab-sintese) tbody tr:nth-child(even) td { background: #F4F4F4 !important; }
+  /* linhas nunca cortadas ao meio, e tabelas longas continuam na página seguinte sem sobrar espaço vazio */
+  table:not(.print-shell) tr { break-inside: avoid; page-break-inside: avoid; }
+  table:not(.print-shell) { break-inside: auto; page-break-inside: auto; }
+  /* legenda/título imediatamente antes da tabela fica junto com ela */
+  h2 + table:not(.print-shell), h3 + table:not(.print-shell), h4 + table:not(.print-shell) { margin-top: 2pt; }
+
+  /* ===== Espaços em branco: menos buracos no fim das páginas e nada de blocos vazios ===== */
+  /* registros, itens da trajetória e metas podem continuar na página seguinte (antes, o bloco inteiro era empurrado e deixava um vazio);
+     mantém ao menos 3 linhas de cada lado do corte para não sobrar uma linha solta */
+  .reg-item, .traj-item, .meta-card { break-inside: auto !important; page-break-inside: auto !important; }
+  p, li, .anotacao, .reg-evolucao, .traj-texto, .campo-preenchido { orphans: 3; widows: 3; }
+  /* campos, anotações e listas sem conteúdo não ocupam linha nenhuma */
+  p:empty, li:empty, .anotacao:empty, .campo:empty, .campo-preenchido:empty, .texto-livre:empty, .reg-evolucao:empty, .traj-texto:empty,
+  .tags-wrap:empty, .meta-notas:empty, .traj-lista:empty { display: none !important; }
+  /* separadores e quebras duplas seguidas não somam espaço */
+  br + br { display: none; }
+  .sep-cadastro + .sep-cadastro, h2 + h2 { margin-top: 0 !important; }
+  /* o primeiro bloco depois do cabeçalho fixo não precisa de margem extra no topo */
+  .print-shell > tbody > tr > td > :first-child { margin-top: 0 !important; }
+
+  /* ===== Resumo do plano (folha-síntese): leitura mais rápida ===== */
+  /* coluna do rótulo mais larga (os títulos quebravam em 3 linhas) e levemente sombreada, para o olho achar cada bloco de longe */
+  .sintese-plano .sp-lin { grid-template-columns: 34mm 1fr; gap: 0; padding-top: 0; padding-bottom: 0; }
+  .sintese-plano .sp-rot { background: #EFEFEF !important; border-right: 1px solid #000; margin: 0 0 0 -5pt; padding: 3pt 5pt; }
+  .sintese-plano .sp-val { padding: 3pt 0 3pt 7pt; }
+  /* grupos dentro da linha (Potencialidades, Barreiras, Seguranças, Eixos...) um pouco mais separados entre si */
+  .sintese-plano .sp-sub, .sintese-plano .sp-rotulado { margin-top: 4pt; }
+  .sintese-plano .sp-val > :first-child { margin-top: 0; }
+  /* tabela de metas: cabeçalho igual ao das demais tabelas e linhas alternadas suaves */
+  .sintese-plano .sp-metas th { background: #E2E2E2 !important; text-align: center; vertical-align: middle; }
+  .sintese-plano .sp-metas tbody tr:nth-child(even) td { background: #F4F4F4 !important; }
+  .sintese-plano .sp-metas td:nth-child(2), .sintese-plano .sp-metas td:nth-child(3) { white-space: nowrap; text-align: center; }
+  /* textos de "não registrado" discretos, sem peso */
+  .sintese-plano .muted { color: #555 !important; font-style: italic; }
 
   @media screen { .page-header-fixed, .page-footer-fixed, .watermark { display: none; } }
 `;
@@ -7206,8 +7256,8 @@ async function exportPDFInterno(paf) {
   };
   const sintesePlanoHTML = (() => {
     const linha = (rotulo, conteudo) => conteudo ? `<div class="sp-lin"><span class="sp-rot">${rotulo}</span><div class="sp-val">${conteudo}</div></div>` : "";
-    const vulns = _tags(paf.vulnerabilidades, paf.vulnerabilidadesOutros);
-    const potenc = _arr((paf.potencialidades || []).filter(x => x.situacao).map(x => x.potencial)).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("");
+    const vulns = _bul(paf.vulnerabilidades, paf.vulnerabilidadesOutros);
+    const potenc = _bul((paf.potencialidades || []).filter(x => x.situacao).map(x => x.potencial));
     const objet = _bul(paf.objetivosPaif, paf.objetivosPaifOutros);
     const estrat = _bul(paf.estrategias, paf.estrategiasOutras);
     const eixos = _bul(paf.eixos, paf.eixosOutros);
@@ -7241,7 +7291,7 @@ async function exportPDFInterno(paf) {
     return `
       <div class="sintese-plano">
         <div class="sep-cadastro parte"><span class="parte-n">Síntese</span> Resumo do plano <small>da situação da família ao que foi pactuado — o detalhamento vem a seguir</small></div>
-        ${linha("1 · Situação da família", `${vulns || "<span class='muted'>Vulnerabilidades não registradas</span>"}${potenc ? `<div class="sp-sub"><b>Potencialidades:</b> ${potenc}</div>` : ""}${paf.barreirasDesafios ? `<div class="sp-sub"><b>Barreiras e desafios:</b> ${escapeHtml(String(paf.barreirasDesafios).slice(0, 300))}${String(paf.barreirasDesafios).length > 300 ? "…" : ""}</div>` : ""}`)}
+        ${linha("1 · Situação da família", `${vulns || "<span class='muted'>Vulnerabilidades não registradas</span>"}${potenc ? `<div class="sp-sub"><b>Potencialidades:</b>${potenc}</div>` : ""}${paf.barreirasDesafios ? `<div class="sp-sub"><b>Barreiras e desafios:</b> ${escapeHtml(String(paf.barreirasDesafios).slice(0, 300))}${String(paf.barreirasDesafios).length > 300 ? "…" : ""}</div>` : ""}`)}
         ${linha("2 · O que se pretende alcançar", `${objet || "<span class='muted'>Objetivos não registrados</span>"}${segur ? `<div class="sp-sub"><b>Seguranças afiançadas:</b>${segur}</div>` : ""}`)}
         ${linha("3 · Por quais caminhos", `${estrat ? `<div class="sp-rotulado"><b>Estratégias:</b>${estrat}</div>` : "<span class='muted'>Estratégias não registradas</span>"}${eixos ? `<div class="sp-sub"><b>Eixos:</b>${eixos}</div>` : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b>${rede}</div>` : ""}`)}
         <div class="sp-lin"><span class="sp-rot">4 · Metas e resultados</span><div class="sp-val">
