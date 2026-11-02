@@ -3021,3 +3021,53 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
 .pilha-total { margin-top: 6px; font-size: var(--text-xs); color: var(--ink-faint); }
 .pilha-total b { color: var(--ink); font-size: var(--text-md); }
 .medidor-wrap { gap: 18px; flex-wrap: wrap; }
+
+
+/* ---------------------------- Login: refinamentos ---------------------------- */
+.login-card-band { padding-top: 60px; }
+.login-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.login-label-row label { margin-bottom: 0; }
+.login-forgot { font-size: var(--text-xs); font-weight: 600; color: var(--accent-dark); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .12s; }
+.login-forgot:hover { border-bottom-color: currentColor; }
+.login-lembrar { display: flex; align-items: center; gap: 8px; margin: 2px 0 14px; font-size: var(--text-sm); color: var(--ink-soft); cursor: pointer; user-select: none; }
+.login-lembrar input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.login-sigilo { display: flex; align-items: flex-start; justify-content: center; gap: 6px; margin: 14px 0 0; font-size: var(--text-xs); line-height: 1.4; color: var(--ink-faint); text-align: center; }
+.login-sigilo svg { flex-shrink: 0; margin-top: 1px; }
+#authEmail[aria-invalid="true"], #authPassword[aria-invalid="true"] { border-color: var(--danger) !important; box-shadow: 0 0 0 3px var(--danger-soft) !important; }
+.login-card .btn-primary.carregando { opacity: .85; cursor: progress; }
+.login-card .btn-primary.carregando::before {
+  content: ""; width: 14px; height: 14px; margin-right: 8px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; animation: loginSpin .7s linear infinite;
+}
+@keyframes loginSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .login-card .btn-primary.carregando::before { animation-duration: 1.6s; } }
+/* o mascote não aparece sobre a tela de login (cobria o link/rodapé no celular) */
+body:has(#authScreen:not([style*="display: none"]):not([style*="display:none"])) .mascote-wrap { display: none !important; }
+@media (max-width: 420px) { .login-wrap { padding: 20px 14px; align-items: flex-start; overflow-y: auto; } .login-card-body { padding: 22px 22px 24px; } }
+
+
+/* ---------------------------- Login: refinamentos 2 ---------------------------- */
+.login-ok, .login-offline {
+  font-size: var(--text-sm); line-height: 1.4; padding: 9px 12px 9px 14px; border-radius: var(--radius-sm); margin-bottom: 14px;
+  animation: loginErrorIn .25s ease-out;
+}
+.login-ok { background: var(--accent-soft); color: var(--accent-dark); border-left: 3px solid var(--accent); }
+.login-offline { background: var(--gold-soft); color: var(--gold-dark); border-left: 3px solid var(--gold); }
+/* entrada escalonada do formulário */
+.login-card-body > * { animation: loginRise .45s ease-out backwards; }
+.login-card-body > :nth-child(1) { animation-delay: .08s; } .login-card-body > :nth-child(n+4) { animation-delay: .16s; }
+.login-card-body > :nth-child(n+6) { animation-delay: .24s; } .login-card-body > :nth-child(n+8) { animation-delay: .32s; }
+@keyframes loginRise { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .login-card-body > * { animation: none; } }
+/* preenchimento automático do navegador no mesmo visual dos campos */
+#authEmail:-webkit-autofill, #authPassword:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 40px #fff inset !important; -webkit-text-fill-color: var(--ink) !important; caret-color: var(--ink);
+}
+/* botão: seta que desliza ao passar o mouse */
+.login-card .btn-primary { gap: 8px; display: flex; align-items: center; justify-content: center; transition: background .15s, box-shadow .15s, transform .1s; }
+.login-card .btn-primary::after { content: "→"; transition: transform .18s; }
+.login-card .btn-primary:hover:not(:disabled)::after { transform: translateX(4px); }
+.login-card .btn-primary:active:not(:disabled) { transform: translateY(1px); }
+.login-card .btn-primary.carregando::after { content: none; }
+.login-card .btn-primary:disabled { cursor: progress; }
+.login-lembrar:hover { color: var(--ink); }
