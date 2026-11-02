@@ -1307,6 +1307,29 @@ function dataISOLocal(d) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/* ---------------------------- Pessoas da família (lista única) ----------------------------
+   O responsável familiar tem campos próprios no cabeçalho; muitas fichas também o repetem na lista de
+   membros. Para contagens, gráficos e tabela do documento, junta tudo numa lista só, SEM contar a mesma
+   pessoa duas vezes (compara o nome sem acento/maiúsculas). */
+function rotuloSexo(v) {
+  const t = String(v || "").trim().toLowerCase();
+  if (t === "f" || t === "feminino") return "Feminino";
+  if (t === "m" || t === "masculino") return "Masculino";
+  return "";
+}
+function _nomeNorm(n) { return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase(); }
+function membrosFamilia(paf) {
+  const lista = (paf.membros || []).filter(m => m && (m.nome || m.nascimento || m.parentesco)).map(m => ({ ...m }));
+  const nomeResp = _nomeNorm(paf.responsavel);
+  if (nomeResp && !lista.some(m => _nomeNorm(m.nome) === nomeResp)) {
+    lista.unshift({
+      nome: paf.responsavel, nascimento: paf.responsavelNascimento || "", sexo: paf.responsavelSexo || "",
+      parentesco: "Responsável", nacionalidade: paf.responsavelNacionalidade || "", etnia: paf.responsavelEtnia || "", pcd: false
+    });
+  }
+  return lista;
+}
+
 function emptyPAF() {
   const now = new Date().toISOString();
   return {
@@ -3140,6 +3163,9 @@ const SEM_BRANCO_CSS = `
   .id-band > .id-nome-wrap { flex: 0 0 100% !important; }
   h2, .sep-cadastro { margin-top: 7pt !important; margin-bottom: 3pt !important; }
   .page-header-fixed .inst-h { margin-bottom: 3mm !important; }
+  /* gráficos e rosquinhas um pouco mais compactos: cabem mais blocos por página */
+  .chart-svg, .gbox .histograma-chart, .gbox-largo .chart-svg { max-height: 27mm !important; }
+  .donut-svg { width: 48pt !important; height: 48pt !important; }
 `;
 
 /* ---------------------------- CSS comum das folhas impressas ----------------------------
@@ -5256,16 +5282,12 @@ function situacaoMembrosField(paf, i, row) {
 // para que a equipe visualize rapidamente o perfil e a evolução daquele acompanhamento
 // específico ao abrir o registro — sem precisar ir até o painel geral de Gráficos.
 function computeFamiliaResumo(paf) {
-  const membrosComNome = (paf.membros || []).filter(m => m.nome);
-  // O responsável familiar tem seus próprios campos no Cabeçalho (não fica na lista de
-  // "Membros da Família"), mas para os gráficos ele conta como mais um membro da família.
-  const membrosParaGraficos = paf.responsavel
-    ? [...membrosComNome, { sexo: paf.responsavelSexo, nascimento: paf.responsavelNascimento, parentesco: "Responsável familiar", pcd: false }]
-    : membrosComNome;
+  // Lista única (responsável + membros), sem contar a mesma pessoa duas vezes.
+  const membrosParaGraficos = membrosFamilia(paf);
 
   const porSexo = {};
   membrosParaGraficos.forEach(m => {
-    const label = m.sexo === "F" ? "Feminino" : m.sexo === "M" ? "Masculino" : "Não informado";
+    const label = rotuloSexo(m.sexo) || "Não informado";
     porSexo[label] = (porSexo[label] || 0) + 1;
   });
 
@@ -5314,7 +5336,7 @@ function computeFamiliaResumo(paf) {
 
   return {
     totalMembros: membrosParaGraficos.length,
-    totalPCD: membrosComNome.filter(m => m.pcd).length,
+    totalPCD: membrosParaGraficos.filter(m => m.pcd).length,
     porSexo, porFaixa, porParentesco,
     totalSituacoesAtivas, totalSituacoesSuperadas,
     pctSituacoesSuperadas: totalSituacoesAtivas ? Math.round((totalSituacoesSuperadas / totalSituacoesAtivas) * 100) : 0,
@@ -5714,7 +5736,7 @@ function renderSection(id, paf) {
         ${notaTecnica("A Trilha da Primeira Infância (MDS, 2026) orienta analisar a família em sua totalidade: mesmo uma situação que não atinge diretamente a criança afeta a organização do cuidado e o desenvolvimento infantil. Ao compor o grupo familiar, observe quem cuida de quem — gestante criança ou adolescente, cuidador solo, adolescente ou sem rede de apoio, cuidador com deficiência ou adoecimento, cuidador de vários dependentes, crianças assumindo cuidados e cuidadores sem vínculo legal com a criança. A sobrecarga de cuidado recai sobretudo sobre mulheres (divisão sexual e racial do trabalho) e não deve ser naturalizada: a Trilha pede cuidar de quem cuida e fomentar a corresponsabilização masculina.")}
         ${notaTecnica("O campo \"Parentesco\" deve refletir o arranjo familiar real, sem pressupor o modelo nuclear tradicional. As Referências Técnicas do CFP/CREPOP reconhecem a diversidade de configurações familiares — monoparentais, homoafetivas, chefiadas por mulheres etc. — como público legítimo do PAIF.")}
         <table class="dyn-table">
-          <thead><tr><th style="width:15%">Nome</th><th style="width:11%">Nascimento</th><th style="width:6%">Sexo</th><th style="width:12%">Parentesco</th><th style="width:14%">Nacionalidade</th><th style="width:14%">Etnia indígena</th><th style="width:6%">PCD</th><th></th></tr></thead>
+          <thead><tr><th style="width:15%">Nome</th><th style="width:11%">Nascimento</th><th style="width:6%">Sexo</th><th style="width:12%">Parentesco</th><th style="width:14%">Nacionalidade</th><th style="width:14%">Raça/cor/etnia</th><th style="width:6%">PCD</th><th></th></tr></thead>
           <tbody>
             ${paf.membros.map((m, i) => `
               <tr>
@@ -6720,11 +6742,11 @@ async function exportPDFInterno(paf) {
     toast(`Gerando documento com ${qtdPdfsAnexados} PDF${qtdPdfsAnexados > 1 ? "s" : ""} anexado${qtdPdfsAnexados > 1 ? "s" : ""} — pode levar alguns segundos…`);
   }
 
-  const membrosHTML = (paf.membros || []).map(m => `
+  const membrosHTML = membrosFamilia(paf).map(m => `
     <tr>
       <td>${escapeHtml(m.nome)}</td>
       <td>${fmtDateBR(m.nascimento)}</td>
-      <td>${escapeHtml(m.sexo)}</td>
+      <td>${escapeHtml(rotuloSexo(m.sexo) || m.sexo)}</td>
       <td>${escapeHtml(m.parentesco)}</td>
       <td>${escapeHtml(m.nacionalidade) || "—"}</td>
       <td>${escapeHtml(m.etnia) || "—"}</td>
@@ -6875,7 +6897,7 @@ async function exportPDFInterno(paf) {
   // ---- Parte 1 (conhecer a família): auxiliares de composição, moradia, renda e saúde ----
   const _c = (label, val) => `<div class="field"><span class="label">${label}</span>${val || "—"}</div>`;
   const _sq = (sn, quem) => sn ? escapeHtml(sn) + (sn === "Sim" && quem ? " (" + escapeHtml(quem) + ")" : "") : "";
-  const _membros = paf.membros || [];
+  const _membros = membrosFamilia(paf);
   const _idades = _membros.map(m => calcularIdade(m.nascimento)).filter(i => i !== null);
   const _faixa = (lo, hi) => _idades.filter(i => i >= lo && i <= hi).length;
   const _pcd = _membros.filter(m => m.pcd).length;
@@ -7653,7 +7675,7 @@ async function exportPDFInterno(paf) {
         <div class="id-grid">
           <div><span class="k">CPF</span><span class="v">${escapeHtml(paf.cpf) || "—"}</span></div>
           <div><span class="k">NIS</span><span class="v">${escapeHtml(paf.nis) || "—"}</span></div>
-          <div><span class="k">Sexo</span><span class="v">${escapeHtml(paf.responsavelSexo) || "—"}</span></div>
+          <div><span class="k">Sexo</span><span class="v">${escapeHtml(rotuloSexo(paf.responsavelSexo) || paf.responsavelSexo) || "—"}</span></div>
           <div><span class="k">Estado civil</span><span class="v">${escapeHtml(paf.responsavelEstadoCivil) || "—"}</span></div>
           <div><span class="k">Nacionalidade</span><span class="v">${escapeHtml(paf.responsavelNacionalidade) || "—"}${paf.responsavelEtnia ? " · " + escapeHtml(paf.responsavelEtnia) : ""}</span></div>
           <div><span class="k">Técnico de Referência</span><span class="v">${escapeHtml(paf.tecnicoReferencia) || "—"}</span></div>
@@ -7675,7 +7697,7 @@ async function exportPDFInterno(paf) {
       <h2>Composição Familiar</h2>
       ${composicaoResumoHTML}
       <table>
-        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Etnia indígena</th><th>PCD</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Raça/cor/etnia</th><th>PCD</th></tr></thead>
         <tbody>${membrosHTML}</tbody>
       </table>
       ${migracaoHTML}
@@ -7921,6 +7943,8 @@ async function exportPDFInterno(paf) {
   printWin.document.open();
   printWin.document.write(marcarVaziosImpressao(html));
   printWin.document.close();
+  // Nome sugerido ao salvar em PDF: "Nome do Responsável - Plano de Acompanhamento Familiar".
+  try { printWin.document.title = nomeArquivoPAF(paf); } catch (e) { /* ignora */ }
 }
 
 /* ---------------------------- Impressão: Formulário de Encaminhamento (modelo SUAS) ---------------------------- */
@@ -8268,7 +8292,7 @@ async function exportWord(paf) {
 
       ${secao("02", "Composição Familiar")}
       <table class="dados">
-        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Etnia indígena</th><th>PCD</th></tr>
+        <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Raça/cor/etnia</th><th>PCD</th></tr>
         ${membrosWordHTML}
       </table>
       ${migracaoWordHTML}
