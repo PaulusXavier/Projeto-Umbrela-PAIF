@@ -442,6 +442,24 @@ manual.split(/^## /m).slice(1).forEach(bloco => {
       { tipo: 'apoio', ...(sec ? { secao: sec } : {}) });
   });
 });
+/* ------------------------------------------------------------ 9. PAF em perguntas e respostas (docs/paf-perguntas-e-respostas.md) */
+
+const pafFaq = fs.readFileSync(path.join(raiz, 'docs', 'paf-perguntas-e-respostas.md'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+let nPafFaq = 0;
+pafFaq.split(/^## /m).slice(1).forEach(bloco => {
+  const nl = bloco.indexOf('\n');
+  const pergunta = bloco.slice(0, nl).trim();
+  const texto = bloco.slice(nl + 1).trim().replace(/\s+/g, ' ');
+  partir(texto, 800).forEach((p, i, arr) => {
+    nPafFaq++;
+    const ref = pergunta + (arr.length > 1 ? ' (parte ' + (i + 1) + ')' : '');
+    add('umbrella-paf-faq', 'PAF, pergunta frequente: ' + ref,
+      'Perguntas e respostas sobre o PAF (resumo de apoio a partir das Orientações Técnicas do PAIF, das Referências do CFP/CREPOP e do guia do Umbrella; não é norma, e prazos e números que variam por município estão marcados como tais)',
+      ref, p, { tipo: 'apoio' });
+  });
+});
+console.log('PAF perguntas e respostas:', nPafFaq, 'trechos');
+
 console.log('manual:', nManual, 'verbetes | histórico:', nHist, '| anotações:', nNotas, '| fundamentação:', nFund);
 
 
