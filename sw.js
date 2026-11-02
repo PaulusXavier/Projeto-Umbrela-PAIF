@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paf-paif-v106';
+const CACHE_NAME = 'paf-paif-v107';
 
 // Arquivos "essenciais" do app: sempre tentamos buscar a versão mais nova na rede
 // primeiro, e só usamos o cache se o dispositivo estiver offline. Isso garante que
@@ -14,8 +14,14 @@ const STATIC_ASSETS = ['./manifest.json', './icon-192.png', './icon-512.png', '.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll([...CORE_ASSETS, ...STATIC_ASSETS]))
-      .catch(() => {})
+      .then((cache) => {
+        // Um por um: se um arquivo falhar (404), os demais continuam sendo guardados.
+        const urls = [...CORE_ASSETS, ...STATIC_ASSETS];
+        return Promise.allSettled(urls.map((u) => cache.add(u))).then((res) => {
+          res.forEach((r, i) => { if (r.status === 'rejected') console.warn('[sw] não foi possível guardar em cache:', urls[i]); });
+        });
+      })
+      .catch((e) => console.warn('[sw] falha ao abrir o cache', e))
   );
   // Ativa a nova versão imediatamente, sem esperar as abas antigas fecharem.
   self.skipWaiting();
