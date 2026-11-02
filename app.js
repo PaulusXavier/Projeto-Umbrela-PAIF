@@ -2523,12 +2523,12 @@ function paretoChartSVG(obj, opts) {
   const eixo = eixoY(max);
 
   // Rótulos inclinados: reserva altura e margem esquerda conforme o maior rótulo (largura média conservadora).
-  const CHAR = 6.2, COS = 0.788, SIN = 0.616; // ângulo de -38°
+  const CHAR = 5.8, COS = 0.788, SIN = 0.616; // ângulo de -38°
   const rotulosTxt = entradas.map(([k]) => encurtarTexto(k, 26));
   const comprimentos = rotulosTxt.map((t) => t.length * CHAR);
   const colW = 58;
   const padT = 22, chartH = 132, padR = 40;
-  const padB = Math.ceil(Math.max(...comprimentos) * SIN) + 26;
+  const padB = Math.ceil(Math.max(...comprimentos) * SIN) + 20;
   const extPrimeiro = comprimentos[0] * COS; // quanto o 1º rótulo avança para a esquerda
   const padL = Math.min(Math.max(margemEixoNum(eixo.topo), Math.ceil(extPrimeiro - colW / 2 + 12)), 110);
   const width = padL + Math.max(entradas.length, 4) * colW + padR;
@@ -2545,7 +2545,7 @@ function paretoChartSVG(obj, opts) {
     const pct = Math.round((acum / totalGeral) * 100);
     const vital = Math.round((antes / totalGeral) * 100) < 80; // barras até cruzar 80%
     if (vital) nVitais = i + 1;
-    pontos.push([x0 + colW / 2, padT + chartH - (pct / 100) * chartH, pct, k]);
+    pontos.push([x0 + colW / 2, padT + chartH - (pct / 100) * chartH, pct, k, y]);
     const pctBarra = Math.round((v / totalGeral) * 100);
     return `
       <path d="${barraArredondadaPath(x0 + 6, y, colW - 12, h, 4)}" fill="var(--accent, #2E7D6B)" opacity="${vital ? 1 : .42}" class="pareto-bar" tabindex="0"><title>${escapeHtml(k)}: ${v} ocorrências (${pctBarra}%)</title></path>
@@ -2555,9 +2555,14 @@ function paretoChartSVG(obj, opts) {
 
   const xFim = width - padR;
   const linha = pontos.map(([x, y]) => `${x},${y}`).join(" ");
-  const marcadores = pontos.map(([x, y, pct, k]) => `
+  // O % acumulado normalmente fica acima do ponto; se isso cair em cima do número da barra (mesma coluna), vai para baixo do ponto.
+  const marcadores = pontos.map(([x, y, pct, k, yBarra]) => {
+    const colide = !(y - 8 < yBarra - 17 || y - 19 > yBarra - 3);
+    const yTxt = colide ? y + 19 : y - 8;
+    return `
     <circle cx="${x}" cy="${y}" r="3.6" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1.5" class="pareto-ponto" tabindex="0"><title>Acumulado até "${escapeHtml(k)}": ${pct}%</title></circle>
-    <text x="${x}" y="${y - 8}" text-anchor="middle" class="pareto-pct-num">${pct}%</text>`).join("");
+    <text x="${x}" y="${yTxt}" text-anchor="middle" class="pareto-pct-num">${pct}%</text>`;
+  }).join("");
   const y80 = padT + chartH - 0.8 * chartH;
   const eixoDir = [0, 50, 100].map((p) => `<text x="${xFim + 6}" y="${padT + chartH - (p / 100) * chartH + 3}" text-anchor="start" class="pareto-eixo-dir">${p}%</text>`).join("");
 
@@ -3475,7 +3480,9 @@ const ABNT_PRINT_CSS = `
   .sp-metas th, .sp-metas td { border: 1px solid #000; padding: 2pt 4pt; font-size: 10pt !important; line-height: 1.25 !important; }
   .sem-registro { margin-top: 10pt; font-size: 10pt !important; }
   /* caixa de leitura do acompanhamento não se parte entre páginas */
-  .lei-texto { break-inside: avoid !important; page-break-inside: avoid !important; }
+  /* caixas de texto longo (leitura, metas, registros) podem continuar na página seguinte: antes eram empurradas inteiras e deixavam meia página em branco */
+  .lei-texto, .meta-card, .reg-item, .traj-item { break-inside: auto !important; page-break-inside: auto !important; }
+  .lei-texto p, .meta-card p, .reg-item p, .traj-item p { orphans: 3; widows: 3; }
 
   @media screen { .page-header-fixed, .page-footer-fixed, .watermark { display: none; } }
 `;
