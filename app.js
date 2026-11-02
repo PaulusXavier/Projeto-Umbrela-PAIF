@@ -1053,8 +1053,11 @@ async function adicionarAnexos(fileList) {
 
   const novos = [];
   for (const file of arquivos) {
-    const ehImagem = file.type.startsWith("image/");
-    const ehPdf = file.type === "application/pdf";
+    // Alguns aparelhos/navegadores entregam o arquivo sem tipo (file.type vazio): infere pela extensão.
+    const _ext = (file.name.split(".").pop() || "").toLowerCase();
+    const _tipoArq = file.type || (_ext === "pdf" ? "application/pdf" : (["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(_ext) ? "image/" + (_ext === "jpg" ? "jpeg" : _ext) : ""));
+    const ehImagem = _tipoArq.startsWith("image/");
+    const ehPdf = _tipoArq === "application/pdf";
     if (!ehImagem && !ehPdf) {
       toast(`"${file.name}" não é imagem nem PDF — ignorado.`);
       continue;
@@ -1082,7 +1085,7 @@ async function adicionarAnexos(fileList) {
       novos.push({
         id: uid(),
         nome: file.name,
-        tipo: file.type,
+        tipo: _tipoArq,
         tamanho,
         dataURL,
         addedAt: new Date().toISOString()
@@ -3122,6 +3125,23 @@ const CABECALHO_RODAPE_INST_CSS = `
     font-weight: normal !important; color: #000 !important; }
 `;
 
+/* ---------------------------- Compactação: sem espaços em branco na impressão ----------------------------
+   - margens da folha menores (o cabeçalho/rodapé institucionais já ocupam o topo/fim da área útil);
+   - caixas vazias somem e caixas lado a lado não se esticam até a altura da vizinha;
+   - blocos grandes podem continuar na página seguinte (só linhas/itens pequenos não se partem),
+     evitando os vãos no fim das páginas. */
+const SEM_BRANCO_CSS = `
+  @page { margin: 10mm 15mm 16mm 20mm; }
+  .tags-wrap:empty, .grid:empty, .anotacao:empty, p:empty { display: none !important; }
+  .sum-boxes, .sum-cols, .lei-cols, .g-par, .fam-graf, .resumo-cols, .resumo-cols-donut, .grid { align-items: start !important; }
+  .sintese-fam .sum-box .s { min-height: 0 !important; }
+  .sum-box, .gbox, .resumo-cols > div, .sum-cols > div, .lei-cols > div, .chart-box { height: auto !important; min-height: 0 !important; }
+  .sintese-plano, .id-band, .capa-header { break-inside: auto !important; page-break-inside: auto !important; }
+  .id-band > .id-nome-wrap { flex: 0 0 100% !important; }
+  h2, .sep-cadastro { margin-top: 7pt !important; margin-bottom: 3pt !important; }
+  .page-header-fixed .inst-h { margin-bottom: 3mm !important; }
+`;
+
 /* ---------------------------- CSS comum das folhas impressas ----------------------------
    - print-color-adjust: exact -> sem isso o Chrome/Edge/Safari descartam fundos ao imprimir
      (padrão do diálogo de impressão), e cabeçalhos de tabela, faixas institucionais e etiquetas
@@ -3649,6 +3669,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         }
         ${ABNT_PRINT_CSS}
         ${CABECALHO_RODAPE_INST_CSS}
+        ${SEM_BRANCO_CSS}
       </style>
 
     </head>
@@ -6670,17 +6691,31 @@ function attachGlobalHandlers() {
 
 /* ---------------------------- Exportação: PDF (Impressão Nativa) ---------------------------- */
 
+// Envolve a geração do PDF: se algo falhar no meio (anexo corrompido, nuvem fora do ar...), avisa e fecha
+// a janela em branco que já tinha sido aberta, em vez de deixá-la vazia para o usuário.
 async function exportPDF(paf) {
+  window._pdfJanela = null;
+  try {
+    await exportPDFInterno(paf);
+  } catch (err) {
+    console.error("Falha ao gerar o PDF:", err);
+    try { if (window._pdfJanela && !window._pdfJanela.closed) window._pdfJanela.close(); } catch (e) { /* ignora */ }
+    toast("Não foi possível gerar o PDF: " + ((err && err.message) || "erro inesperado") + ".");
+  }
+}
+
+async function exportPDFInterno(paf) {
   if (!paf) return;
   const printWin = window.open("", "_blank");
   if (!printWin) {
     toast("Bloqueador de pop-ups ativo. Permita pop-ups para exportar.");
     return;
   }
+  window._pdfJanela = printWin;
   await garantirAnexosCarregados(paf, { forcar: true });
   await garantirHistoricoCarregado(paf);
   histRegistrarAcao(paf, "exportou_pdf", "Gerou o PDF do prontuário (impressão/exportação)");
-  const qtdPdfsAnexados = (paf.anexos || []).filter(a => a.tipo === "application/pdf").length;
+  const qtdPdfsAnexados = (paf.anexos || []).filter(a => a && a.dataURL && a.tipo === "application/pdf").length;
   if (qtdPdfsAnexados) {
     toast(`Gerando documento com ${qtdPdfsAnexados} PDF${qtdPdfsAnexados > 1 ? "s" : ""} anexado${qtdPdfsAnexados > 1 ? "s" : ""} — pode levar alguns segundos…`);
   }
@@ -6812,8 +6847,10 @@ async function exportPDF(paf) {
       </div>` : ""}`;
   })();
 
-  const anexosImg = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
-  const anexosPdf = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
+  // Anexos sem tipo ou sem conteúdo (registro antigo/corrompido) são ignorados em vez de travar a exportação.
+  const _anexosValidos = (paf.anexos || []).filter(a => a && a.dataURL);
+  const anexosImg = _anexosValidos.filter(a => String(a.tipo || "").startsWith("image/"));
+  const anexosPdf = _anexosValidos.filter(a => a.tipo === "application/pdf");
   // Anexos (ABNT NBR 14724): identificados por letras maiúsculas ("Anexo A – título"), no fim do documento,
   // cada um com título próprio; imagens ajustadas à página e PDFs desenhados uma página por vez, sem estourar a folha.
   const letraAnexo = (n) => { let r = ""; do { r = String.fromCharCode(65 + (n % 26)) + r; n = Math.floor(n / 26) - 1; } while (n >= 0); return r; };
@@ -6830,10 +6867,10 @@ async function exportPDF(paf) {
   // um PDF dentro de <iframe> costuma sair em BRANCO no Chrome. Sem internet, cai no iframe antigo.
   const anexosPdfPaginasHTML = anexosPdf.map((a, i) => `
     <div class="anexo-pdf-pagina">
-      <p class="anexo-titulo">Anexo ${letraAnexo(anexosImg.length + i)} – ${escapeHtml(a.nome)}</p>
+      <p class="anexo-titulo">Anexo ${letraAnexo(anexosImg.length + i)} – ${escapeHtml(a.legenda || a.nome)}</p>
       <div class="anexo-pdf-alvo" id="anexoPdfAlvo${i}"><p class="muted">Carregando páginas do anexo…</p></div>
     </div>`).join("");
-  const anexosPdfDados = JSON.stringify(anexosPdf.map(a => ({ nome: a.nome, dataURL: a.dataURL }))).replace(/</g, "\\u003c");
+  const anexosPdfDados = JSON.stringify(anexosPdf.map(a => ({ nome: a.legenda || a.nome, dataURL: a.dataURL }))).replace(/</g, "\\u003c");
 
   // ---- Parte 1 (conhecer a família): auxiliares de composição, moradia, renda e saúde ----
   const _c = (label, val) => `<div class="field"><span class="label">${label}</span>${val || "—"}</div>`;
@@ -7581,6 +7618,7 @@ async function exportPDF(paf) {
 
         ${ABNT_PRINT_CSS}
         ${CABECALHO_RODAPE_INST_CSS}
+        ${SEM_BRANCO_CSS}
       </style>
     </head>
     <body>
@@ -7857,7 +7895,9 @@ async function exportPDF(paf) {
               if (window.pdfjsLib) {
                 window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
                 for (var i = 0; i < PDFS.length; i++) {
-                  try { await desenharPdf(i); } catch (e) { console.error(e); usouQuadro = true; quadroPdf(i); }
+                  try {
+                    await Promise.race([desenharPdf(i), new Promise(function (_, rej) { setTimeout(function () { rej(new Error("tempo esgotado ao desenhar o PDF anexo")); }, 30000); })]);
+                  } catch (e) { console.error(e); usouQuadro = true; quadroPdf(i); }
                 }
               } else {
                 usouQuadro = true;
@@ -7866,6 +7906,8 @@ async function exportPDF(paf) {
             }
             setTimeout(dispararImpressao, usouQuadro ? 1200 + PDFS.length * 700 : (PDFS.length ? 300 : 50));
           }
+          // Rede de segurança: se algo travar, a janela de impressão abre mesmo assim.
+          setTimeout(dispararImpressao, 90000);
           window.onload = function () {
             var esperar = (document.fonts && document.fonts.ready) ? Promise.race([document.fonts.ready, new Promise(function (r) { setTimeout(r, 2500); })]) : Promise.resolve();
             esperar.then(principal, principal);
@@ -8135,8 +8177,8 @@ async function exportWord(paf) {
 
   const anexosWordHTML = (() => {
     if (!(paf.anexos || []).length) return "";
-    const imgs = (paf.anexos || []).filter(a => a.tipo.startsWith("image/"));
-    const pdfs = (paf.anexos || []).filter(a => a.tipo === "application/pdf");
+    const imgs = (paf.anexos || []).filter(a => a && a.dataURL && String(a.tipo || "").startsWith("image/"));
+    const pdfs = (paf.anexos || []).filter(a => a && a.dataURL && a.tipo === "application/pdf");
     const letra = (n) => { let r = ""; do { r = String.fromCharCode(65 + (n % 26)) + r; n = Math.floor(n / 26) - 1; } while (n >= 0); return r; };
     let out = secao("07", "Anexos");
     imgs.forEach((a, k) => {
