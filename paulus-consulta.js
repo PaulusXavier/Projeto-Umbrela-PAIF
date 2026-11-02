@@ -65,6 +65,13 @@
     [/\b(religiao|religioso|religiosa|igreja|culto|oracao)\b/, "laicidade praticas religiosas"],
     [/\b(nao adere|nao aderiu|adesao|nao comparece|nao vem|faltou|abandono do acompanhamento|baixa adesao)\b/, "adesao baixa adesao desprotecao fatalismo participacao voluntaria"],
     [/\b(exigir|obrigar|obrigatorio|obrigatoria|imposto|condicao)\b/, "voluntaria nao pode ser imposta condicionalidade"],
+    [/\b(assina|assinar|assinatura|assinaturas|assinado)\b/, "assina assinatura folha de assinaturas pactuacao compromissos copia PAF"],
+    [/\b(nao quer|nao aceita|nao aceitou|recusa|recusou|recusar|nao concorda)\b/, "familia nao quiser PAF recusa voluntaria atendimento porta aberta"],
+    [/\b(tecnico de referencia|profissional de referencia|quem acompanha|responsavel pelo acompanhamento)\b/, "tecnico de referencia nivel superior elaboracao do plano"],
+    [/\b(quanto tempo|duracao|dura|prazo do acompanhamento|periodicidade|de quanto em quanto|quantos encontros|quantas vezes)\b/, "quanto tempo dura acompanhamento periodicidade encontros por ano nao e norma protocolo do municipio"],
+    [/\b(mudou de endereco|mudou de municipio|mudanca de domicilio|mudou de bairro|foi embora|se mudou)\b/, "mudanca de domicilio mudou de endereco ou de municipio encerrar PAF"],
+    [/\b(quantas familias|numero de familias|limite de familias|quantos pafs|pafs por tecnico|quantos planos)\b/, "quantas familias por tecnico nao ha numero unico protocolo municipal"],
+    [/\b(nao pode constar|nao colocar|nao escrever|o que evitar|nao deve constar|o que nao registrar)\b/, "registro sem juizo de valor rotulos erros comuns ao elaborar o PAF"],
     // --- uso do app (manual do Umbrella): vocabulário de quem pergunta "como faço no sistema" ---
     [/\b(ler as fichas|le as fichas|consegue ler|ver as fichas|ve as fichas|enxerga|acessa os dados|le os dados|ver os dados|dados das familias|privacidade|lgpd do paulus)\b/, "Paulus nao le nenhum dado privacidade fichas filtro"],
     [/\b(atalho|atalhos|teclado|ctrl|tecla)\b/, "atalhos de teclado Ctrl+S salvar busca Alt setas"],
