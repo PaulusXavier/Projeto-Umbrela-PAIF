@@ -3447,6 +3447,13 @@ const ABNT_PRINT_CSS = `
   .label, .id-grid .k, .lbl { font-weight: normal !important; color: #333 !important; }
   .vazio, .field .vazio, .id-grid .v.vazio { font-weight: normal !important; color: #777 !important; }
   .muted { font-weight: normal !important; }
+  /* texto redigido pelo(a) técnico(a) dentro de um campo ("Outras: ...") fica em peso normal; só os itens marcados vão em negrito */
+  .texto-livre { font-weight: normal !important; }
+  /* Estratégias e Eixos: o rótulo vai em negrito e o conteúdo em peso normal */
+  .grid.grid-estrategias .field, .grid.grid-estrategias .field * { font-weight: normal !important; }
+  .grid.grid-estrategias .field > .label { font-weight: bold !important; color: #000 !important; }
+  /* a caixa não se parte entre páginas (evita moldura vazia no fim de uma página e texto na seguinte); o título vai junto */
+  .grid.grid-estrategias { break-inside: avoid !important; page-break-inside: avoid !important; }
   /* folha-síntese: página 1 inteira dedicada ao plano, em linhas numeradas (situação → objetivos → caminhos → metas) */
   .sintese-plano { margin: 0 0 6pt; }
   .sintese-plano, .sintese-plano * { font-size: 10.5pt !important; line-height: 1.3 !important; }
@@ -7062,7 +7069,7 @@ async function exportPDFInterno(paf) {
         <div class="sep-cadastro parte"><span class="parte-n">Síntese</span> Resumo do plano <small>da situação da família ao que foi pactuado — o detalhamento vem a seguir</small></div>
         ${linha("1 · Situação da família", `${vulns || "<span class='muted'>Vulnerabilidades não registradas</span>"}${potenc ? `<div class="sp-sub"><b>Potencialidades:</b> ${potenc}</div>` : ""}${paf.barreirasDesafios ? `<div class="sp-sub"><b>Barreiras e desafios:</b> ${escapeHtml(String(paf.barreirasDesafios).slice(0, 300))}${String(paf.barreirasDesafios).length > 300 ? "…" : ""}</div>` : ""}`)}
         ${linha("2 · O que se pretende alcançar", `${objet || "<span class='muted'>Objetivos não registrados</span>"}${segur ? `<div class="sp-sub"><b>Seguranças afiançadas:</b> ${segur}</div>` : ""}`)}
-        ${linha("3 · Por quais caminhos", `${estrat ? `<div><b>Estratégias:</b> ${estrat}</div>` : ""}${eixos ? `<div class="sp-sub"><b>Eixos:</b> ${eixos}</div>` : ""}${!estrat && !eixos ? "<span class='muted'>Estratégias e eixos não registrados</span>" : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b> ${rede}</div>` : ""}`)}
+        ${linha("3 · Por quais caminhos", `${estrat || "<span class='muted'>Estratégias não registradas</span>"}${eixos ? `<div class="sp-sub"><b>Eixos:</b> ${eixos}</div>` : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b> ${rede}</div>` : ""}`)}
         <div class="sp-lin"><span class="sp-rot">4 · Metas e resultados</span><div class="sp-val">
           ${metasLin ? `<table class="sp-metas"><thead><tr><th>Meta</th><th>Prazo</th><th>Situação</th><th>Último registro</th></tr></thead><tbody>${metasLin}</tbody></table>` : "<span class='muted'>Nenhuma meta definida</span>"}
         </div></div>
@@ -7777,9 +7784,9 @@ async function exportPDFInterno(paf) {
       ${_secao("Objetivos do PAIF Trabalhados no Plano", _arr(paf.objetivosPaif).length || paf.objetivosPaifOutros, `<div class="tags-wrap">${_tags(paf.objetivosPaif, paf.objetivosPaifOutros)}</div>`)}
       ${_secao("Seguranças Socioassistenciais Afiançadas", _arr(paf.segurancasSocioassistenciais).length || paf.segurancasSocioassistenciaisOutras, `<div class="tags-wrap">${_tags(paf.segurancasSocioassistenciais, paf.segurancasSocioassistenciaisOutras)}</div>`)}
       ${_secao("Estratégias e Eixos de Intervenção", _arr(paf.estrategias).length || _arr(paf.eixos).length || paf.estrategiasOutras || paf.eixosOutros, `
-      <div class="grid">
-        <div class="field"><span class="label">Estratégias</span>${(paf.estrategias || []).map(escapeHtml).join(", ") || "—"}${paf.estrategiasOutras ? " · Outras: " + escapeHtml(paf.estrategiasOutras) : ""}</div>
-        <div class="field"><span class="label">Eixos de intervenção</span>${(paf.eixos || []).map(escapeHtml).join(", ") || "—"}${paf.eixosOutros ? " · Outros: " + escapeHtml(paf.eixosOutros) : ""}</div>
+      <div class="grid grid-estrategias">
+        <div class="field"><span class="label">Estratégias</span>${(paf.estrategias || []).map(escapeHtml).join(", ") || "—"}${paf.estrategiasOutras ? " · Outras: <span class=\"texto-livre\">" + escapeHtml(paf.estrategiasOutras) + "</span>" : ""}</div>
+        <div class="field"><span class="label">Eixos de intervenção</span>${(paf.eixos || []).map(escapeHtml).join(", ") || "—"}${paf.eixosOutros ? " · Outros: <span class=\"texto-livre\">" + escapeHtml(paf.eixosOutros) + "</span>" : ""}</div>
       </div>`)}
       ${_secao("Trabalho Social Coletivo do PAIF", _arr(paf.atividadesColetivas).length || paf.atividadesColetivasOutras, `<div class="tags-wrap">${_tags(paf.atividadesColetivas, paf.atividadesColetivasOutras)}</div>`)}
 
