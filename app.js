@@ -3206,8 +3206,10 @@ const CABECALHO_RODAPE_INST_CSS = `
    - caixas vazias somem e caixas lado a lado não se esticam até a altura da vizinha;
    - blocos grandes podem continuar na página seguinte (só linhas/itens pequenos não se partem),
      evitando os vãos no fim das páginas. */
+// Geometria da folha A4 impressa (margens do @page). Usada também para medir em que página cada seção cai (sumário).
+const PAGINA_PDF_MM = { larg: 210, alt: 297, topo: 10, dir: 15, base: 16, esq: 20 };
 const SEM_BRANCO_CSS = `
-  @page { margin: 10mm 15mm 16mm 20mm; }
+  @page { margin: ${PAGINA_PDF_MM.topo}mm ${PAGINA_PDF_MM.dir}mm ${PAGINA_PDF_MM.base}mm ${PAGINA_PDF_MM.esq}mm; }
   .tags-wrap:empty, .grid:empty, .anotacao:empty, p:empty { display: none !important; }
   .sum-boxes, .sum-cols, .lei-cols, .g-par, .fam-graf, .resumo-cols, .resumo-cols-donut, .grid { align-items: start !important; }
   .sintese-fam .sum-box .s { min-height: 0 !important; }
@@ -6940,6 +6942,260 @@ function attachGlobalHandlers() {
 
 // Envolve a geração do PDF: se algo falhar no meio (anexo corrompido, nuvem fora do ar...), avisa e fecha
 // a janela em branco que já tinha sido aberta, em vez de deixá-la vazia para o usuário.
+/* ---------------------------- Capa, folha de rosto e sumário do PAF (PDF) ----------------------------
+   Página 1: capa com o nome do responsável familiar ao centro (sem cabeçalho/rodapé, sem número).
+   Página 2: folha de rosto (identificação do plano) + SUMÁRIO com os itens e a página de cada um.
+   Os números de página não são chutados: antes de abrir a impressão, o documento é remontado dentro de um
+   contêiner de colunas do tamanho exato da folha (mesmo motor de quebras da impressão: títulos que não ficam
+   órfãos, linhas e cartões que não se partem, cabeçalho/rodapé repetidos) e mede-se em que "folha" cada título cai. */
+const CAPA_SUMARIO_CSS = `
+  @page capa { size: A4; margin: 0; @bottom-right { content: none; } }
+  .capa-pagina { page: capa; display: block; position: relative; z-index: 5; background: #fff; box-sizing: border-box; height: 296mm; padding: 11mm; overflow: hidden;
+    break-after: page; page-break-after: always; break-inside: avoid; }
+  .cp-moldura { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; justify-content: space-between;
+    border: 1.6pt solid #000 !important; outline: .5pt solid #000; outline-offset: 2.2pt; padding: 13mm 16mm 12mm; }
+  .cp-topo, .cp-meio, .cp-base { text-align: center !important; }
+  .cp-meio { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .cp-logo { display: block; height: 24mm; width: auto; max-width: none !important; margin: 0 auto 5mm; }
+  .cp-topo p, .cp-meio p, .cp-base p { margin: 0 !important; padding: 0 !important; text-align: center !important; text-indent: 0 !important; }
+  .cp-inst { font-size: 13pt !important; font-weight: bold !important; text-transform: uppercase; line-height: 1.35 !important; }
+  .cp-lin { font-size: 11pt !important; line-height: 1.4 !important; }
+  .cp-eyebrow { font-size: 12.5pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .14em !important; line-height: 1.4 !important; }
+  .cp-meio p.cp-servico { font-size: 11pt !important; line-height: 1.4 !important; margin: 4mm 0 0 !important; }
+  .cp-filete { width: 62mm; border-top: 1.6pt solid #000; margin: 7mm auto 0 !important; height: 0; position: relative; }
+  .cp-filete::after { content: ""; position: absolute; left: 0; right: 0; top: 2pt; border-top: .5pt solid #000; }
+  .cp-filete-b { margin: 0 auto 7mm !important; }
+  .cp-meio p.cp-nome { margin: 9mm 0 2mm !important; font-weight: bold !important; text-transform: uppercase; line-height: 1.2 !important;
+    max-width: 100%; overflow-wrap: anywhere; hyphens: auto; }
+  .cp-nome-1 { font-size: 30pt !important; } .cp-nome-2 { font-size: 25pt !important; } .cp-nome-3 { font-size: 21pt !important; } .cp-nome-4 { font-size: 17pt !important; }
+  .cp-meio p.cp-papel { font-size: 12pt !important; font-style: italic; letter-spacing: .04em !important; line-height: 1.4 !important; margin: 0 0 8mm !important; }
+  .cp-base p.cp-lin { margin: .5mm 0 0 !important; }
+  .cp-base p.cp-local { font-size: 12pt !important; font-weight: bold !important; margin: 3mm 0 0 !important; }
+
+  .frente-pagina { break-after: page; page-break-after: always; }
+  .fr-titulo { margin: 2mm 0 0 !important; text-align: center !important; text-indent: 0 !important; font-size: 14pt !important; font-weight: bold !important;
+    text-transform: uppercase; line-height: 1.3 !important; }
+  .fr-sub { margin: 0 0 5mm !important; text-align: center !important; text-indent: 0 !important; font-size: 11pt !important; line-height: 1.35 !important; }
+  .fr-grid { display: grid; grid-template-columns: 31mm 1fr 31mm 1fr; border-top: .8pt solid #000; border-left: .8pt solid #000; margin: 0 0 6mm; }
+  .fr-grid > .v3 { grid-column: 2 / -1; }
+  .fr-grid > div { padding: 1.1mm 2.5mm; border-right: .8pt solid #000; border-bottom: .8pt solid #000; font-size: 11pt !important; line-height: 1.3 !important;
+    text-align: left !important; text-indent: 0 !important; overflow-wrap: anywhere; }
+  .fr-grid > .k { font-weight: bold; }
+  .fr-sumario-t { margin: 0 0 3mm !important; padding-bottom: 1.2mm; border-bottom: .8pt solid #000; text-align: center !important; text-indent: 0 !important;
+    font-size: 12pt !important; font-weight: bold !important; letter-spacing: .12em !important; line-height: 1.3 !important; }
+  .sm-lin { display: flex; align-items: baseline; box-sizing: border-box; padding: .1mm 0; color: #000 !important; text-decoration: none !important;
+    font-size: 10.5pt !important; line-height: 1.2 !important; text-align: left !important; text-indent: 0 !important; break-inside: avoid; page-break-inside: avoid; }
+  .sm-t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sm-pt { flex: 1 1 8mm; min-width: 8mm; margin: 0 1.6mm; border-bottom: 1px dotted #000; position: relative; top: -1.3pt; }
+  .sm-p { flex: 0 0 auto; min-width: 8mm; text-align: right !important; font-variant-numeric: tabular-nums; }
+  .sm-n0 { font-weight: bold; margin-top: .9mm; }
+  .sm-n0:first-child { margin-top: 0; }
+  .sm-n1 { padding-left: 5mm; }
+  .sm-n2 { padding-left: 10mm; }
+  .sm-sem-num .sm-pt, .sm-sem-num .sm-p { display: none; }
+`;
+
+function capaPafHTML(paf) {
+  const nome = String((paf && paf.responsavel) || "").replace(/\s+/g, " ").trim() || "Responsável não informado";
+  const tam = nome.length <= 24 ? 1 : nome.length <= 36 ? 2 : nome.length <= 52 ? 3 : 4;   // classe de tamanho (style="" ganharia a caixa de "p[style]")
+  const ano = new Date().getFullYear();
+  const tecnico = String((paf && paf.tecnicoReferencia) || "").trim();
+  return `
+    <section class="capa-pagina">
+      <div class="cp-moldura">
+        <div class="cp-topo">
+          <img class="cp-logo" src="${LOGO_PMBV}" alt="Prefeitura de Boa Vista">
+          <p class="cp-inst">Prefeitura Municipal de Boa Vista</p>
+          <p class="cp-lin">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</p>
+          <p class="cp-lin">Centro de Referência de Assistência Social (CRAS - Cristiana Vicente Nunes)</p>
+        </div>
+        <div class="cp-meio">
+          <p class="cp-eyebrow">Plano de Acompanhamento Familiar</p>
+          <div class="cp-filete"></div>
+          <p class="cp-nome cp-nome-${tam}">${escapeHtml(nome)}</p>
+          <p class="cp-papel">Responsável Familiar</p>
+          <div class="cp-filete cp-filete-b"></div>
+          <p class="cp-servico">Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
+        </div>
+        <div class="cp-base">
+          ${tecnico ? `<p class="cp-lin">Técnico(a) de referência: ${escapeHtml(tecnico)}</p>` : ""}
+          <p class="cp-lin">Ficha nº ${protocoloNumero(paf)}</p>
+          <p class="cp-local">Boa Vista/RR · ${ano}</p>
+        </div>
+      </div>
+    </section>`;
+}
+
+// Folha de rosto: identificação do plano + sumário (a lista é preenchida na janela de impressão, com as páginas medidas).
+function folhaRostoSumarioHTML(paf) {
+  const L = (k, v, largo) => `<div class="k">${k}</div><div${largo ? ' class="v3"' : ""}>${v || "—"}</div>`;
+  return `
+    <section class="frente-pagina" id="folha-rosto">
+      <p class="fr-titulo">Plano de Acompanhamento Familiar</p>
+      <p class="fr-sub">Serviço de Proteção e Atendimento Integral à Família (PAIF) · Proteção Social Básica</p>
+      <div class="fr-grid">
+        ${L("Responsável", escapeHtml(paf.responsavel), true)}
+        ${L("Unidade", escapeHtml(paf.crasNome) || "CRAS Cristiana Vicente Nunes", true)}
+        ${L("Técnico(a)", escapeHtml(paf.tecnicoReferencia), true)}
+        ${L("Ficha nº", protocoloNumero(paf))}
+        ${L("Situação", escapeHtml(STATUS_LABELS[paf.situacaoPAF] || "Em andamento"))}
+        ${L("Início", fmtDateBR(paf.dataInicial))}
+        ${L("Emitido em", fmtDateBR(todayISO()))}
+      </div>
+      <p class="fr-sumario-t">SUMÁRIO</p>
+      <div id="sumarioLista"></div>
+    </section>`;
+}
+
+/* Roda DENTRO da janela de impressão (injetada como texto via Function.toString — por isso é autossuficiente
+   e não usa crase nem "${"). cfg = { larguraMm, alturaMm, paginasAntes }.
+   1) lista os títulos (Partes, subpartes, seções numeradas e anexos) que estão em #corpo-paf;
+   2) clona a tabela-casca do documento para um contêiner de colunas com a largura e a altura exatas da área útil
+      da folha, onde cada coluna equivale a uma página impressa; a coluna em que cada título cai é a sua página;
+   3) escreve o sumário (com links internos) e os números. Se algo falhar, o sumário sai sem números. */
+function sumarioPafNaJanela(cfg) {
+  var doc = document;
+  var corpo = doc.getElementById("corpo-paf");
+  var lista = doc.getElementById("sumarioLista");
+  if (!corpo || !lista) return { ok: false, motivo: "sem corpo" };
+
+  function limpo(s) { return String(s || "").replace(/\s+/g, " ").trim(); }
+  function maiusc(s) { return s.toLocaleUpperCase("pt-BR"); }
+  function textoDe(el, tirar) {
+    var c = el.cloneNode(true);
+    var rem = c.querySelectorAll(tirar);
+    for (var i = 0; i < rem.length; i++) rem[i].parentNode.removeChild(rem[i]);
+    return limpo(c.textContent);
+  }
+
+  // ---- 1) itens do sumário ----
+  var itens = [];
+  var nos = corpo.querySelectorAll(".sep-cadastro.parte, .sub-parte, h2, .anexo-titulo");
+  var nSecao = 0, temSub = false;
+  for (var i = 0; i < nos.length; i++) {
+    var el = nos[i];
+    if (!el.getClientRects().length) continue;   // oculto: não entra no sumário nem no contador de seções
+    var rotulo = "", nivel = 0;
+    if (el.classList.contains("sep-cadastro")) {
+      var pn = el.querySelector(".parte-n");
+      var tit = textoDe(el, "small, .parte-n");
+      rotulo = maiusc((pn ? limpo(pn.textContent) + " — " : "") + tit);
+      nivel = 0; temSub = false;
+    } else if (el.classList.contains("sub-parte")) {
+      var b = el.querySelector("b");
+      rotulo = (b ? limpo(b.textContent) + "  " : "") + textoDe(el, "small, b");
+      nivel = 1; temSub = true;
+    } else if (el.tagName === "H2") {
+      nSecao++;
+      rotulo = nSecao + "  " + maiusc(textoDe(el, "small"));
+      nivel = temSub ? 2 : 1;
+    } else {
+      rotulo = limpo(el.textContent);
+      nivel = 0; temSub = false;
+    }
+    if (!rotulo) continue;
+    var idx = itens.length;
+    el.setAttribute("data-sm", String(idx));
+    if (!el.id) el.id = "sm-" + idx;
+    itens.push({ rotulo: rotulo, nivel: nivel, id: el.id, pagina: null });
+  }
+
+  // ---- 3a) monta as linhas (números ainda vazios; ocupam o mesmo espaço depois de preenchidos) ----
+  lista.innerHTML = "";
+  var linhas = [];
+  for (var k = 0; k < itens.length; k++) {
+    var a = doc.createElement("a");
+    a.className = "sm-lin sm-n" + itens[k].nivel;
+    a.setAttribute("href", "#" + itens[k].id);
+    var t = doc.createElement("span"); t.className = "sm-t"; t.textContent = itens[k].rotulo;
+    var pt = doc.createElement("span"); pt.className = "sm-pt";
+    var pp = doc.createElement("span"); pp.className = "sm-p"; pp.textContent = "00";
+    a.appendChild(t); a.appendChild(pt); a.appendChild(pp);
+    lista.appendChild(a);
+    linhas.push(pp);
+  }
+
+  // ---- 2) medição ----
+  var host = null;
+  try {
+    var casca = doc.querySelector(".print-shell");
+    if (!casca || !itens.length) throw new Error("sem casca");
+    var larg = cfg.larguraMm, alt = cfg.alturaMm;
+
+    // Cópia fiel das regras CSS do documento (na mesma ordem, para a cascata sair igual), com duas diferenças:
+    // regras de @media print passam a valer, e quebras de PÁGINA forçadas viram quebras de COLUNA.
+    var copia = [];
+    function copiar(regras) {
+      for (var r = 0; r < regras.length; r++) {
+        var rg = regras[r];
+        if (rg.type === 1) {
+          copia.push(rg.cssText
+            .replace(/page-break-(before|after)\s*:\s*always/g, "break-$1:column")
+            .replace(/(break-(?:before|after)\s*:\s*)(?:page|always|left|right|recto|verso)\b/g, "$1column"));
+        } else if (rg.type === 4) {
+          var m = rg.media ? rg.media.mediaText : "";
+          if (/print/.test(m) && !/screen/.test(m)) copiar(rg.cssRules);
+        }
+      }
+    }
+    for (var s = 0; s < doc.styleSheets.length; s++) {
+      var regras = null;
+      try { regras = doc.styleSheets[s].cssRules; } catch (e) { regras = null; }
+      if (regras) copiar(regras);
+    }
+    // A linha única do corpo do documento pode (e deve) quebrar entre páginas, mesmo com "break-inside: avoid" herdado de "tr".
+    copia.push(".print-shell > tbody > tr, .print-shell > tbody > tr > td { break-inside: auto !important; page-break-inside: auto !important; }");
+    var estilo = doc.createElement("style");
+    estilo.setAttribute("data-medicao", "1");
+    estilo.textContent = copia.join("\n");
+
+    host = doc.createElement("div");
+    host.setAttribute("aria-hidden", "true");
+    host.style.cssText = "position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;overflow:visible;" +
+      "width:" + larg + "mm;height:" + alt + "mm;column-width:" + larg + "mm;column-gap:0;column-fill:auto;";
+    var clone = casca.cloneNode(true);
+    var ifr = clone.querySelectorAll("iframe");
+    for (var q = 0; q < ifr.length; q++) ifr[q].removeAttribute("src");
+    var scr = clone.querySelectorAll("script");
+    for (var z = 0; z < scr.length; z++) scr[z].parentNode.removeChild(scr[z]);
+    host.appendChild(estilo);
+    host.appendChild(clone);
+    doc.body.appendChild(host);
+
+    // Cabeçalho e rodapé institucionais se repetem em TODA página impressa e tomam espaço fixo; as colunas de medição
+    // não os repetem, então sua altura é descontada da altura útil e eles saem da cópia.
+    var cab = clone.querySelector("thead"), rod = clone.querySelector("tfoot");
+    var ocupado = (cab ? cab.getBoundingClientRect().height : 0) + (rod ? rod.getBoundingClientRect().height : 0);
+    if (cab) cab.style.display = "none";
+    if (rod) rod.style.display = "none";
+    host.style.height = "calc(" + alt + "mm - " + ocupado + "px)";
+
+    var hostBox = host.getBoundingClientRect();
+    var larguraPx = hostBox.width;
+    if (!(larguraPx > 0)) throw new Error("largura inválida");
+    for (var n = 0; n < itens.length; n++) {
+      var alvo = clone.querySelector('[data-sm="' + n + '"]');
+      if (!alvo) continue;
+      var rc = alvo.getBoundingClientRect();
+      var col = Math.floor((rc.left - hostBox.left) / larguraPx + 0.002);
+      if (col >= 0 && col < 2000) itens[n].pagina = col + 1 + (cfg.paginasAntes || 0);
+    }
+  } catch (err) {
+    if (window.console) console.error("Sumário: não foi possível medir as páginas", err);
+  } finally {
+    if (host && host.parentNode && !window.__manterHostMedicao) host.parentNode.removeChild(host);
+  }
+
+  // ---- 3b) números ----
+  var algum = false;
+  for (var u = 0; u < itens.length; u++) {
+    if (itens[u].pagina) { linhas[u].textContent = String(itens[u].pagina); algum = true; }
+    else linhas[u].textContent = "";
+  }
+  if (!algum) lista.className = "sm-sem-num";
+  return { ok: algum, itens: itens.length };
+}
+
 async function exportPDF(paf) {
   window._pdfJanela = null;
   try {
@@ -7800,6 +8056,7 @@ async function exportPDFInterno(paf) {
         .page-header-fixed .ph-row { margin-bottom: 4mm; }
         .page-footer-fixed .pf-row { margin-top: 3mm; }
         h2, .sub-parte, .sep-cadastro, .traj-mes { break-after: avoid; page-break-after: avoid; }
+        .traj-legendas { break-after: avoid; page-break-after: avoid; }
         body { padding: 0; }
         th, td { padding: 5px 8px; }
         .grid { gap: 6px 16px; padding: 8px 12px; margin-bottom: 4px; }
@@ -7872,15 +8129,22 @@ async function exportPDFInterno(paf) {
         ${ABNT_PRINT_CSS}
         ${CABECALHO_RODAPE_INST_CSS}
         ${SEM_BRANCO_CSS}
+        ${CAPA_SUMARIO_CSS}
       </style>
     </head>
     <body>
       <div class="watermark">DOCUMENTO SIGILOSO</div>
 
+      ${capaPafHTML(paf)}
+
       <table class="print-shell">
       <thead class="page-header-fixed"><tr><td>${CABECALHO_INST_HTML}</td></tr></thead>
       <tfoot class="page-footer-fixed"><tr><td>${RODAPE_INST_HTML}</td></tr></tfoot>
       <tbody><tr><td>
+
+      ${folhaRostoSumarioHTML(paf)}
+
+      <div id="corpo-paf">
 
       <div class="capa-header">
         <div class="capa-selo">P</div>
@@ -8095,6 +8359,7 @@ async function exportPDFInterno(paf) {
 
       ${anexosPdfPaginasHTML}
 
+      </div>
       </td></tr></tbody>
       </table>
 
@@ -8157,6 +8422,8 @@ async function exportPDFInterno(paf) {
                 for (var k = 0; k < PDFS.length; k++) quadroPdf(k);
               }
             }
+            // Sumário com as páginas medidas (capa = página 1; a folha de rosto começa na 2).
+            try { (${sumarioPafNaJanela.toString()})(${JSON.stringify({ larguraMm: PAGINA_PDF_MM.larg - PAGINA_PDF_MM.esq - PAGINA_PDF_MM.dir, alturaMm: PAGINA_PDF_MM.alt - PAGINA_PDF_MM.topo - PAGINA_PDF_MM.base, paginasAntes: 1 })}); } catch (e) { console.error(e); }
             setTimeout(dispararImpressao, usouQuadro ? 1200 + PDFS.length * 700 : (PDFS.length ? 300 : 50));
           }
           // Rede de segurança: se algo travar, a janela de impressão abre mesmo assim.
