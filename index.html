@@ -129,9 +129,11 @@
     </div>
     <div class="login-card-body">
       <p class="sub">Entre com sua conta para acessar os registros do PAF/PAIF.</p>
-      <div class="login-error" id="authError" style="display:none"></div>
-      <div class="f"><label>E-mail</label><input type="email" id="authEmail" autocomplete="username" placeholder="seu.email@exemplo.com"></div>
-      <div class="f"><label for="authPassword">Senha</label>
+      <div class="login-error" id="authError" role="alert" style="display:none"></div>
+      <div class="login-ok" id="authOk" role="status" aria-live="polite" style="display:none"></div>
+      <div class="login-offline" id="authOffline" role="status" aria-live="polite" style="display:none">Sem conexão com a internet. Verifique sua rede para entrar.</div>
+      <div class="f"><label for="authEmail">E-mail</label><input type="email" id="authEmail" name="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="seu.email@exemplo.com"></div>
+      <div class="f"><div class="login-label-row"><label for="authPassword">Senha</label><a href="#" class="login-forgot" id="forgotPasswordLink">Esqueci minha senha</a></div>
         <div class="pw-wrap">
           <input type="password" id="authPassword" autocomplete="current-password" placeholder="••••••••">
           <button type="button" class="pw-toggle" id="authPwToggle" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
@@ -141,9 +143,10 @@
         </div>
         <div class="caps-warn" id="authCaps" role="status" aria-live="polite" style="display:none">Caps Lock está ativado</div>
       </div>
-      <button class="btn btn-primary" id="authSubmitBtn">Entrar</button>
-      <p class="login-hint"><a href="#" id="forgotPasswordLink">Esqueci minha senha</a></p>
+      <label class="login-lembrar"><input type="checkbox" id="authLembrar" checked> Lembrar meu e-mail neste aparelho</label>
+      <button class="btn btn-primary" id="authSubmitBtn"><span class="btn-rot">Entrar</span></button>
       <p class="login-hint">Não tem uma conta? Peça ao administrador do sistema para criá-la.</p>
+      <p class="login-sigilo"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg> Acesso restrito a profissionais autorizados. Informações sob sigilo profissional.</p>
     </div>
   </div>
 </div>
