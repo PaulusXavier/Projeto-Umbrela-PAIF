@@ -29,15 +29,17 @@ function sumarioPafNaJanela(cfg) {
   for (var i = 0; i < nos.length; i++) {
     var el = nos[i];
     if (!el.getClientRects().length) continue;   // oculto: não entra no sumário nem no contador de seções
-    var rotulo = "", nivel = 0;
+    var rotulo = "", num = "", nivel = 0;
     if (el.classList.contains("sep-cadastro")) {
       var pn = el.querySelector(".parte-n");
       var tit = textoDe(el, "small, .parte-n");
-      rotulo = maiusc((pn ? limpo(pn.textContent) + " — " : "") + tit);
+      num = pn ? maiusc(limpo(pn.textContent)) : "";
+      rotulo = maiusc(tit);
       nivel = 0; temSub = false;
     } else if (el.classList.contains("sub-parte")) {
       var b = el.querySelector("b");
-      rotulo = (b ? limpo(b.textContent) + "  " : "") + textoDe(el, "small, b");
+      num = b ? limpo(b.textContent) : "";
+      rotulo = textoDe(el, "small, b");
       nivel = 1; temSub = true;
     } else if (el.tagName === "H2") {
       continue;   // sumário enxuto: só o essencial (Partes e subpartes); as seções numeradas ficam fora
@@ -51,7 +53,7 @@ function sumarioPafNaJanela(cfg) {
     var idx = itens.length;
     el.setAttribute("data-sm", String(idx));
     if (!el.id) el.id = "sm-" + idx;
-    itens.push({ rotulo: rotulo, nivel: nivel, id: el.id, pagina: null });
+    itens.push({ rotulo: rotulo, num: num, nivel: nivel, id: el.id, pagina: null });
   }
 
   // ---- 3a) monta as linhas (números ainda vazios; ocupam o mesmo espaço depois de preenchidos) ----
@@ -59,8 +61,9 @@ function sumarioPafNaJanela(cfg) {
   var linhas = [];
   for (var k = 0; k < itens.length; k++) {
     var a = doc.createElement("a");
-    a.className = "sm-lin sm-n" + itens[k].nivel;
+    a.className = "sm-lin sm-n" + itens[k].nivel + (itens[k].num ? "" : " sm-solo");
     a.setAttribute("href", "#" + itens[k].id);
+    if (itens[k].num) { var nm = doc.createElement("span"); nm.className = "sm-num"; nm.textContent = itens[k].num; a.appendChild(nm); }
     var t = doc.createElement("span"); t.className = "sm-t"; t.textContent = itens[k].rotulo;
     var pt = doc.createElement("span"); pt.className = "sm-pt";
     var pp = doc.createElement("span"); pp.className = "sm-p"; pp.textContent = "00";
