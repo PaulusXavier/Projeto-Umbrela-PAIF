@@ -1473,7 +1473,7 @@ function enderecoCompleto(paf) {
 }
 function escapeHtml(str) {
   return String(str == null ? "" : str)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 // Formata o CPF como "000.000.000-00" enquanto o usuário digita.
@@ -6968,29 +6968,44 @@ function attachGlobalHandlers() {
    contêiner de colunas do tamanho exato da folha (mesmo motor de quebras da impressão: títulos que não ficam
    órfãos, linhas e cartões que não se partem, cabeçalho/rodapé repetidos) e mede-se em que "folha" cada título cai. */
 const CAPA_SUMARIO_CSS = `
+  /* ===== ABNT NBR 14724: capa (sem número de página), folha de rosto e sumário (NBR 6027) =====
+     Capa: margens 3 cm (sup./esq.) e 2 cm (dir./inf.); ordem dos elementos: instituição, autor, título, subtítulo, local e ano;
+     tudo centralizado, Times New Roman 12 pt (título em destaque), sem molduras. */
   @page capa { size: A4; margin: 0; @bottom-right { content: none; } }
-  .capa-pagina { page: capa; display: block; position: relative; z-index: 5; background: #fff; box-sizing: border-box; height: 296mm; padding: 11mm; overflow: hidden;
-    break-after: page; page-break-after: always; break-inside: avoid; }
-  .cp-moldura { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; justify-content: space-between;
-    border: 1.6pt solid #000 !important; outline: .5pt solid #000; outline-offset: 2.2pt; padding: 13mm 16mm 12mm; }
+  .capa-pagina { page: capa; display: block; position: relative; z-index: 5; background: #fff; box-sizing: border-box; height: 296mm;
+    padding: 30mm 20mm 20mm 30mm; overflow: hidden; break-after: page; page-break-after: always; break-inside: avoid; }
+  .cp-moldura { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
   .cp-topo, .cp-meio, .cp-base { text-align: center !important; }
+  .cp-topo { padding-bottom: 7mm; border-bottom: .6pt solid #000; }
+  .cp-base { padding-top: 6mm; border-top: .6pt solid #000; }
   .cp-meio { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-  .cp-logo { display: block; height: 24mm; width: auto; max-width: none !important; margin: 0 auto 5mm; }
+  .cp-logo { display: block; height: 26mm; width: auto; max-width: none !important; margin: 0 auto 6mm; }
   .cp-topo p, .cp-meio p, .cp-base p { margin: 0 !important; padding: 0 !important; text-align: center !important; text-indent: 0 !important; }
-  .cp-inst { font-size: 13pt !important; font-weight: bold !important; text-transform: uppercase; line-height: 1.35 !important; }
-  .cp-lin { font-size: 11pt !important; line-height: 1.4 !important; }
-  .cp-eyebrow { font-size: 12.5pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .14em !important; line-height: 1.4 !important; }
-  .cp-meio p.cp-servico { font-size: 11pt !important; line-height: 1.4 !important; margin: 4mm 0 0 !important; }
-  .cp-filete { width: 62mm; border-top: 1.6pt solid #000; margin: 7mm auto 0 !important; height: 0; position: relative; }
-  .cp-filete::after { content: ""; position: absolute; left: 0; right: 0; top: 2pt; border-top: .5pt solid #000; }
-  .cp-filete-b { margin: 0 auto 7mm !important; }
-  .cp-meio p.cp-nome { margin: 9mm 0 2mm !important; font-weight: bold !important; text-transform: uppercase; line-height: 1.2 !important;
+  .cp-inst { font-size: 14pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .04em !important; line-height: 1.35 !important; }
+  .cp-lin { font-size: 12pt !important; line-height: 1.4 !important; }
+  .cp-topo p.cp-lin { margin-top: 1mm !important; }
+  .cp-topo p.cp-autor { margin-top: 8mm !important; font-size: 12pt !important; font-weight: bold !important; text-transform: uppercase; line-height: 1.4 !important; }
+  .cp-topo p.cp-autor-r { font-size: 11pt !important; font-style: italic; line-height: 1.3 !important; }
+  .cp-eyebrow { font-size: 17pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .05em !important; line-height: 1.35 !important; }
+  .cp-meio p.cp-servico { font-size: 13pt !important; line-height: 1.4 !important; margin: 5mm 0 0 !important; max-width: 125mm; }
+  .cp-filete { width: 70mm; border-top: 1.4pt solid #000; margin: 9mm auto 0 !important; height: 0; position: relative; }
+  .cp-filete::after { content: ""; position: absolute; left: 0; right: 0; top: 2.4pt; border-top: .5pt solid #000; }
+  .cp-filete-b { margin: 0 auto 9mm !important; }
+  .cp-meio p.cp-nome { margin: 11mm 0 2mm !important; font-weight: bold !important; text-transform: uppercase; line-height: 1.25 !important;
     max-width: 100%; overflow-wrap: anywhere; hyphens: auto; }
-  .cp-nome-1 { font-size: 30pt !important; } .cp-nome-2 { font-size: 25pt !important; } .cp-nome-3 { font-size: 21pt !important; } .cp-nome-4 { font-size: 17pt !important; }
-  .cp-meio p.cp-papel { font-size: 12pt !important; font-style: italic; letter-spacing: .04em !important; line-height: 1.4 !important; margin: 0 0 8mm !important; }
+  .cp-nome-1 { font-size: 26pt !important; } .cp-nome-2 { font-size: 22pt !important; } .cp-nome-3 { font-size: 18pt !important; } .cp-nome-4 { font-size: 15pt !important; }
+  .cp-meio p.cp-papel { font-size: 12pt !important; font-style: italic; letter-spacing: .04em !important; line-height: 1.4 !important; margin: 0 0 9mm !important; }
   .cp-base p.cp-lin { margin: .5mm 0 0 !important; }
   .cp-base p.cp-local { font-size: 12pt !important; font-weight: bold !important; margin: 3mm 0 0 !important; }
 
+  .cp-marca { width: 105mm; top: 52%; opacity: .32; }
+  .capa-pagina:not(.contracapa) .cp-moldura { position: relative; z-index: 1; }
+  .cp-filete::before { content: ""; position: absolute; left: 50%; top: -2.2pt; width: 6pt; height: 6pt; margin-left: -3pt; background: #fff;
+    border: .8pt solid #000; transform: rotate(45deg); z-index: 1; }
+  .cp-meio p.cp-nome { padding: 0 4mm !important; }
+  .cp-meio p.cp-papel::before, .cp-meio p.cp-papel::after { content: "—"; margin: 0 2.5mm; }
+
+  /* contracapa (mesmas margens, sem moldura) */
   .contracapa { break-before: page; page-break-before: always; break-after: auto !important; page-break-after: auto !important; }
   .cc-marca { position: absolute; left: 50%; top: 50%; width: 125mm; transform: translate(-50%, -50%); z-index: 0;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -7000,55 +7015,72 @@ const CAPA_SUMARIO_CSS = `
   .cc-meio p { margin: 0 !important; padding: 0 !important; text-align: center !important; text-indent: 0 !important; }
   .cc-sigilo { font-size: 15pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .16em !important; line-height: 1.4 !important; }
   .cc-meio p.cc-texto { max-width: 128mm; margin-top: 6mm !important; font-size: 11pt !important; line-height: 1.5 !important; }
+
+  /* folha de rosto e sumário: cada um em sua própria página */
   .frente-pagina { break-after: page; page-break-after: always; }
-  .fr-titulo { margin: 2mm 0 0 !important; text-align: center !important; text-indent: 0 !important; font-size: 14pt !important; font-weight: bold !important;
-    text-transform: uppercase; line-height: 1.3 !important; }
-  .fr-sub { margin: 0 0 5mm !important; text-align: center !important; text-indent: 0 !important; font-size: 11pt !important; line-height: 1.35 !important; }
-  .fr-grid { display: grid; grid-template-columns: 31mm 1fr 31mm 1fr; border-top: .8pt solid #000; border-left: .8pt solid #000; margin: 0 0 6mm; }
-  .fr-grid > .v3 { grid-column: 2 / -1; }
-  .fr-grid > div { padding: 1.1mm 2.5mm; border-right: .8pt solid #000; border-bottom: .8pt solid #000; font-size: 11pt !important; line-height: 1.3 !important;
-    text-align: left !important; text-indent: 0 !important; overflow-wrap: anywhere; }
-  .fr-grid > .k { font-weight: bold; }
-  .fr-sumario-t { margin: 0 0 3mm !important; padding-bottom: 1.2mm; border-bottom: .8pt solid #000; text-align: center !important; text-indent: 0 !important;
-    font-size: 12pt !important; font-weight: bold !important; letter-spacing: .12em !important; line-height: 1.3 !important; }
-  .sm-lin { display: flex; align-items: baseline; box-sizing: border-box; padding: .1mm 0; color: #000 !important; text-decoration: none !important;
-    font-size: 10.5pt !important; line-height: 1.2 !important; text-align: left !important; text-indent: 0 !important; break-inside: avoid; page-break-inside: avoid; }
-  .sm-t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sm-pt { flex: 1 1 8mm; min-width: 8mm; margin: 0 1.6mm; border-bottom: 1px dotted #000; position: relative; top: -1.3pt; }
+  .fr-inst { margin: 0 !important; text-align: center !important; text-indent: 0 !important; font-size: 12pt !important; font-weight: bold !important;
+    text-transform: uppercase; line-height: 1.4 !important; }
+  .fr-inst-s { margin: 0 !important; text-align: center !important; text-indent: 0 !important; font-size: 12pt !important; line-height: 1.4 !important; }
+  .fr-autor { margin: 9mm 0 0 !important; text-align: center !important; text-indent: 0 !important; font-size: 12pt !important; font-weight: bold !important;
+    text-transform: uppercase; line-height: 1.4 !important; }
+  .fr-titulo { margin: 16mm 0 0 !important; text-align: center !important; text-indent: 0 !important; font-size: 17pt !important; font-weight: bold !important;
+    text-transform: uppercase; letter-spacing: .05em !important; line-height: 1.3 !important; }
+  .fr-sub { margin: 2mm 0 10mm !important; text-align: center !important; text-indent: 0 !important; font-size: 12pt !important; line-height: 1.4 !important; }
+  .fr-tab { width: 100%; border-collapse: collapse !important; margin: 0 0 10mm !important; table-layout: fixed; }
+  .fr-tab th, .fr-tab td { border: .8pt solid #000 !important; padding: 1.2mm 2.5mm !important; font-size: 11pt !important; line-height: 1.3 !important;
+    text-align: left !important; text-indent: 0 !important; vertical-align: middle !important; overflow-wrap: anywhere; background: #fff !important; }
+  .fr-tab th { width: 31mm; font-weight: bold; background: #EFEFEF !important; }
+  .fr-natureza { margin: 0 0 0 80mm !important; text-align: justify !important; text-indent: 0 !important; font-size: 11pt !important; line-height: 1.2 !important; }
+  .fr-local { margin: 22mm 0 0 !important; text-align: center !important; text-indent: 0 !important; font-size: 12pt !important; line-height: 1.4 !important; }
+  .fr-local b { font-weight: bold; }
+
+  /* Sumário (NBR 6027): título centralizado em negrito e caixa alta, sem indicativo numérico; seções primárias em negrito e CAIXA ALTA;
+     secundárias em tipo normal; numeração indicativa à esquerda, páginas alinhadas à direita com linha pontilhada. */
+  .fr-sumario-t { margin: 0 0 9mm !important; padding: 0; text-align: center !important; text-indent: 0 !important;
+    font-size: 12pt !important; font-weight: bold !important; text-transform: uppercase; letter-spacing: .04em !important; line-height: 1.5 !important; }
+  .sm-lin { display: flex; align-items: flex-end; box-sizing: border-box; padding: 0; color: #000 !important; text-decoration: none !important;
+    font-size: 12pt !important; line-height: 1.45 !important; text-align: left !important; text-indent: 0 !important; break-inside: avoid; page-break-inside: avoid; }
+  .sm-t { flex: 0 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left !important; }
+  .sm-pt { flex: 1 1 8mm; min-width: 8mm; margin: 0 1.6mm 1.6mm; border-bottom: 1px dotted #000; }
   .sm-p { flex: 0 0 auto; min-width: 8mm; text-align: right !important; font-variant-numeric: tabular-nums; }
-  .sm-n0 { font-weight: bold; margin-top: .9mm; }
+  .sm-n0 { font-weight: bold; margin-top: 3.2mm; }
   .sm-n0:first-child { margin-top: 0; }
-  .sm-n1 { padding-left: 5mm; }
-  .sm-n2 { padding-left: 10mm; }
+  .sm-n1 { padding-left: 9mm; }
+  .sm-n2 { padding-left: 16mm; }
   .sm-sem-num .sm-pt, .sm-sem-num .sm-p { display: none; }
 `;
+
+const UMBRELA_MARCA_SVG = `<svg viewBox="0 0 100 124" aria-hidden="true"><path d="M50 10Q6.0 26.0 6 58Q17.0 49 28 58Q28.0 19.0 50 10Z" fill="#E4E4E4"/><path d="M50 10Q28.0 19.0 28 58Q39.0 49 50 58Q50.0 12.0 50 10Z" fill="#D3D3D3"/><path d="M50 10Q50.0 12.0 50 58Q61.0 49 72 58Q72.0 19.0 50 10Z" fill="#E4E4E4"/><path d="M50 10Q72.0 19.0 72 58Q83.0 49 94 58Q94.0 26.0 50 10Z" fill="#D3D3D3"/><path d="M50 10Q6 14 6 58M50 10Q94 14 94 58M50 10Q28 14 28 58M50 10Q72 14 72 58M50 10V58" fill="none" stroke="#fff" stroke-width="1.2"/><path d="M50 58V104a11 11 0 0 1-22 0" fill="none" stroke="#CFCFCF" stroke-width="3.6" stroke-linecap="round"/><path d="M50 3V10" stroke="#CFCFCF" stroke-width="3" stroke-linecap="round"/></svg>`;
 
 function capaPafHTML(paf) {
   const nome = String((paf && paf.responsavel) || "").replace(/\s+/g, " ").trim() || "Responsável não informado";
   const tam = nome.length <= 24 ? 1 : nome.length <= 36 ? 2 : nome.length <= 52 ? 3 : 4;   // classe de tamanho (style="" ganharia a caixa de "p[style]")
   const ano = new Date().getFullYear();
   const tecnico = String((paf && paf.tecnicoReferencia) || "").trim();
+  // ABNT NBR 14724 (capa): instituição, autor, título, subtítulo, local e ano.
   return `
     <section class="capa-pagina">
+      <div class="cc-marca cp-marca">${UMBRELA_MARCA_SVG}</div>
       <div class="cp-moldura">
         <div class="cp-topo">
           <img class="cp-logo" src="${LOGO_PMBV}" alt="Prefeitura de Boa Vista">
           <p class="cp-inst">Prefeitura Municipal de Boa Vista</p>
           <p class="cp-lin">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</p>
-          <p class="cp-lin">Centro de Referência de Assistência Social (CRAS - Cristiana Vicente Nunes)</p>
+          <p class="cp-lin">Centro de Referência de Assistência Social (CRAS Cristiana Vicente Nunes)</p>
+          ${tecnico ? `<p class="cp-autor">${escapeHtml(tecnico)}</p><p class="cp-autor-r">Técnico(a) de referência</p>` : ""}
         </div>
         <div class="cp-meio">
           <p class="cp-eyebrow">Plano de Acompanhamento Familiar</p>
+          <p class="cp-servico">Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
           <div class="cp-filete"></div>
           <p class="cp-nome cp-nome-${tam}">${escapeHtml(nome)}</p>
           <p class="cp-papel">Responsável Familiar</p>
           <div class="cp-filete cp-filete-b"></div>
-          <p class="cp-servico">Serviço de Proteção e Atendimento Integral à Família (PAIF)</p>
+          <p class="cp-lin">Ficha nº ${protocoloNumero(paf)}</p>
         </div>
         <div class="cp-base">
-          ${tecnico ? `<p class="cp-lin">Técnico(a) de referência: ${escapeHtml(tecnico)}</p>` : ""}
-          <p class="cp-lin">Ficha nº ${protocoloNumero(paf)}</p>
-          <p class="cp-local">Boa Vista/RR · ${ano}</p>
+          <p class="cp-local">Boa Vista/RR</p>
+          <p class="cp-lin">${ano}</p>
         </div>
       </div>
     </section>`;
@@ -7057,7 +7089,7 @@ function capaPafHTML(paf) {
 // Contracapa: folha final com um guarda-chuva como marca d'água, protegendo as informações do PAF.
 function contracapaPafHTML(paf) {
   const nome = String((paf && paf.responsavel) || "").replace(/\s+/g, " ").trim();
-  const marca = `<svg viewBox="0 0 100 124" aria-hidden="true"><path d="M50 10Q6.0 26.0 6 58Q17.0 49 28 58Q28.0 19.0 50 10Z" fill="#E4E4E4"/><path d="M50 10Q28.0 19.0 28 58Q39.0 49 50 58Q50.0 12.0 50 10Z" fill="#D3D3D3"/><path d="M50 10Q50.0 12.0 50 58Q61.0 49 72 58Q72.0 19.0 50 10Z" fill="#E4E4E4"/><path d="M50 10Q72.0 19.0 72 58Q83.0 49 94 58Q94.0 26.0 50 10Z" fill="#D3D3D3"/><path d="M50 10Q6 14 6 58M50 10Q94 14 94 58M50 10Q28 14 28 58M50 10Q72 14 72 58M50 10V58" fill="none" stroke="#fff" stroke-width="1.2"/><path d="M50 58V104a11 11 0 0 1-22 0" fill="none" stroke="#CFCFCF" stroke-width="3.6" stroke-linecap="round"/><path d="M50 3V10" stroke="#CFCFCF" stroke-width="3" stroke-linecap="round"/></svg>`;
+  const marca = UMBRELA_MARCA_SVG;
   return `
     <section class="capa-pagina contracapa">
       <div class="cc-marca">${marca}</div>
@@ -7076,23 +7108,30 @@ function contracapaPafHTML(paf) {
     </section>`;
 }
 
-// Folha de rosto: identificação do plano + sumário (a lista é preenchida na janela de impressão, com as páginas medidas).
+// Folha de rosto (NBR 14724) e Sumário (NBR 6027), cada um em sua página. A lista do sumário é preenchida na janela de impressão, com as páginas medidas.
 function folhaRostoSumarioHTML(paf) {
-  const L = (k, v, largo) => `<div class="k">${k}</div><div${largo ? ' class="v3"' : ""}>${v || "—"}</div>`;
+  const tecnico = String((paf && paf.tecnicoReferencia) || "").trim();
+  const ano = new Date().getFullYear();
   return `
     <section class="frente-pagina" id="folha-rosto">
+      <p class="fr-inst">Prefeitura Municipal de Boa Vista</p>
+      <p class="fr-inst-s">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</p>
+      <p class="fr-inst-s">${escapeHtml(paf.crasNome) || "CRAS Cristiana Vicente Nunes"}</p>
+      ${tecnico ? `<p class="fr-autor">${escapeHtml(tecnico)}</p>` : ""}
       <p class="fr-titulo">Plano de Acompanhamento Familiar</p>
       <p class="fr-sub">Serviço de Proteção e Atendimento Integral à Família (PAIF) · Proteção Social Básica</p>
-      <div class="fr-grid">
-        ${L("Responsável", escapeHtml(paf.responsavel), true)}
-        ${L("Unidade", escapeHtml(paf.crasNome) || "CRAS Cristiana Vicente Nunes", true)}
-        ${L("Técnico(a)", escapeHtml(paf.tecnicoReferencia), true)}
-        ${L("Ficha nº", protocoloNumero(paf))}
-        ${L("Situação", escapeHtml(STATUS_LABELS[paf.situacaoPAF] || "Em andamento"))}
-        ${L("Início", fmtDateBR(paf.dataInicial))}
-        ${L("Emitido em", fmtDateBR(todayISO()))}
-      </div>
-      <p class="fr-sumario-t">SUMÁRIO</p>
+      <table class="fr-tab">
+        <tr><th>Responsável</th><td colspan="3">${escapeHtml(paf.responsavel) || "—"}</td></tr>
+        <tr><th>Unidade</th><td colspan="3">${escapeHtml(paf.crasNome) || "CRAS Cristiana Vicente Nunes"}</td></tr>
+        <tr><th>Técnico(a)</th><td colspan="3">${escapeHtml(paf.tecnicoReferencia) || "—"}</td></tr>
+        <tr><th>Ficha nº</th><td>${protocoloNumero(paf)}</td><th>Situação</th><td>${escapeHtml(STATUS_LABELS[paf.situacaoPAF] || "Em andamento")}</td></tr>
+        <tr><th>Início</th><td>${fmtDateBR(paf.dataInicial) || "—"}</td><th>Emitido em</th><td>${fmtDateBR(todayISO())}</td></tr>
+      </table>
+      <p class="fr-natureza">Plano de Acompanhamento Familiar elaborado no âmbito do Serviço de Proteção e Atendimento Integral à Família (PAIF), da Proteção Social Básica do Sistema Único de Assistência Social (SUAS), para o acompanhamento da família referenciada ao CRAS.</p>
+      <p class="fr-local">Boa Vista/RR<br>${ano}</p>
+    </section>
+    <section class="frente-pagina" id="sumario-pagina">
+      <p class="fr-sumario-t">Sumário</p>
       <div id="sumarioLista"></div>
     </section>`;
 }
