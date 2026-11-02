@@ -3573,6 +3573,22 @@ const ABNT_PRINT_CSS = `
   .lei-texto, .meta-card, .reg-item, .traj-item { break-inside: auto !important; page-break-inside: auto !important; }
   .lei-texto p, .meta-card p, .reg-item p, .traj-item p { orphans: 3; widows: 3; }
 
+  /* ===== Texto corrido SEMPRE justificado na impressão =====
+     Entra por último: os blocos acima alinhavam à esquerda campos, listas e itens (para evitar "buracos" em linhas curtas),
+     o que deixava textos longos com a margem direita irregular. A última linha de cada parágrafo continua à esquerda
+     (text-align-last: auto); rótulos, números, tags, tabelas e assinaturas seguem como estavam. */
+  body p, body li, body .anotacao, body .reg-evolucao, body .reg-encam, body .traj-texto, body .traj-extra,
+  body .lei-texto, body .lei-texto p, body .marco-corpo p, body .meta-notas li, body .campo-preenchido,
+  body .fechamento .campo, body .contra .campo, body .texto-livre, body .sp-val p, body .sp-val .tag-livre,
+  body .grid .field, body .grid .field .v, body .grid .field .texto-livre,
+  body .tags-wrap .tag, body .resumo-cols li, body .sum-cols li, body .lei-cols li, body td.anotacao {
+    text-align: justify !important; text-justify: inter-word; text-align-last: auto !important;
+  }
+  /* exceções: blocos curtos, centralizados ou em linha */
+  body .assinatura, body .assinatura *, body .assinatura-bloco, body .assinaturas,
+  body .anexo-titulo, body .anexo-print-item { text-align: center !important; }
+  body .page-footer-fixed .pf-selo { text-align: right !important; }
+
   @media screen { .page-header-fixed, .page-footer-fixed, .watermark { display: none; } }
 `;
 
@@ -4047,6 +4063,20 @@ function showAuthScreen() {
   clearTimeout(authHideTimer);
   el.classList.remove("u-saindo");
   el.style.display = "flex";
+  // e-mail lembrado + foco no primeiro campo vazio (celular: sem foco automático, para não abrir o teclado sozinho)
+  try {
+    const em = document.getElementById("authEmail");
+    const lemb = localStorage.getItem("paf_login_email");
+    if (em && !em.value && lemb) em.value = lemb;
+    const ck = document.getElementById("authLembrar");
+    if (ck) ck.checked = localStorage.getItem("paf_login_lembrar") !== "0";
+  } catch (_) {}
+  if (!(window.matchMedia && matchMedia("(pointer: coarse)").matches)) {
+    setTimeout(() => {
+      const em = document.getElementById("authEmail"), pw = document.getElementById("authPassword");
+      (em && !em.value ? em : pw)?.focus({ preventScroll: true });
+    }, 120);
+  }
 }
 
 // Ao entrar: o cartão sobe, os guarda-chuvas voam para cima e a tela some em ~0,5 s.
@@ -4067,9 +4097,16 @@ function hideAuthScreen() {
 function authError(msg) {
   const el = document.getElementById("authError");
   if (!el) return;
-  if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
+  const ok = document.getElementById("authOk"); if (ok) { ok.style.display = "none"; ok.textContent = ""; }
+  const campos = ["authEmail", "authPassword"].map(id => document.getElementById(id));
+  if (!msg) { el.style.display = "none"; el.textContent = ""; campos.forEach(c => c && c.removeAttribute("aria-invalid")); return; }
   el.textContent = msg;
   el.style.display = "block";
+  // destaca o campo com problema (e-mail vazio/inválido → e-mail; senha vazia → senha; credenciais erradas → senha)
+  const vazioEmail = !campos[0]?.value.trim(), vazioSenha = !campos[1]?.value;
+  campos.forEach(c => c && c.removeAttribute("aria-invalid"));
+  const alvo = /e-mail inválido|digite seu e-mail/i.test(msg) || (vazioEmail && /preencha/i.test(msg)) ? campos[0] : (vazioSenha || /incorretos/i.test(msg) ? campos[1] : null);
+  if (alvo) { alvo.setAttribute("aria-invalid", "true"); alvo.focus({ preventScroll: true }); }
   // Rajada de vento: o cartão balança e os guarda-chuvas se inclinam
   const wrap = document.getElementById("authScreen");
   if (wrap) {
@@ -4104,29 +4141,52 @@ function attachAuthHandlers() {
     authError(null);
     if (!email || !password) { authError("Preencha e-mail e senha."); return; }
     const btn = document.getElementById("authSubmitBtn");
-    if (btn) { btn.disabled = true; btn.textContent = "Entrando…"; }
+    if (btn) { btn.disabled = true; btn.classList.add("carregando"); const r = btn.querySelector(".btn-rot"); if (r) r.textContent = "Entrando…"; }
+    try {
+      const ck = document.getElementById("authLembrar");
+      if (ck && ck.checked) { localStorage.setItem("paf_login_email", email); localStorage.setItem("paf_login_lembrar", "1"); }
+      else { localStorage.removeItem("paf_login_email"); localStorage.setItem("paf_login_lembrar", "0"); }
+    } catch (_) {}
     firebase.auth().signInWithEmailAndPassword(email, password)
       .catch(err => {
         console.error(err);
         authError(translateAuthError(err.code));
       })
       .finally(() => {
-        if (btn) { btn.disabled = false; btn.textContent = "Entrar"; }
+        if (btn) { btn.disabled = false; btn.classList.remove("carregando"); const r = btn.querySelector(".btn-rot"); if (r) r.textContent = "Entrar"; }
       });
   };
 
+  document.getElementById("authEmail")?.addEventListener("blur", e => {
+    const v = e.target.value.trim();
+    if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) e.target.setAttribute("aria-invalid", "true");
+  });
+  const off = document.getElementById("authOffline");
+  const atualizaRede = () => { if (off) off.style.display = navigator.onLine === false ? "block" : "none"; };
+  window.addEventListener("online", atualizaRede); window.addEventListener("offline", atualizaRede); atualizaRede();
+  ["authEmail", "authPassword"].forEach(id => document.getElementById(id)?.addEventListener("input", e => e.target.removeAttribute("aria-invalid")));
   document.getElementById("authSubmitBtn")?.addEventListener("click", submit);
   document.getElementById("authPassword")?.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
   document.getElementById("authEmail")?.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
 
+  let resetAte = 0;
   document.getElementById("forgotPasswordLink")?.addEventListener("click", (e) => {
     e.preventDefault();
     const email = form().email;
     if (!email) { authError("Digite seu e-mail acima e clique em \"Esqueci minha senha\" novamente."); return; }
+    const agora = Date.now();
+    if (agora < resetAte) { authError("Aguarde " + Math.ceil((resetAte - agora) / 1000) + " s para pedir outro e-mail de redefinição."); return; }
+    resetAte = agora + 30000;
     firebase.auth().sendPasswordResetEmail(email)
-      .then(() => { authError(null); toast("E-mail de redefinição enviado para " + email + "."); })
-      .catch(err => { console.error(err); authError(translateAuthError(err.code)); });
+      .then(() => {
+        authError(null);
+        const ok = document.getElementById("authOk");
+        if (ok) { ok.textContent = "Enviamos um link de redefinição para " + email + ". Confira também a caixa de spam."; ok.style.display = "block"; }
+        else toast("E-mail de redefinição enviado para " + email + ".");
+      })
+      .catch(err => { console.error(err); resetAte = 0; authError(translateAuthError(err.code)); });
   });
+
 }
 
 function updateUserPill(user) {
