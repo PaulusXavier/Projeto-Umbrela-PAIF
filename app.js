@@ -3175,8 +3175,8 @@ const CABECALHO_INST_HTML = `
   <div class="inst-h">
     <div class="inst-h-txt">
       <p>Prefeitura Municipal de Boa Vista</p>
-      <p>Secretaria Municipal de Assistência Social (SMAS)</p>
-      <p>Centro de Referência de Assistência Social (CRAS/Cristiana Vicente Nunes)</p>
+      <p>Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</p>
+      <p>Centro de Referência de Assistência Social (CRAS - Cristiana Vicente Nunes)</p>
     </div>
     <img class="inst-h-logo" src="${LOGO_PMBV}" alt="Prefeitura de Boa Vista">
   </div>`;
@@ -3187,13 +3187,13 @@ const RODAPE_INST_HTML = `
     <p>Contato: (95) 98402-6617</p>
   </div>`;
 const CABECALHO_RODAPE_INST_CSS = `
-  .page-header-fixed .inst-h { display: flex !important; align-items: center; justify-content: space-between; gap: 6mm;
-    border-bottom: 1px solid #000 !important; padding: 0 0 2mm !important; margin: 0 0 5mm !important; }
+  .page-header-fixed .inst-h { display: flex !important; align-items: flex-start; justify-content: space-between; gap: 3mm;
+    border-bottom: 1px solid #000 !important; padding: 3mm 0 3mm !important; margin: 0 0 5mm !important; }
   .page-header-fixed .inst-h-txt { flex: 1 1 auto; min-width: 0; }
   .page-header-fixed .inst-h-txt p { margin: 0 !important; padding: 0 !important; text-align: left !important; white-space: nowrap !important;
-    font-family: Arial, 'Liberation Sans', Helvetica, sans-serif !important; font-size: 9.5pt !important; line-height: 1.4 !important;
+    font-family: Arial, 'Liberation Sans', Helvetica, sans-serif !important; font-size: 10.5pt !important; line-height: 1.55 !important;
     font-weight: bold !important; color: #000 !important; }
-  .page-header-fixed .inst-h-logo { flex: 0 0 auto; display: block; height: 16mm; width: auto; max-width: none !important; }
+  .page-header-fixed .inst-h-logo { flex: 0 0 auto; display: block; height: 17mm; width: auto; max-width: none !important; margin-top: -3mm; }
   .page-footer-fixed .inst-f { width: 78%; margin: 3mm auto 0 !important; border-top: 1px solid #000 !important; padding-top: 1.5mm !important; text-align: center !important; }
   .page-footer-fixed .inst-f p { margin: 0 !important; padding: 0 !important; text-align: center !important;
     font-family: Arial, 'Liberation Sans', Helvetica, sans-serif !important; font-size: 10pt !important; line-height: 1.35 !important;
