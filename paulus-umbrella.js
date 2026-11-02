@@ -46,6 +46,13 @@
 
   const APP_ID = "umbrella";
 
+  // Pergunta sugerida em cada tela fora do formulário (a resposta vem do manual do app, em conhecimento-umbrella.json).
+  const PERGUNTAS_TELA = {
+    home: "como buscar e filtrar as fichas da lista?",
+    prioridades: "como a escala de prioridades calcula os pontos?",
+    dashboard: "como o app calcula os indicadores do RMA?"
+  };
+
   /* ------------------------------------------------------------------ ESTADO */
 
   let iniciado = false;
@@ -334,6 +341,9 @@
       const q2 = typeof MASCOTE_PERGUNTAS_SECAO_2 !== "undefined" ? MASCOTE_PERGUNTAS_SECAO_2[state.activeSection] : "";
       if (q2) base.push({ rotulo: q2, texto: q2 });
     }
+    // Fora do formulário, a primeira sugestão é sobre a tela aberta (texto fixo; nada do conteúdo da tela).
+    const perguntaTela = PERGUNTAS_TELA[state && state.view];
+    if (perguntaTela) base.push({ rotulo: perguntaTela, texto: perguntaTela });
     if (state && state.view === "editor" && secaoDisponivel(state.activeSection)) base.push({ rotulo: "Explicar esta seção", explicar: true });
     ((sk && sk.sugestoes) || []).forEach(t => base.push({ rotulo: t, texto: t }));
     base.length = Math.min(base.length, 3);
