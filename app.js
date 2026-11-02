@@ -3423,7 +3423,7 @@ const ABNT_PRINT_CSS = `
   /* listas de itens marcados (objetivos, seguranças, vulnerabilidades, programas...): um item por linha, com marcador (•), sem caixinha */
   .tags-wrap { display: block !important; }
   .tags-wrap .tag { display: list-item !important; list-style: disc outside !important; margin: 0 0 1pt 14pt !important;
-    padding: 0 !important; border: 0 !important; background: none !important; font-weight: bold !important; }
+    padding: 0 !important; border: 0 !important; background: none !important; font-weight: normal !important; }
   /* marca d'água "DOCUMENTO SIGILOSO": diagonal, bem clara e ATRÁS do conteúdo, repetida em cada página */
   .watermark { display: block !important; position: fixed !important; top: 50% !important; left: 50% !important;
     transform: translate(-50%, -50%) rotate(-38deg) !important; z-index: -1 !important;
@@ -3449,6 +3449,8 @@ const ABNT_PRINT_CSS = `
   p.muted, .anotacao { margin-top: 2pt !important; }
   /* o que consta no prontuário em NEGRITO; rótulos em peso normal; campos vazios ("—") apagados */
   .field, .grid .field, .id-grid .v, .tags-wrap .tag, .tag { font-weight: bold !important; }
+  /* listas com marcador (•) — objetivos, seguranças, programas, instrumentais — em peso normal */
+  .tags-wrap .tag { font-weight: normal !important; }
   .label, .id-grid .k, .lbl { font-weight: normal !important; color: #333 !important; }
   .vazio, .field .vazio, .id-grid .v.vazio { font-weight: normal !important; color: #777 !important; }
   .muted { font-weight: normal !important; }
@@ -3471,10 +3473,12 @@ const ABNT_PRINT_CSS = `
   .sp-val, .sp-val * { text-align: left !important; }
   .sp-val .tag { display: inline-block; margin: 0 3pt 3pt 0; }
   .sp-sub { margin-top: 3pt; }
+  /* o que vem depois de um rótulo ("Potencialidades:", "Eixos:", "Rede acionada:"...) fica em peso normal; o rótulo continua em negrito */
+  .sintese-plano .sp-sub .tag, .sintese-plano .sp-rotulado .tag { font-weight: normal !important; }
   /* seções 2 e 3: itens em lista com marcador (•), um por linha, sem caixinha — igual às seções detalhadas */
   .sintese-plano .sp-bul { display: block; margin: 1pt 0 0; }
   .sintese-plano .sp-bul .tag { display: list-item !important; list-style: disc outside !important; margin: 0 0 1pt 14pt !important;
-    padding: 0 !important; border: 0 !important; font-size: 10.5pt !important; font-weight: bold !important; }
+    padding: 0 !important; border: 0 !important; font-size: 10.5pt !important; font-weight: normal !important; }
   .sintese-plano .sp-bul .tag.tag-livre { list-style: none !important; margin-left: 0 !important; margin-top: 2pt !important; font-weight: normal !important; text-align: justify !important; }
   .sp-metas { width: 100%; margin: 0; }
   .sp-metas th, .sp-metas td { border: 1px solid #000; padding: 2pt 4pt; font-size: 10pt !important; line-height: 1.25 !important; }
@@ -7089,7 +7093,7 @@ async function exportPDFInterno(paf) {
         <div class="sep-cadastro parte"><span class="parte-n">Síntese</span> Resumo do plano <small>da situação da família ao que foi pactuado — o detalhamento vem a seguir</small></div>
         ${linha("1 · Situação da família", `${vulns || "<span class='muted'>Vulnerabilidades não registradas</span>"}${potenc ? `<div class="sp-sub"><b>Potencialidades:</b> ${potenc}</div>` : ""}${paf.barreirasDesafios ? `<div class="sp-sub"><b>Barreiras e desafios:</b> ${escapeHtml(String(paf.barreirasDesafios).slice(0, 300))}${String(paf.barreirasDesafios).length > 300 ? "…" : ""}</div>` : ""}`)}
         ${linha("2 · O que se pretende alcançar", `${objet || "<span class='muted'>Objetivos não registrados</span>"}${segur ? `<div class="sp-sub"><b>Seguranças afiançadas:</b>${segur}</div>` : ""}`)}
-        ${linha("3 · Por quais caminhos", `${estrat ? `<div><b>Estratégias:</b>${estrat}</div>` : "<span class='muted'>Estratégias não registradas</span>"}${eixos ? `<div class="sp-sub"><b>Eixos:</b>${eixos}</div>` : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b>${rede}</div>` : ""}`)}
+        ${linha("3 · Por quais caminhos", `${estrat ? `<div class="sp-rotulado"><b>Estratégias:</b>${estrat}</div>` : "<span class='muted'>Estratégias não registradas</span>"}${eixos ? `<div class="sp-sub"><b>Eixos:</b>${eixos}</div>` : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b>${rede}</div>` : ""}`)}
         <div class="sp-lin"><span class="sp-rot">4 · Metas e resultados</span><div class="sp-val">
           ${metasLin ? `<table class="sp-metas"><thead><tr><th>Meta</th><th>Prazo</th><th>Situação</th><th>Último registro</th></tr></thead><tbody>${metasLin}</tbody></table>` : "<span class='muted'>Nenhuma meta definida</span>"}
         </div></div>
@@ -7796,7 +7800,7 @@ async function exportPDFInterno(paf) {
       ${paf.barreirasDesafios ? `<h2>Barreiras e Desafios</h2><p class="anotacao">${diarioBr(paf.barreirasDesafios)}</p>` : ""}
       ${(paf.instrumentaisTecnicos || []).length || paf.aspectosPsicossociaisObs ? `
       <h2>Aspectos Psicossociais e Instrumentais Técnicos</h2>
-      ${(paf.instrumentaisTecnicos || []).length ? `<div>${paf.instrumentaisTecnicos.map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
+      ${(paf.instrumentaisTecnicos || []).length ? `<div class="tags-wrap">${paf.instrumentaisTecnicos.map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("")}</div>` : ""}
       ${paf.aspectosPsicossociaisObs ? `<p class="muted" style="margin:6px 0 0;">${diarioBr(paf.aspectosPsicossociaisObs)}</p>` : ""}` : ""}
 
       <div class="sub-parte"><b>2B</b> Plano de intervenção <small>o que se pretende alcançar, por quais caminhos e com quais metas</small></div>
