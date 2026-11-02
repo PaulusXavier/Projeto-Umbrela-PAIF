@@ -3458,12 +3458,19 @@ const ABNT_PRINT_CSS = `
   .sintese-plano { margin: 0 0 6pt; }
   .sintese-plano, .sintese-plano * { font-size: 10.5pt !important; line-height: 1.3 !important; }
   .sintese-plano .tag { font-size: 10pt !important; padding: 0 3pt !important; }
-  .sp-lin { display: grid; grid-template-columns: 30mm 1fr; gap: 0 8pt; border: 1px solid #000; border-bottom: 0; padding: 3pt 6pt; break-inside: avoid; }
+  .sp-lin { display: grid; grid-template-columns: 30mm 1fr; gap: 0 8pt; border: 1px solid #000; border-bottom: 0; padding: 3pt 6pt; break-inside: auto; page-break-inside: auto; }
+  /* cada linha pode continuar na página seguinte (antes, linhas longas eram empurradas inteiras e deixavam a página quase vazia); itens e sub-blocos não se partem */
+  .sp-sub, .sp-bul .tag, .sp-metas tr { break-inside: avoid; page-break-inside: avoid; }
   .sp-lin:last-child { border-bottom: 1px solid #000; }
   .sp-rot { font-weight: bold !important; text-align: left !important; }
   .sp-val, .sp-val * { text-align: left !important; }
   .sp-val .tag { display: inline-block; margin: 0 3pt 3pt 0; }
   .sp-sub { margin-top: 3pt; }
+  /* seções 2 e 3: itens em lista com marcador (•), um por linha, sem caixinha — igual às seções detalhadas */
+  .sintese-plano .sp-bul { display: block; margin: 1pt 0 0; }
+  .sintese-plano .sp-bul .tag { display: list-item !important; list-style: disc outside !important; margin: 0 0 1pt 14pt !important;
+    padding: 0 !important; border: 0 !important; font-size: 10.5pt !important; font-weight: bold !important; }
+  .sintese-plano .sp-bul .tag.tag-livre { list-style: none !important; margin-left: 0 !important; margin-top: 2pt !important; font-weight: normal !important; text-align: justify !important; }
   .sp-metas { width: 100%; margin: 0; }
   .sp-metas th, .sp-metas td { border: 1px solid #000; padding: 2pt 4pt; font-size: 10pt !important; line-height: 1.25 !important; }
   .sem-registro { margin-top: 10pt; font-size: 10pt !important; }
@@ -7030,15 +7037,21 @@ async function exportPDFInterno(paf) {
     const t = [..._arr(arr).map(v => `<span class="tag">${escapeHtml(v)}</span>`), ...(outro ? [`<span class="tag">${escapeHtml(outro)}</span>`] : [])];
     return t.join("");
   };
+  // Lista com marcadores (•) para a síntese: itens marcados em negrito; texto livre ("Outras: ...") em peso normal, sem marcador.
+  const _bul = (arr, outro) => {
+    const itens = _arr(arr).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("");
+    const livre = outro ? `<span class="tag tag-livre">${escapeHtml(outro)}</span>` : "";
+    return (itens || livre) ? `<div class="sp-bul">${itens}${livre}</div>` : "";
+  };
   const sintesePlanoHTML = (() => {
     const linha = (rotulo, conteudo) => conteudo ? `<div class="sp-lin"><span class="sp-rot">${rotulo}</span><div class="sp-val">${conteudo}</div></div>` : "";
     const vulns = _tags(paf.vulnerabilidades, paf.vulnerabilidadesOutros);
     const potenc = _arr((paf.potencialidades || []).filter(x => x.situacao).map(x => x.potencial)).map(v => `<span class="tag">${escapeHtml(v)}</span>`).join("");
-    const objet = _tags(paf.objetivosPaif, paf.objetivosPaifOutros);
-    const estrat = _tags(paf.estrategias, paf.estrategiasOutras);
-    const eixos = _tags(paf.eixos, paf.eixosOutros);
-    const segur = _tags(paf.segurancasSocioassistenciais, paf.segurancasSocioassistenciaisOutras);
-    const rede = _tags([...(paf.servBasica || []), ...(paf.servMedia || []), ...(paf.servAlta || [])]);
+    const objet = _bul(paf.objetivosPaif, paf.objetivosPaifOutros);
+    const estrat = _bul(paf.estrategias, paf.estrategiasOutras);
+    const eixos = _bul(paf.eixos, paf.eixosOutros);
+    const segur = _bul(paf.segurancasSocioassistenciais, paf.segurancasSocioassistenciaisOutras);
+    const rede = _bul([...(paf.servBasica || []), ...(paf.servMedia || []), ...(paf.servAlta || [])]);
     const nEnc = (paf.encaminhamentosForm || []).length;
     const metasLin = metasAtivas.map(m => {
       const notas = metaNotas(m).filter(n => (n.texto || "").trim());
@@ -7068,8 +7081,8 @@ async function exportPDFInterno(paf) {
       <div class="sintese-plano">
         <div class="sep-cadastro parte"><span class="parte-n">Síntese</span> Resumo do plano <small>da situação da família ao que foi pactuado — o detalhamento vem a seguir</small></div>
         ${linha("1 · Situação da família", `${vulns || "<span class='muted'>Vulnerabilidades não registradas</span>"}${potenc ? `<div class="sp-sub"><b>Potencialidades:</b> ${potenc}</div>` : ""}${paf.barreirasDesafios ? `<div class="sp-sub"><b>Barreiras e desafios:</b> ${escapeHtml(String(paf.barreirasDesafios).slice(0, 300))}${String(paf.barreirasDesafios).length > 300 ? "…" : ""}</div>` : ""}`)}
-        ${linha("2 · O que se pretende alcançar", `${objet || "<span class='muted'>Objetivos não registrados</span>"}${segur ? `<div class="sp-sub"><b>Seguranças afiançadas:</b> ${segur}</div>` : ""}`)}
-        ${linha("3 · Por quais caminhos", `${estrat || "<span class='muted'>Estratégias não registradas</span>"}${eixos ? `<div class="sp-sub"><b>Eixos:</b> ${eixos}</div>` : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b> ${rede}</div>` : ""}`)}
+        ${linha("2 · O que se pretende alcançar", `${objet || "<span class='muted'>Objetivos não registrados</span>"}${segur ? `<div class="sp-sub"><b>Seguranças afiançadas:</b>${segur}</div>` : ""}`)}
+        ${linha("3 · Por quais caminhos", `${estrat ? `<div><b>Estratégias:</b>${estrat}</div>` : "<span class='muted'>Estratégias não registradas</span>"}${eixos ? `<div class="sp-sub"><b>Eixos:</b>${eixos}</div>` : ""}${rede ? `<div class="sp-sub"><b>Rede acionada:</b>${rede}</div>` : ""}`)}
         <div class="sp-lin"><span class="sp-rot">4 · Metas e resultados</span><div class="sp-val">
           ${metasLin ? `<table class="sp-metas"><thead><tr><th>Meta</th><th>Prazo</th><th>Situação</th><th>Último registro</th></tr></thead><tbody>${metasLin}</tbody></table>` : "<span class='muted'>Nenhuma meta definida</span>"}
         </div></div>
