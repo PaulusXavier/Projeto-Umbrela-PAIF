@@ -2401,6 +2401,49 @@ function donutChartSVG(obj, opts) {
   </div>`;
 }
 
+// ---------- Barra empilhada 100% (ideal para respostas Sim/Não e poucas categorias) ----------
+function barraEmpilhadaHTML(obj, opts) {
+  opts = opts || {};
+  const ordem = opts.ordem || null;
+  let entradas = Object.entries(obj).filter(([, v]) => v > 0);
+  entradas = ordem ? entradas.sort((a, b) => ordem.indexOf(a[0]) - ordem.indexOf(b[0])) : entradas.sort((a, b) => b[1] - a[1]);
+  if (!entradas.length) return semDadosHTML();
+  const total = entradas.reduce((a, [, v]) => a + v, 0) || 1;
+  const usadas = new Set(entradas.map(([k]) => COR_SEMANTICA[k]).filter(Boolean));
+  const livres = RESUMO_PALETA.filter((c) => !usadas.has(c));
+  let iLivre = 0;
+  const cores = entradas.map(([k]) => COR_SEMANTICA[k] || livres[iLivre++ % (livres.length || 1)] || COR_NEUTRA);
+  const segs = entradas.map(([k, v], i) => {
+    const pct = Math.round(v / total * 100);
+    return `<span class="pilha-seg" style="flex:${v};background:${cores[i]}" title="${escapeHtml(k)}: ${v} (${pct}%)">${pct >= 9 ? pct + "%" : ""}</span>`;
+  }).join("");
+  const legenda = entradas.map(([k, v], i) => {
+    const pct = Math.round(v / total * 100);
+    return `<span class="pilha-leg"><i style="background:${cores[i]}"></i>${escapeHtml(k)} <b>${v}</b> <em>(${pct}%)</em></span>`;
+  }).join("");
+  return `<div class="pilha-wrap">
+    <div class="pilha-barra" role="img" aria-label="${escapeHtml(entradas.map(([k, v]) => k + ": " + v).join("; "))}">${segs}</div>
+    <div class="pilha-legenda">${legenda}</div>
+    <div class="pilha-total"><b>${total}</b> ${escapeHtml(opts.centro || "total")}</div>
+  </div>`;
+}
+
+// ---------- Medidor semicircular (um percentual contra 100%) ----------
+function medidorSVG(pct, opts) {
+  opts = opts || {};
+  const v = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+  const cor = opts.cor || "#2E7D6B";
+  const arco = "M 20 100 A 80 80 0 0 1 180 100";
+  return `<svg viewBox="0 0 200 124" class="medidor-svg" style="width:190px;max-width:100%;height:auto;flex-shrink:0" role="img" aria-label="${escapeHtml(opts.rotulo || "Medidor")}: ${v}%">
+    <path d="${arco}" fill="none" stroke="#DDE5E1" stroke-width="18" stroke-linecap="round" pathLength="100"></path>
+    ${v > 0 ? `<path d="${arco}" fill="none" stroke="${cor}" stroke-width="18" stroke-linecap="round" pathLength="100" stroke-dasharray="${v} 100"></path>` : ""}
+    <text x="100" y="92" text-anchor="middle" font-size="34" font-weight="700" fill="#1F3A5F">${v}%</text>
+    <text x="100" y="112" text-anchor="middle" font-size="11" fill="#52667C">${escapeHtml(opts.rotulo || "")}</text>
+    <text x="20" y="120" text-anchor="middle" font-size="9" fill="#8496A8">0%</text>
+    <text x="180" y="120" text-anchor="middle" font-size="9" fill="#8496A8">100%</text>
+  </svg>`;
+}
+
 // Interação das roscas: ao passar o mouse/focar numa fatia (ou item da legenda), o centro mostra
 // o valor e o nome daquela fatia e as demais ficam esmaecidas. Um único ouvinte para todas.
 (function instalarInteracaoDonut() {
@@ -2439,7 +2482,7 @@ function donutChartSVG(obj, opts) {
   if (typeof document === "undefined" || window.__dicaGraficos) return;
   window.__dicaGraficos = true;
   let box = null;
-  const SEL = ".chart-svg [tabindex], .donut-arc, .stat-bar-row[title], .donut-legend-item[title]";
+  const SEL = ".chart-svg [tabindex], .donut-arc, .stat-bar-row[title], .donut-legend-item[title], .pilha-seg[title]";
   function caixa() {
     if (!box) { box = document.createElement("div"); box.className = "chart-tip"; box.setAttribute("role", "tooltip"); document.body.appendChild(box); }
     return box;
@@ -2483,7 +2526,7 @@ function histogramaSVG(obj, opts) {
 
   const max = Math.max(...entradas.map(([, v]) => v), 1);
   const eixo = eixoY(max);
-  const padL = margemEixoNum(eixo.topo), padR = 10, padT = 20, padB = 42, chartH = 124, colW = 60;
+  const padL = margemEixoNum(eixo.topo), padR = 10, padT = 20, padB = 42, chartH = 140, colW = 78;
   const width = padL + entradas.length * colW + padR;
   const height = chartH + padT + padB;
   // moda = classe mais frequente entre as informadas
@@ -2737,8 +2780,8 @@ function resumoGeralVulnerabilidadesHTML(r) {
     <div class="resumo-secao">
       <h4>${sectionIconSvg("programas", 16)} Programas, benefícios e encaminhamentos</h4>
       <div class="resumo-cols resumo-cols-donut resumo-cols-donut2">
-        <div><strong>Participa de programas/projetos</strong>${donutChartSVG(r.porParticipaProgramas, { centro: "famílias" })}</div>
-        <div><strong>Recebe benefício</strong>${donutChartSVG(r.porRecebeBeneficio, { centro: "famílias" })}</div>
+        <div><strong>Participa de programas/projetos</strong>${barraEmpilhadaHTML(r.porParticipaProgramas, { centro: "famílias", ordem: ["Sim", "Não"] })}</div>
+        <div><strong>Recebe benefício</strong>${barraEmpilhadaHTML(r.porRecebeBeneficio, { centro: "famílias", ordem: ["Sim", "Não"] })}</div>
       </div>
       <div class="resumo-cols" style="margin-top:16px;">
         <div><strong>Programas/projetos mais frequentes</strong>${barrasHTML(r.porPrograma, { top: 8 })}</div>
@@ -2779,7 +2822,11 @@ function resumoGeralMetasHTML(r) {
         ${kpiCardHTML(r.pctSituacoesSuperadas + "%", "Taxa de superação registrada", "metas")}
       </div>
       <div class="resumo-cols resumo-cols-donut">
-        <div><strong>Situações sociais: superadas x em acompanhamento</strong>${donutChartSVG({ "Superadas": r.totalSituacoesSuperadas, "Em acompanhamento": Math.max(r.totalSituacoesAtivas - r.totalSituacoesSuperadas, 0) }, { centro: "situações" })}</div>
+        <div><strong>Situações sociais: superadas x em acompanhamento</strong><div class="donut-wrap medidor-wrap">${medidorSVG(r.pctSituacoesSuperadas, { rotulo: "taxa de superação" })}<div class="donut-legend">
+          <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#2E7D6B"></span><span class="donut-legend-label">Superadas</span><span class="donut-legend-value"><b>${r.totalSituacoesSuperadas}</b></span></div>
+          <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#DDE5E1;border:1px solid #B9C6C0"></span><span class="donut-legend-label">Em acompanhamento</span><span class="donut-legend-value"><b>${Math.max(r.totalSituacoesAtivas - r.totalSituacoesSuperadas, 0)}</b></span></div>
+          <div class="donut-legend-item"><span class="donut-legend-label"><b>Total de situações</b></span><span class="donut-legend-value"><b>${r.totalSituacoesAtivas}</b></span></div>
+        </div></div></div>
       </div>
       <p class="hint" style="margin-top:6px;">Considera as situações sociais marcadas como presentes na família (seção Diagnóstico) e, dentre essas, as já indicadas como superadas pela equipe.</p>
     </div>`;
@@ -3181,6 +3228,41 @@ const SEM_BRANCO_CSS = `
      margin boxes simplesmente ignoram).
    - Quebras: títulos nunca ficam órfãos, cartões/linhas não se partem, mas seções grandes podem
      fluir entre páginas (evita grandes espaços em branco). */
+/* Folha do Resumo Estatístico: gráficos legíveis no papel. Entra DEPOIS de SEM_BRANCO_CSS (que limitava cada gráfico a ~27 mm de altura
+   e fazia o histograma e o Pareto encolherem até o texto ficar ilegível). Vale só para body.resumo-print — a ficha individual não muda. */
+const RESUMO_PRINT_GRAFICOS_CSS = `
+  .resumo-print .chart-svg { max-height: none !important; width: 100% !important; max-width: calc(var(--w, 700px) * 1.35) !important; margin: 0 auto !important; }
+  .resumo-print .resumo-cols > div:has(.pareto-chart), .resumo-print .resumo-cols > div:has(.histograma-chart) { grid-column: 1 / -1 !important; }
+  .resumo-print .resumo-cols > div:has(.pareto-chart), .resumo-print .resumo-cols > div:has(.histograma-chart) { break-inside: avoid !important; page-break-inside: avoid !important; }
+  /* menos espaço vazio: a seção pode continuar na página seguinte (só o título não fica sozinho no fim) e os quadros preenchem as duas colunas */
+  .resumo-print .resumo-secao { break-inside: auto !important; page-break-inside: auto !important; margin-bottom: 8pt !important; }
+  .resumo-print .resumo-secao > h4 { break-after: avoid !important; page-break-after: avoid !important; }
+  .resumo-print .resumo-cols { display: block !important; column-count: 2 !important; column-gap: 4pt !important; margin-bottom: 4pt !important; }
+  .resumo-print .resumo-cols > div { display: block !important; width: auto !important; margin: 0 0 4pt !important; break-inside: avoid !important; page-break-inside: avoid !important; vertical-align: top; }
+  .resumo-print .resumo-cols > div:has(.pareto-chart), .resumo-print .resumo-cols > div:has(.histograma-chart), .resumo-print .resumo-cols > div:has(.medidor-wrap), .resumo-print .resumo-cols-donut > div:only-child { column-span: all; }
+  .resumo-print .kpi-grid, .resumo-print .kpi-grid-sec { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .resumo-print .kpi-grid-hero { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .resumo-print .resumo-cols > div:has(.medidor-wrap), .resumo-print .resumo-cols-donut > div:only-child { grid-column: 1 / -1 !important; }
+  .resumo-print .donut-svg { width: 66pt !important; height: 66pt !important; }
+  .resumo-print .donut-total-num { font-size: 22px !important; }
+  .resumo-print .donut-total-label { font-size: 12px !important; }
+  .resumo-print .donut-wrap { flex-wrap: nowrap !important; gap: 8pt !important; }
+  .resumo-print .donut-legend { min-width: 0 !important; }
+  .resumo-print .donut-legend-linear { flex-wrap: wrap !important; }
+  .resumo-print .medidor-svg { width: 150pt !important; }
+  .resumo-print .pareto-bar-label { font-size: 9px !important; }
+  .resumo-print .hist-bar-label, .resumo-print .hist-bar-num { font-size: 10px !important; }
+  .resumo-print .hist-eixo-num, .resumo-print .hist-bar-pct, .resumo-print .pareto-eixo-dir, .resumo-print .pareto-pct-num { font-size: 9px !important; }
+  .resumo-print .chart-legend-inline { gap: 10pt !important; flex-wrap: wrap; }
+  .resumo-print .pilha-barra { display: flex; height: 15pt; border: 1px solid #000; overflow: hidden; }
+  .resumo-print .pilha-seg { display: flex; align-items: center; justify-content: center; min-width: 0; color: #fff !important; font-size: 9pt !important; font-weight: bold !important; border-right: 1px solid #fff; }
+  .resumo-print .pilha-seg:last-child { border-right: 0; }
+  .resumo-print .pilha-legenda { display: flex; flex-wrap: wrap; gap: 1pt 10pt; margin-top: 3pt; font-size: 10pt; }
+  .resumo-print .pilha-leg { white-space: nowrap; }
+  .resumo-print .pilha-leg i { display: inline-block; width: 7pt; height: 7pt; border-radius: 50%; margin-right: 3pt; vertical-align: baseline; }
+  .resumo-print .pilha-total { margin-top: 2pt; font-size: 10pt; }
+`;
+
 const PRINT_COMMON_CSS = `
   /* ABNT NBR 14724: A4; margens superior 3 cm, esquerda 3 cm, inferior 2 cm, direita 2 cm;
      numeração de páginas no canto superior direito, a 2 cm da borda, fonte 10. */
@@ -3465,14 +3547,17 @@ const ABNT_PRINT_CSS = `
   .sintese-plano { margin: 0 0 6pt; }
   .sintese-plano, .sintese-plano * { font-size: 10.5pt !important; line-height: 1.3 !important; }
   .sintese-plano .tag { font-size: 10pt !important; padding: 0 3pt !important; }
-  .sp-lin { display: grid; grid-template-columns: 30mm 1fr; gap: 0 8pt; border: 1px solid #000; border-bottom: 0; padding: 3pt 6pt; break-inside: auto; page-break-inside: auto; }
+  .sp-lin { display: grid; grid-template-columns: 26mm 1fr; gap: 0 6pt; border: 1px solid #000; border-bottom: 0; padding: 2pt 5pt; break-inside: auto; page-break-inside: auto; }
   /* cada linha pode continuar na página seguinte (antes, linhas longas eram empurradas inteiras e deixavam a página quase vazia); itens e sub-blocos não se partem */
-  .sp-sub, .sp-bul .tag, .sp-metas tr { break-inside: avoid; page-break-inside: avoid; }
+  .sp-bul .tag, .sp-metas tr { break-inside: avoid; page-break-inside: avoid; }
+  /* blocos longos (potencialidades, seguranças...) podem continuar na página seguinte, sem deixar vazio no fim da página; o rótulo não fica sozinho */
+  .sp-sub, .sp-rotulado { break-inside: auto; page-break-inside: auto; }
+  .sp-sub:has(> .sp-bul) > b, .sp-rotulado:has(> .sp-bul) > b { display: block; break-after: avoid; page-break-after: avoid; }
   .sp-lin:last-child { border-bottom: 1px solid #000; }
   .sp-rot { font-weight: bold !important; text-align: left !important; }
   .sp-val, .sp-val * { text-align: left !important; }
-  .sp-val .tag { display: inline-block; margin: 0 3pt 3pt 0; }
-  .sp-sub { margin-top: 3pt; }
+  .sp-val .tag { display: inline-block; margin: 0 3pt 1.5pt 0 !important; }
+  .sp-sub { margin-top: 2pt; }
   /* o que vem depois de um rótulo ("Potencialidades:", "Eixos:", "Rede acionada:"...) fica em peso normal; o rótulo continua em negrito */
   .sintese-plano .sp-sub .tag, .sintese-plano .sp-rotulado .tag { font-weight: normal !important; }
   /* seções 2 e 3: itens em lista com marcador (•), um por linha, sem caixinha — igual às seções detalhadas */
@@ -3721,10 +3806,11 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         ${ABNT_PRINT_CSS}
         ${CABECALHO_RODAPE_INST_CSS}
         ${SEM_BRANCO_CSS}
+        ${RESUMO_PRINT_GRAFICOS_CSS}
       </style>
 
     </head>
-    <body>
+    <body class="resumo-print">
       <table class="print-shell">
       <thead class="page-header-fixed"><tr><td>${CABECALHO_INST_HTML}</td></tr></thead>
       <tfoot class="page-footer-fixed"><tr><td>${RODAPE_INST_HTML}</td></tr></tfoot>
@@ -5492,7 +5578,11 @@ function graficosFamiliaBlocosHTML(paf) {
       <div class="resumo-cols">
         <div><strong>Vulnerabilidades identificadas</strong>${chipListHTML(r.vulnerabilidades)}</div>
         <div><strong>Potencialidades da família</strong>${donutChartSVG(r.porPotencial, { centro: "potenciais" })}</div>
-        <div><strong>Situações sociais: superadas x em acompanhamento</strong>${donutChartSVG({ "Superadas": r.totalSituacoesSuperadas, "Em acompanhamento": Math.max(r.totalSituacoesAtivas - r.totalSituacoesSuperadas, 0) }, { centro: "situações" })}</div>
+        <div><strong>Situações sociais: superadas x em acompanhamento</strong><div class="donut-wrap medidor-wrap">${medidorSVG(r.pctSituacoesSuperadas, { rotulo: "taxa de superação" })}<div class="donut-legend">
+          <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#2E7D6B"></span><span class="donut-legend-label">Superadas</span><span class="donut-legend-value"><b>${r.totalSituacoesSuperadas}</b></span></div>
+          <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#DDE5E1;border:1px solid #B9C6C0"></span><span class="donut-legend-label">Em acompanhamento</span><span class="donut-legend-value"><b>${Math.max(r.totalSituacoesAtivas - r.totalSituacoesSuperadas, 0)}</b></span></div>
+          <div class="donut-legend-item"><span class="donut-legend-label"><b>Total de situações</b></span><span class="donut-legend-value"><b>${r.totalSituacoesAtivas}</b></span></div>
+        </div></div></div>
       </div>
       ${r.totalSituacoesAtivas ? `<p class="hint" style="margin-top:10px;">Taxa de superação registrada: ${r.pctSituacoesSuperadas}% (${r.totalSituacoesSuperadas} de ${r.totalSituacoesAtivas} situações sociais identificadas para esta família).</p>` : ""}
     </div>
