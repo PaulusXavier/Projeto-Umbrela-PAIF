@@ -196,9 +196,11 @@ na tela como texto, nunca como HTML. Ao sair da conta ou por inatividade, a conv
 
 **O que o Paulus sabe sobre o app (base própria, no aparelho):** além das normas, ele consulta
 `conhecimento-umbrella.json`, gerado do próprio código por `scripts/gerar-conhecimento-umbrella.mjs`
-(~140 verbetes: as notas técnicas de cada seção, as listas do formulário — objetivos do PAIF, seguranças,
-atividades coletivas, serviços, motivos de encerramento etc. —, o guia de cada seção, as dicas do mascote e o
-"como usar" deste README). São textos fixos do app; nenhum dado de família entra. Quando você editar uma nota
+(~245 verbetes: as notas técnicas de cada seção, as listas do formulário — objetivos do PAIF, seguranças,
+atividades coletivas, serviços, habitação, benefícios eventuais, motivos de encerramento etc. —, o guia e os **campos de cada
+seção**, as dicas do mascote, o "como usar" deste README (inclusive Histórico e Anotações), a base normativa do app e o
+**manual do app** em `docs/manual-do-app.md`: escala de prioridades e seus pontos, indicadores do RMA, progresso e alertas da
+ficha, sessão e inatividade, atalhos, anexos e limites, exportação, Config e backup, mascote e comandos do Paulus). São textos fixos do app; nenhum dado de família entra. Quando você editar uma nota
 técnica, uma lista ou o README, rode `node scripts/gerar-conhecimento-umbrella.mjs` e aumente o `CACHE_NAME` do
 `sw.js`. Essa base fica separada de `conhecimento.json`, então não se perde ao copiar a base do repositório do Paulus.
 
@@ -249,7 +251,7 @@ para ter um teto diário de perguntas (`COTA_DIA`, padrão 800). O limite por mi
 
 **Testar sem rede:** `node worker/teste-local.mjs` (a API é simulada: confere busca, stream, privacidade e limites).
 
-**Quando mudar o app:** rode `node scripts/gerar-conhecimento-umbrella.mjs` (atualiza as notas e o resumo) e
+**Quando mudar o app:** se mudar uma regra descrita no `docs/manual-do-app.md` (atalho, prazo de inatividade, pesos da prioridade, limites de anexo, indicadores do RMA...), ajuste o texto do manual; os números vêm do código, mas as frases não. Depois rode `node scripts/gerar-conhecimento-umbrella.mjs` (atualiza as notas e o resumo) e
 publique o Worker de novo (`npx wrangler deploy` já regenera os módulos de `worker/`).
 
 Enquanto `PAULUS_ENDPOINT` estiver vazio, o painel funciona **só com a base de normas, no aparelho**
@@ -438,6 +440,7 @@ Plano.
 | `conhecimento-umbrella.json` | O que o app ensina sobre o PAIF, em verbetes (gerado por `scripts/gerar-conhecimento-umbrella.mjs`; não editar à mão) |
 | `paulus-consulta.js` | Limpa a pergunta e acrescenta sinônimos do PAIF antes de consultar a base local |
 | `scripts/gerar-conhecimento-umbrella.mjs` | Gera `conhecimento-umbrella.json` e `docs/umbrella-para-o-worker.md` a partir do `app.js` e deste README |
+| `docs/manual-do-app.md` | Manual do app para o Paulus, escrito à mão; os números (pesos, limites, prazos) são lidos do `app.js` pelo gerador, que **avisa e para** se algum trecho do código mudar de lugar |
 | `docs/umbrella-para-o-worker.md` | Resumo do app para a IA do Paulus (o Worker já o usa) |
 | `worker/` | Servidor da IA (Cloudflare Worker): `index.mjs`, `essencial-paif.mjs`, `wrangler.toml`, `teste-local.mjs` |
 | `icon-192.png` / `icon-512.png` | Ícones do app |
