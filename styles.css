@@ -2980,3 +2980,28 @@ input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
 /* detalhes de foco e toque */
 .btn:focus-visible, .filter-chip:focus-visible, .topbar-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .record-row, .priority-row { transition: background .15s; }
+
+/* ---- Melhorias de leitura dos gráficos (tela) ---- */
+/* textos dos eixos e das barras maiores (antes 9,5–10px, difíceis de ler) */
+.hist-eixo-num, .hist-bar-pct, .chart-bar-num, .chart-bar-mes, .pareto-bar-label, .pareto-pct-num, .pareto-eixo-dir { font-size: 11px; }
+.hist-bar-num { font-size: 12px; font-weight: 700; }
+.hist-bar-label { font-size: 11.5px; }
+.hist-bar-pct, .hist-eixo-num, .chart-bar-num, .chart-bar-mes { font-variant-numeric: tabular-nums; }
+/* barras horizontais: trilho mais grosso e números alinhados */
+.stat-bar-row { grid-template-columns: minmax(90px, 1.2fr) minmax(70px, 1fr) 76px; gap: 10px; padding: 3px 4px; }
+.stat-bar-label { font-size: var(--text-sm); }
+.stat-bar-track { height: 10px; border-radius: 5px; }
+.stat-bar-fill { border-radius: 5px; }
+.stat-bar-value { font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+/* rosca: legenda legível, sem cortar rótulos longos (quebra em até 2 linhas) */
+.donut-wrap { gap: 18px; }
+.donut-legend { gap: 4px; font-size: var(--text-sm); }
+.donut-legend-item { white-space: normal; align-items: flex-start; padding: 3px 5px; }
+.donut-legend-dot { width: 10px; height: 10px; margin-top: 4px; }
+.donut-legend-label { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+.donut-legend-value { white-space: nowrap; padding-left: 8px; font-variant-numeric: tabular-nums; }
+.donut-legend-linear .donut-legend-item { align-items: center; }
+.donut-legend-linear .donut-legend-dot { margin-top: 0; }
+.donut-total-label { font-size: 10px; }
+/* destaque suave também nas barras do histograma e do Pareto ao focar */
+.hist-bar:hover, .hist-bar:focus-visible, .pareto-bar:hover, .pareto-bar:focus-visible { filter: brightness(1.08) drop-shadow(0 2px 3px rgba(31,58,95,.25)); }
