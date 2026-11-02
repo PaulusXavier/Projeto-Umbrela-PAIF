@@ -3071,3 +3071,37 @@ body:has(#authScreen:not([style*="display: none"]):not([style*="display:none"]))
 .login-card .btn-primary.carregando::after { content: none; }
 .login-card .btn-primary:disabled { cursor: progress; }
 .login-lembrar:hover { color: var(--ink); }
+
+
+/* ---- Gráficos (tela): textos maiores, cores e marcadores mais legíveis. Não afeta a impressão/PDF. ---- */
+@media screen {
+  .donut-wrap { gap: 18px; }
+  .donut-total-num { font-size: 26px; }
+  .donut-total-label { font-size: 9.5px; letter-spacing: .05em; }
+  .donut-wrap.donut-ativo .donut-total-label { font-size: 9px; }
+  .donut-wrap.donut-ativo .donut-arc.is-active { stroke-width: 30; }
+  .donut-legend { font-size: var(--text-sm); gap: 6px; }
+  .donut-legend-item { gap: 8px; padding: 2px 5px; }
+  .donut-legend-dot { width: 11px; height: 11px; }
+  .donut-legend-value b { font-size: var(--text-sm); }
+
+  .stat-bars { gap: 7px; }
+  .stat-bar-row { grid-template-columns: minmax(0, 1fr) 90px auto; }
+  .stat-bar-track { height: 10px; border-radius: 5px; }
+  .stat-bar-fill { border-radius: 5px; }
+  .stat-bar-value { font-size: var(--text-sm); }
+  .stat-bar-row:not(.is-top) .stat-bar-fill { opacity: .8; }
+
+  .pilha-barra { height: 36px; border-radius: 9px; }
+  .pilha-seg { font-size: var(--text-sm); text-shadow: 0 1px 1px rgba(0,0,0,.25); }
+  .pilha-legenda { font-size: var(--text-sm); gap: 5px 18px; }
+  .pilha-leg i { width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; }
+  .pilha-total { font-size: var(--text-sm); }
+
+  .hist-eixo-num, .chart-bar-num, .chart-bar-mes, .chart-bar-saldo, .hist-bar-pct { font-size: 11px; }
+  .hist-bar-num { font-size: 12.5px; font-weight: 700; }
+  .hist-bar-label { font-size: 11.5px; }
+  .chart-legend-inline { font-size: var(--text-sm); gap: 18px; }
+  .chart-legend-inline i { width: 11px; height: 11px; }
+  .chart-insight { font-size: var(--text-sm); }
+}
