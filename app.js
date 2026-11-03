@@ -141,7 +141,7 @@ const PROGRAMAS_OUTROS_SUGESTOES = ["Pé-de-Meia", "Programa Criança Feliz", "P
   "Pronatec", "Programa Bolsa Verde"];
 const BENEFICIOS_OUTROS_SUGESTOES = ["Programa Bolsa Família", "BPC - Benefício de Prestação Continuada", "Cesta da Família",
   "Cesta Básica", "Auxílio Natalidade", "Auxílio Funeral", "Aluguel Social", "Auxílio transporte",
-  "Vale-gás", "Auxílio-doença", "Passe livre para pessoa com deficiência", "Carteira da Pessoa Idosa", "Programa Minha Casa Minha Vida"];
+  "Vale-gás", "Auxílio por incapacidade temporária (antigo auxílio-doença)", "Passe livre para pessoa com deficiência", "Carteira da Pessoa Idosa", "Programa Minha Casa Minha Vida"];
 
 // Modalidades de Benefício Eventual conforme art. 22 da LOAS (Lei nº 8.742/1993) e
 // Decreto nº 6.307/2007: provisões suplementares e provisórias por nascimento, morte,
@@ -178,7 +178,7 @@ function outrosSugestoes(sugestoes, jaListados) {
 const REDE_APOIO = [
   // Saúde
   "UBS - Unidade Básica de Saúde", "CAPS - Centro de Atenção Psicossocial", "Hospital/Maternidade",
-  "NASF - Núcleo Ampliado de Saúde da Família", "Farmácia Popular", "Vigilância em Saúde/Epidemiológica",
+  "eMulti - Equipes Multiprofissionais na Atenção Primária (antigo NASF)", "Farmácia Popular", "Vigilância em Saúde/Epidemiológica",
   // Educação
   "Creches", "Escolas (ensino regular)", "Escolas em tempo integral", "EJA - Educação de Jovens e Adultos",
   "Projetos sociais em contraturno escolar", "Núcleo/Sala de Apoio Pedagógico",
@@ -475,7 +475,7 @@ const MASCOTE_DICAS = [
   "Fotos grandes são comprimidas automaticamente ao anexar — não precisa reduzir o arquivo antes.",
   "A renda per capita, as vulnerabilidades e as situações sociais (seção 03) ajudam a calcular a prioridade da família.",
   "Um PAF bem preenchido no dia a dia economiza tempo na hora de montar o relatório mensal (RMA).",
-  "\"Objetivos alcançados\" no encerramento exige avaliação conjunta com a família — se não foram, o caminho é ajustar o Plano, não encerrá-lo."
+  "\"Objetivos alcançados\" no encerramento exige avaliação conjunta com a família — se não foram, o caminho é ajustar o Plano, salvo se houver motivo legítimo de encerramento (recusa da família, mudança de domicílio, óbito, localização desconhecida etc.)."
 ];
 
 // Dica técnica de cada seção do formulário: aparece uma vez por sessão, quando a pessoa abre a seção.
@@ -492,7 +492,7 @@ const MASCOTE_DICAS_SECAO = {
   metas: "Metas pequenas, com prazo e combinadas com a família funcionam melhor. Registre a evolução para avaliar o plano na data de retorno.",
   estrategias: "Estratégias: que ações individuais, coletivas e de rede vão sustentar cada meta? Lembre das ações comunitárias quando o problema for do território.",
   plano: "O Plano é construído com a família, com prazos e data de retorno, e pode ser readequado quando a situação mudar.",
-  encerramento: "Encerrar exige avaliar com a família se os objetivos foram alcançados. Se não foram, o caminho é ajustar o Plano, não encerrar.",
+  encerramento: "Encerrar exige avaliar com a família se os objetivos foram alcançados. Se não foram, o caminho é ajustar o Plano, salvo se houver outro motivo de encerramento (recusa da família, mudança de domicílio, óbito, localização desconhecida etc.).",
   anexos: "Anexe só o que for necessário ao acompanhamento. Os documentos têm informação sigilosa: sigilo profissional e LGPD valem aqui também.",
   observacoes: "Registre fatos e o que a família disse, sem juízo de valor. O prontuário pode ser lido por outros profissionais e pela própria família.",
   graficos: "Os gráficos desta família ajudam a ver a evolução. Use junto com a conversa com a família, não no lugar dela."
@@ -1735,16 +1735,23 @@ function computePrioridade(paf) {
   });
   (paf.vulnerabilidades || []).forEach(v => add(VULNERABILIDADES_PESO[v] || 1, v));
 
+  // Fatores fixos só pontuam se a mesma condição ainda não foi contada pela lista de
+  // situações sociais acima (evita somar duas vezes o mesmo risco).
+  const situMarcada = nome => (paf.situacoesSociais || []).some(r => r.situacao === nome && r.membros && !r.superada);
+  const jaAlcoolDrogas = situMarcada("Uso abusivo de álcool e outras drogas");
+  const jaForaEscola = situMarcada("Criança/adolescente fora da escola");
+  const jaAbrigamento = situMarcada("Família migrante/refugiada em situação de abrigamento (Operação Acolhida)");
+
   if (paf.habitacaoAreaRisco === "Sim") add(3, "Domicílio em área de risco");
   if (paf.saudeDoencaGrave === "Sim") add(3, "Doença grave na família");
-  if (paf.saudeAlcool === "Sim") add(3, "Uso abusivo de álcool");
-  if (paf.saudeDrogas === "Sim") add(4, "Uso abusivo de outras drogas");
+  if (paf.saudeAlcool === "Sim" && !jaAlcoolDrogas) add(3, "Uso abusivo de álcool");
+  if (paf.saudeDrogas === "Sim" && !jaAlcoolDrogas) add(4, "Uso abusivo de outras drogas");
   if (paf.saudeGestante === "Sim") add(2, "Gestante na família");
-  if (paf.habitacaoAbrigoNome) add(2, "Família em situação de abrigamento");
+  if (paf.habitacaoAbrigoNome && !jaAbrigamento) add(2, "Família em situação de abrigamento");
 
   const foraEscola = [paf.eduForaEscola06, paf.eduForaEscola614, paf.eduForaEscola1517]
     .map(v => parseInt(v, 10) || 0).reduce((a, b) => a + b, 0);
-  if (foraEscola > 0) add(3, "Criança(s)/adolescente(s) fora da escola");
+  if (foraEscola > 0 && !jaForaEscola) add(3, "Criança(s)/adolescente(s) fora da escola");
 
   const pcdCount = (paf.membros || []).filter(m => m.nome && m.pcd).length;
   if (pcdCount) add(Math.min(pcdCount, 3), "Pessoa(s) com deficiência no núcleo familiar");
@@ -1838,7 +1845,7 @@ function confirmModal(title, msg, onConfirm) {
 }
 
 // Confirmação reforçada para exclusões que NÃO deixam nenhum registro
-// administrativo depois (diferente de "Família desistiu", que guarda um
+// administrativo depois (diferente de "Desistência", que guarda um
 // registro mínimo) — exige digitar o nome do responsável antes de habilitar
 // o botão de confirmação, para reduzir clique acidental numa ação irreversível.
 function confirmModalDigitarNome(title, msg, nomeEsperado, onConfirm) {
@@ -5159,7 +5166,7 @@ function attachHomeHandlers() {
       const frase = (paf?.responsavel || "").trim() || "EXCLUIR";
       confirmModalDigitarNome(
         "Excluir este PAF?",
-        "Essa ação não pode ser desfeita e não deixa nenhum registro administrativo depois (diferente de \"Família desistiu\"). O PAF será removido de todos os dispositivos sincronizados.",
+        "Essa ação não pode ser desfeita e não deixa nenhum registro administrativo depois (diferente de \"Desistência\"). O PAF será removido de todos os dispositivos sincronizados.",
         frase,
         () => deletePAFRecord(el.dataset.del)
       );
@@ -6234,7 +6241,7 @@ function renderSection(id, paf) {
         ${notaTecnica("O Decreto nº 6.307/2007 e o Caderno de Benefícios Eventuais (MDS) tratam cesta básica, auxílio natalidade, auxílio funeral e aluguel social como direito de cidadania diante de vulnerabilidade temporária — não favor discricionário. É vedada comprovação vexatória de pobreza para concedê-los.")}
         ${notaTecnica("O BPC (art. 20 da LOAS, Lei nº 8.742/1993, alterada pela Lei nº 14.176/2021; Decreto nº 6.214/2007) garante 1 salário mínimo a idosos com 65+ anos ou pessoa com deficiência com impedimento de longo prazo (2+ anos), com renda per capita até 1/4 do salário mínimo (ampliável a 1/2 com gastos de saúde comprovados). Avaliação por peritos/assistentes sociais do INSS; revisão a cada 2 anos; não é vitalício nem acumulável com outros benefícios (com exceções previstas). Atividade remunerada suspende — não cancela — o BPC, com direito ao auxílio-inclusão. Registrar famílias beneficiárias ou elegíveis orienta busca ativa e encaminhamento ao INSS/CadÚnico.")}
         ${notaTecnica("A Carteira da Pessoa Idosa (60 anos ou mais) comprova renda para transporte interestadual gratuito (2 vagas por veículo) ou desconto mínimo de 50% na passagem, para quem tem renda individual de até 2 salários mínimos. Exige CadÚnico ativo e atualizado; pode ser emitida pelo município ou individualmente pela conta GOV.BR. Quem já comprova renda por outro meio não precisa da carteira para acessar o benefício.")}
-        ${notaTecnica("O Programa Minha Casa Minha Vida (Lei nº 14.620/2023) é dividido em quatro faixas de renda bruta familiar mensal, com subsídio decrescente da Faixa 1 (até R$ 2.850, com subsídio de até 95% do imóvel) até a Faixa 4 (até R$ 12.000, sem subsídio). A Faixa 1 exige CadÚnico, residência mínima de 10 anos no município e uma inscrição por núcleo familiar. Registrar aqui a participação orienta o encaminhamento da família para o cadastro habitacional.")}
+        ${notaTecnica("O Programa Minha Casa Minha Vida (Lei nº 14.620/2023) é dividido em quatro faixas de renda bruta familiar mensal, com subsídio decrescente da Faixa 1 (até R$ 2.850, com subsídio de até 95% do imóvel) até a Faixa 4 (até R$ 12.000, sem subsídio) — valores vigentes em 2025; há anúncio de reajuste das faixas em 2026, então confirme os tetos atuais com a Caixa/Ministério das Cidades antes de orientar a família. A Faixa 1 exige CadÚnico, residência mínima de 10 anos no município e uma inscrição por núcleo familiar. Registrar aqui a participação orienta o encaminhamento da família para o cadastro habitacional.")}
         ${notaTecnica("Os programas e projetos próprios da PMBV/SEMADS (ArtCanto, Dedo Verde, Rumo Certo e Projeto Crescer) atendem crianças, adolescentes e jovens em vulnerabilidade social, geralmente exigindo CadÚnico, renda familiar per capita de até meio salário mínimo e matrícula na rede pública de ensino; a maioria oferece bolsa, fardamento, lanche, vale-transporte e Cartão do Bem. O Projeto Crescer volta-se a jovens de 15 a 21 anos em maior risco pessoal e social (uso/abuso de substâncias, conflito com a lei, evasão escolar e do mercado de trabalho), com oficinas de geração de renda.")}
         <div class="field-grid">
           <div class="f c6">
@@ -6264,7 +6271,7 @@ function renderSection(id, paf) {
       <div class="section-card">
         ${sectionHeader("07", "Concessão de Benefício Eventual", "Registro dos benefícios eventuais requeridos e/ou concedidos à família — provisões suplementares e provisórias, distintas dos programas continuados registrados na seção anterior.")}
         ${notaTecnica("Benefícios eventuais são provisões <b>suplementares e provisórias</b> prestadas a cidadãos e famílias em virtude de nascimento, morte, situações de vulnerabilidade temporária e de calamidade pública (art. 22 da LOAS, Lei nº 8.742/1993, e Decreto nº 6.307/2007). Integram organicamente as garantias do SUAS e constituem direito do usuário — não favor discricionário da equipe técnica — sendo vedada a exigência de comprovação vexatória de pobreza. Ver Caderno \"Benefícios Eventuais no SUAS\" (SNAS/MDS): <a href=\"https://www.mds.gov.br/webarquivos/publicacao/assistencia_social/Cadernos/PB022-0519_SNAS_Benefi%CC%81cios%20Eventuais.pdf\" target=\"_blank\" rel=\"noopener\">PB022-0519_SNAS_Benefícios Eventuais.pdf</a>.")}
-        ${notaTecnica("A concessão e o valor dos auxílios por natalidade e por morte são regulados pelo Conselho Municipal de Assistência Social (CMAS), com critérios e prazos definidos pelo CNAS; vulnerabilidade temporária e calamidade pública seguem a regulamentação municipal específica (lei local). Registre aqui apenas o que já está previsto na regulamentação de Boa Vista — este formulário não substitui o processo administrativo de requerimento junto ao órgão gestor.")}
+        ${notaTecnica("A concessão e o valor dos auxílios por natalidade e por morte são regulados pelo Conselho Municipal de Assistência Social (CMAS), com critérios e prazos definidos pelo respectivo Conselho de Assistência Social (art. 22, §1º, da LOAS); vulnerabilidade temporária e calamidade pública seguem a regulamentação municipal específica (lei local). Registre aqui apenas o que já está previsto na regulamentação de Boa Vista — este formulário não substitui o processo administrativo de requerimento junto ao órgão gestor.")}
         <div style="overflow-x:auto;">
         <table class="dyn-table">
           <thead><tr>
@@ -6328,7 +6335,7 @@ function renderSection(id, paf) {
     case "rede": return `
       <div class="section-card">
         ${sectionHeader("08", "Recursos que o Território Possui (Articulação da Rede)", "Rede de Apoio Institucional (recursos institucionais).")}
-        ${chkList("redeApoio", REDE_APOIO, paf.redeApoio, true)}
+        ${chkList("redeApoio", REDE_APOIO, (paf.redeApoio = (paf.redeApoio || []).map(v => v === "NASF - Núcleo Ampliado de Saúde da Família" ? "eMulti - Equipes Multiprofissionais na Atenção Primária (antigo NASF)" : v)), true)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="redeApoioOutros" value="${escapeHtml(paf.redeApoioOutros)}"></div>
       </div>`;
 
@@ -6397,7 +6404,7 @@ function renderSection(id, paf) {
       </div>
 
       <div class="section-card">
-        <h2><span class="num">08a</span>Metas, Evolução e Resultados</h2>
+        <h2><span class="num">09a</span>Metas, Evolução e Resultados</h2>
         <p class="section-sub">Equipe técnica.</p>
         <p class="section-sub" style="margin-top:-6px">Para cada meta, registre quantas anotações separadas quiser (uma por data/ocorrência) em “Resultados alcançados”.</p>
         ${paf.metas.map((row, i) => `
@@ -6428,7 +6435,7 @@ function renderSection(id, paf) {
         <div class="f" style="margin-top:12px"><label>Outras</label><input type="text" data-field="estrategiasOutras" value="${escapeHtml(paf.estrategiasOutras)}"></div>
       </div>
       <div class="section-card">
-        <h2><span class="num">09a</span>Eixos de intervenção</h2>
+        <h2><span class="num">10a</span>Eixos de intervenção</h2>
         ${chkList("eixos", EIXOS, paf.eixos, true)}
         <div class="f" style="margin-top:12px"><label>Outros</label><input type="text" data-field="eixosOutros" value="${escapeHtml(paf.eixosOutros)}"></div>
       </div>`;
@@ -6442,7 +6449,7 @@ function renderSection(id, paf) {
         <label style="font-size: 11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Objetivos do PAIF trabalhados neste Plano</label>
         ${chkList("objetivosPaif", OBJETIVOS_PAIF, paf.objetivosPaif || [], true)}
         <div class="f" style="margin:12px 0 20px"><label>Outros objetivos</label><input type="text" data-field="objetivosPaifOutros" value="${escapeHtml(paf.objetivosPaifOutros)}"></div>
-        ${notaTecnica("A PNAS (2004) e a NOB-SUAS (2012) organizam a proteção em torno de seguranças a afiançar aos usuários. Indicar aqui quais o Plano busca garantir explicita a finalidade protetiva do acompanhamento.")}
+        ${notaTecnica("A PNAS (2004) e a NOB-SUAS (2012) organizam a proteção em torno de seguranças a afiançar aos usuários. Indicar aqui quais o Plano busca garantir explicita a finalidade protetiva do acompanhamento. A NOB-SUAS/2012 define cinco seguranças (acolhida, renda, convívio, autonomia e apoio em situações de risco circunstancial); este checklist traz só as três trabalhadas diretamente pelo PAIF, pois renda e apoio em risco circunstancial se afiançam sobretudo por benefícios e outros serviços da rede.")}
         <label style="font-size: 11.5px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:8px;">Seguranças socioassistenciais afiançadas por este Plano</label>
         ${segurancasChkList(paf.segurancasSocioassistenciais || [])}
         <div class="f" style="margin:12px 0 20px"><label>Outras</label><input type="text" data-field="segurancasSocioassistenciaisOutras" value="${escapeHtml(paf.segurancasSocioassistenciaisOutras)}"></div>
