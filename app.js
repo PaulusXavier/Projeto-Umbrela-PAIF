@@ -1282,6 +1282,7 @@ const state = {
   dashPeriodo: "tudo",        // 'tudo' | 'ano' | '12m' | '6m' | '3m' — filtro de período do painel de Gráficos
   dashCras: "",               // filtro por CRAS no painel de Gráficos
   dashTecnico: "",            // filtro por técnico de referência no painel de Gráficos
+  dashSituacao: "",           // segmento do painel de Gráficos: '' (Total) | 'andamento' | 'encaminhado' | 'concluido'
   mode: "local",             // 'cloud' | 'local'
   db: null,
   unsub: null,
@@ -1683,16 +1684,16 @@ function rmaMensalHTML(dados) {
     ["B.6", "Famílias com crianças ou adolescentes em Serviço de Acolhimento", b.acolhimento]
   ];
   return `
-    <div class="resumo-secao">
+    <div class="resumo-secao resumo-secao-rma">
       <h4>${sectionIconSvg("familia", 16)} Volume de famílias em acompanhamento pelo PAIF no mês de referência (${labelYm(d.ymAtual)})</h4>
-      <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
+      <div class="kpi-grid kpi-grid-rma" style="grid-template-columns:repeat(2,1fr);">
         ${kpiCardHTML(d.totalEmAcompanhamento, "A.1. Total de famílias em acompanhamento pelo PAIF", "familia")}
         ${kpiCardHTML(totalNovas, "A.2. Novas famílias inseridas no acompanhamento do PAIF durante o mês de referência", "familia")}
       </div>
       <p class="hint" style="margin-top:2px;">A.1: famílias com acompanhamento iniciado até o fim do mês de referência e ainda não encerrado antes dele. A.2: dentre essas, as famílias com data de início do acompanhamento dentro do mês de referência.</p>
     </div>
 
-    <div class="resumo-secao">
+    <div class="resumo-secao resumo-secao-rma">
       <h4>${sectionIconSvg("diagnostico", 16)} Perfil das novas famílias inseridas em acompanhamento no PAIF no mês de referência</h4>
       <table class="resumo-tabela">
         <thead><tr><th style="text-align:left;">Indicador</th><th>Total</th></tr></thead>
@@ -1989,7 +1990,7 @@ function openSettingsModal() {
         <div class="settings-field"><span class="k">Armazenamento</span><span class="v">${modoLabel}</span></div>
         ${emailLinha}
         <div class="settings-field"><span class="k">Registros salvos</span><span class="v">${state.pafs.length} PAF(s)</span></div>
-        <div class="settings-field"><span class="k">Famílias desistentes</span><span class="v">${state.desistentes.length} registro(s)</span></div>
+        ${state.desistentes.length ? `<div class="settings-field"><span class="k">Registros antigos de desistência</span><span class="v">${state.desistentes.length} registro(s)</span></div>` : ""}
 
         <div class="aparencia-panel">
           <strong>Aparência e leitura</strong>
@@ -2029,7 +2030,7 @@ function openSettingsModal() {
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="btn btn-ghost" id="settingsCloseBtn">Fechar</button>
-          <button class="btn btn-ghost" id="settingsDesistentesBtn">Famílias desistentes</button>
+          ${state.desistentes.length ? `<button class="btn btn-ghost" id="settingsDesistentesBtn">Registros antigos de desistência</button>` : ""}
         </div>
       </div>
     </div>`;
@@ -2038,7 +2039,7 @@ function openSettingsModal() {
   document.getElementById("settingsCloseBtn").onclick = fechar;
   document.getElementById("settingsBackupBtn").onclick = () => baixarBackupJSON(document.getElementById("settingsBackupAnexos").checked);
   document.getElementById("settingsRestoreInput").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) restaurarBackupJSON(f).then(() => fechar()); };
-  document.getElementById("settingsDesistentesBtn").onclick = openDesistentesModal;
+  const btnDes = document.getElementById("settingsDesistentesBtn"); if (btnDes) btnDes.onclick = openDesistentesModal;
   if (window.__aparencia) window.__aparencia.ligarBotoes(root);
   if (navigator.storage && navigator.storage.estimate) {
     navigator.storage.estimate().then(est => {
@@ -2063,9 +2064,9 @@ function openDesistentesModal() {
   root.innerHTML = `
     <div class="modal-backdrop">
       <div class="modal">
-        <h3>Famílias desistentes</h3>
-        <p class="hint">Registro mínimo mantido quando a família desiste do acompanhamento — o PAF completo já foi excluído e não aparece em nenhuma lista, filtro ou gráfico.</p>
-        ${state.desistentes.length ? linhas : `<p class="hint">Nenhuma família desistente registrada.</p>`}
+        <h3>Registros antigos de desistência</h3>
+        <p class="hint">Sobras de versões anteriores do app, que guardavam um registro mínimo ao excluir por desistência. Não aparecem em nenhuma lista, filtro ou gráfico — apague-os aqui se não quiser mais nenhum registro.</p>
+        ${state.desistentes.length ? linhas : `<p class="hint">Nenhum registro antigo.</p>`}
         <div class="modal-actions">
           <button class="btn btn-ghost" id="desistentesCloseBtn">Fechar</button>
         </div>
@@ -2270,7 +2271,7 @@ function serieKpiAcumulada(grupos, situacao) {
   return todos.slice(-12);
 }
 
-function kpiCardHTML(valor, label, iconId, delta, spark) {
+function kpiCardHTML(valor, label, iconId, delta, spark, seg) {
   let deltaHTML = "";
   if (delta && typeof delta.diff === "number" && delta.diff !== 0) {
     const positivo = delta.diff > 0;
@@ -2280,7 +2281,11 @@ function kpiCardHTML(valor, label, iconId, delta, spark) {
   } else if (delta && typeof delta.diff === "number") {
     deltaHTML = `<span class="kpi-delta kpi-delta-neutro" title="Comparado ao período anterior equivalente">= estável</span>`;
   }
-  return `<div class="kpi-card">${iconId ? `<span class="kpi-icon">${sectionIconSvg(iconId, 15)}</span>` : ""}<span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span>${deltaHTML}${spark ? `<span class="kpi-spark-wrap" title="Evolução acumulada por mês de início do PAF (últimos 12 meses)">${spark}</span>` : ""}</div>`;
+  const abre = seg
+    ? `<button type="button" class="kpi-card kpi-card-seg${seg.ativo ? " ativo" : ""}" data-dash-situacao="${seg.chave}" aria-pressed="${seg.ativo ? "true" : "false"}" title="${seg.ativo ? "Segmento ativo — clique para voltar ao Total" : "Mostrar os gráficos só deste segmento"}">`
+    : `<div class="kpi-card">`;
+  const fecha = seg ? "</button>" : "</div>";
+  return `${abre}${iconId ? `<span class="kpi-icon">${sectionIconSvg(iconId, 15)}</span>` : ""}<span class="kpi-valor">${valor}</span><span class="kpi-label">${escapeHtml(label)}</span>${deltaHTML}${spark ? `<span class="kpi-spark-wrap" title="Evolução acumulada por mês de início do PAF (últimos 12 meses)">${spark}</span>` : ""}${fecha}`;
 }
 
 // ===================== GRÁFICOS (SVG feitos à mão, sem bibliotecas) =====================
@@ -2730,19 +2735,28 @@ function assinaturaHTML() {
     </div>`;
 }
 
-function resumoGeralGeralHTML(r, anteriorTotal, mensal) {
-  const delta = anteriorTotal != null ? { diff: r.total - anteriorTotal } : null;
-  const g = mensal && mensal.grupos ? mensal.grupos : {};
+// Cartões de segmento (tela): Total, Em andamento, Encaminhados, Concluídos. Cada um filtra todos os gráficos do painel.
+// `seg` = { contagens, atual, grupos }. Sem `seg` (relatório impresso) os cartões são estáticos.
+function kpiHeroHTML(r, anteriorTotal, mensal, seg) {
+  const g = (seg && seg.grupos) || (mensal && mensal.grupos) || {};
   const spark = (sit, cor) => sparklineSVG(serieKpiAcumulada(g, sit), cor);
+  const c = seg ? seg.contagens : { total: r.total, andamento: r.porStatus.andamento || 0, encaminhado: r.porStatus.encaminhado || 0, concluido: r.porStatus.concluido || 0 };
+  const delta = anteriorTotal != null ? { diff: c.total - anteriorTotal } : null;
+  const sg = (chave) => seg ? { chave, ativo: (seg.atual || "") === (chave === "total" ? "" : chave) } : null;
   return `
     <div class="kpi-grid kpi-grid-hero">
-      ${kpiCardHTML(r.total, "Total de PAFs", "cabecalho", delta, spark(null, "#1F3A5F"))}
-      ${kpiCardHTML(r.porStatus.andamento || 0, "Em andamento", "diagnostico", null, spark("andamento", "#2E7D6B"))}
-      ${kpiCardHTML(r.porStatus.encaminhado || 0, "Encaminhados", "encaminhamentos", null, spark("encaminhado", "#B98A34"))}
-      ${kpiCardHTML(r.porStatus.concluido || 0, "Concluídos", "encerramento", null, spark("concluido", "#52667C"))}
-    </div>
+      ${kpiCardHTML(c.total, "Total de PAFs", "cabecalho", delta, spark(null, "#1F3A5F"), sg("total"))}
+      ${kpiCardHTML(c.andamento, "Em andamento", "diagnostico", null, spark("andamento", "#2E7D6B"), sg("andamento"))}
+      ${kpiCardHTML(c.encaminhado, "Encaminhados", "encaminhamentos", null, spark("encaminhado", "#B98A34"), sg("encaminhado"))}
+      ${kpiCardHTML(c.concluido, "Concluídos", "encerramento", null, spark("concluido", "#52667C"), sg("concluido"))}
+    </div>`;
+}
+
+function resumoGeralGeralHTML(r, anteriorTotal, mensal, seg) {
+  const c = seg ? seg.contagens : { andamento: r.porStatus.andamento || 0, encaminhado: r.porStatus.encaminhado || 0, concluido: r.porStatus.concluido || 0 };
+  return `
+    ${kpiHeroHTML(r, anteriorTotal, mensal, seg)}
     <div class="kpi-grid">
-      ${kpiCardHTML(state.desistentes.length, "Famílias desistentes", "encerramento")}
       ${kpiCardHTML(r.totalMembros, "Pessoas acompanhadas", "familia")}
       ${kpiCardHTML(r.mediaMembros ?? "—", "Média por família", "familia")}
       ${kpiCardHTML(r.totalPCD, "Pessoas com deficiência", "familia")}
@@ -2756,7 +2770,7 @@ function resumoGeralGeralHTML(r, anteriorTotal, mensal) {
     <div class="resumo-secao">
       <h4>${sectionIconSvg("diagnostico", 16)} Situação dos PAFs e perfil do responsável familiar</h4>
       <div class="resumo-cols resumo-cols-donut">
-        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": r.porStatus.andamento || 0, "Encaminhado": r.porStatus.encaminhado || 0, "Concluído": r.porStatus.concluido || 0 }, { centro: "PAFs", legendaLinear: true })}</div>
+        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": c.andamento, "Encaminhado": c.encaminhado, "Concluído": c.concluido }, { centro: "PAFs", legendaLinear: true })}</div>
         <div><strong>Sexo do responsável</strong>${donutChartSVG(r.porSexo, { centro: "famílias" })}</div>
       </div>
       <div class="resumo-cols" style="margin-top:16px;">
@@ -2988,8 +3002,10 @@ const DASH_PERIODOS = [
 
 // Filtra os PAFs de acordo com o período/CRAS/técnico selecionados no painel de Gráficos.
 // A data de referência para o período é o início do acompanhamento (ou, na ausência dela, o cadastro).
-function dashboardPafsFiltrados() {
-  const { dashPeriodo, dashCras, dashTecnico } = state;
+// `ignorarSituacao` serve aos cartões de segmento (Total/Em andamento/Encaminhados/Concluídos),
+// que precisam contar cada situação dentro dos demais filtros.
+function dashboardPafsFiltrados(ignorarSituacao) {
+  const { dashPeriodo, dashCras, dashTecnico, dashSituacao } = state;
   let limiteISO = null;
   if (dashPeriodo && dashPeriodo !== "tudo") {
     const hoje = new Date();
@@ -3002,6 +3018,7 @@ function dashboardPafsFiltrados() {
     }
   }
   return state.pafs.filter(p => {
+    if (!ignorarSituacao && dashSituacao && p.situacaoPAF !== dashSituacao) return false;
     if (dashCras && (p.crasNome || "").trim() !== dashCras) return false;
     if (dashTecnico && (p.tecnicoReferencia || "").trim() !== dashTecnico) return false;
     if (limiteISO) {
@@ -3015,8 +3032,8 @@ function dashboardPafsFiltrados() {
 // Retorna a contagem de PAFs do período imediatamente anterior ao filtro atual (mesma
 // duração, mesmos filtros de CRAS/técnico), para comparação de tendência nos KPIs.
 // Retorna null quando o período selecionado é "tudo" (não há um "anterior" comparável).
-function dashboardPeriodoAnteriorTotal() {
-  const { dashPeriodo, dashCras, dashTecnico } = state;
+function dashboardPeriodoAnteriorTotal(ignorarSituacao) {
+  const { dashPeriodo, dashCras, dashTecnico, dashSituacao } = state;
   if (!dashPeriodo || dashPeriodo === "tudo") return null;
 
   const hoje = new Date();
@@ -3034,6 +3051,7 @@ function dashboardPeriodoAnteriorTotal() {
   const fimISO = dataISOLocal(fimAnterior);
 
   const count = state.pafs.filter(p => {
+    if (!ignorarSituacao && dashSituacao && p.situacaoPAF !== dashSituacao) return false;
     if (dashCras && (p.crasNome || "").trim() !== dashCras) return false;
     if (dashTecnico && (p.tecnicoReferencia || "").trim() !== dashTecnico) return false;
     const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
@@ -3049,7 +3067,7 @@ function dashboardOpcoes(campo) {
 }
 
 function dashboardFiltrosAtivos() {
-  return state.dashPeriodo !== "tudo" || !!state.dashCras || !!state.dashTecnico;
+  return state.dashPeriodo !== "tudo" || !!state.dashCras || !!state.dashTecnico || !!state.dashSituacao;
 }
 
 function dashboardFiltrosHTML() {
@@ -3089,11 +3107,15 @@ function dashboardNavHTML() {
 
 function renderDashboardHTML() {
   const semRegistroAlgum = state.pafs.length === 0;
-  const pafsFiltrados = semRegistroAlgum ? [] : dashboardPafsFiltrados();
+  const pafsBase = semRegistroAlgum ? [] : dashboardPafsFiltrados(true);      // período/CRAS/técnico, sem o segmento
+  const pafsFiltrados = semRegistroAlgum ? [] : dashboardPafsFiltrados();     // + segmento escolhido
   const geral = computeResumoGeral(pafsFiltrados);
   const grupos = computeResumoMensal(pafsFiltrados);
+  const contagens = { total: pafsBase.length, andamento: 0, encaminhado: 0, concluido: 0 };
+  pafsBase.forEach(p => { if (contagens[p.situacaoPAF] != null) contagens[p.situacaoPAF]++; });
+  const seg = { contagens, atual: state.dashSituacao, grupos: computeResumoMensal(pafsBase).grupos };
   const filtrosAtivos = dashboardFiltrosAtivos();
-  const anteriorTotal = semRegistroAlgum ? null : dashboardPeriodoAnteriorTotal();
+  const anteriorTotal = semRegistroAlgum ? null : dashboardPeriodoAnteriorTotal(true);
 
   const empty = `
     <div class="dashboard-empty">
@@ -3104,7 +3126,7 @@ function renderDashboardHTML() {
   const vazioComFiltro = `
     <div class="dashboard-empty">
       <p>Nenhum PAF corresponde aos filtros selecionados.</p>
-      <p>Tente ampliar o período ou remover o filtro de CRAS/técnico.</p>
+      <p>Tente ampliar o período, escolher outro segmento ou remover o filtro de CRAS/técnico.</p>
     </div>`;
 
   return `
@@ -3122,12 +3144,12 @@ function renderDashboardHTML() {
     </div>
     ${semRegistroAlgum ? empty : `
       ${dashboardFiltrosHTML()}
-      ${geral.total === 0 ? vazioComFiltro : `
+      ${geral.total === 0 ? kpiHeroHTML(geral, anteriorTotal, null, seg) + vazioComFiltro : `
         ${notaTecnica("Monitoramento do PAIF (Trilha da Primeira Infância, MDS, 2026, Passo 5): a avaliação agregada serve à aprendizagem da gestão e à organização dos serviços — nunca à responsabilização moralizante das famílias, dos profissionais ou do serviço. A cada período definido no planejamento local (seis meses, um ano), o CRAS e a equipe de referência analisam o perfil e as mudanças nas condições de vida das famílias inseridas há mais de seis meses: número e perfil (mães solo, povos tradicionais e outras interseccionalidades), desproteções mais comuns, mais superadas e de maior dificuldade de superação, e vinculações mais frequentes. Os resultados alimentam a coletivização de demandas e o diagnóstico seguinte, reiniciando o ciclo do PAIF.")}
         ${dashboardNavHTML()}
         <div class="resumo-scroll">
-          ${filtrosAtivos ? `<p class="dash-filtro-resumo">Mostrando <strong>${geral.total}</strong> de ${state.pafs.length} PAFs cadastrados, conforme os filtros acima.</p>` : ""}
-          <div id="dash-sec-geral">${resumoGeralGeralHTML(geral, anteriorTotal, grupos)}</div>
+          ${filtrosAtivos ? `<p class="dash-filtro-resumo">Mostrando <strong>${geral.total}</strong> de ${state.pafs.length} PAFs cadastrados, conforme os filtros${state.dashSituacao ? " e o segmento “" + escapeHtml(STATUS_LABELS[state.dashSituacao]) + "”" : ""} acima.</p>` : ""}
+          <div id="dash-sec-geral">${resumoGeralGeralHTML(geral, anteriorTotal, grupos, seg)}</div>
           <div id="dash-sec-perfil">${resumoGeralPerfilHTML(geral)}</div>
           <div id="dash-sec-territorio">${resumoGeralTerritorioHTML(geral)}</div>
           <div id="dash-sec-vulnerabilidades">${resumoGeralVulnerabilidadesHTML(geral)}</div>
@@ -3148,6 +3170,7 @@ function dashboardFiltrosLabels() {
   if (state.dashPeriodo && state.dashPeriodo !== "tudo") {
     labels.push(DASH_PERIODOS.find(p => p.v === state.dashPeriodo)?.label || state.dashPeriodo);
   }
+  if (state.dashSituacao) labels.push(`Situação: ${STATUS_LABELS[state.dashSituacao] || state.dashSituacao}`);
   if (state.dashCras) labels.push(`CRAS: ${state.dashCras}`);
   if (state.dashTecnico) labels.push(`Técnico: ${state.dashTecnico}`);
   return labels;
@@ -3160,7 +3183,15 @@ function attachDashboardHandlers() {
       filtros: dashboardFiltrosLabels(),
       anteriorTotal: dashboardPeriodoAnteriorTotal(),
       totalGeral: state.pafs.length,
-      pafs: pafsFiltrados
+      pafs: pafsFiltrados,
+      pafsRma: dashboardPafsFiltrados(true) // o RMA é oficial: não é recortado por situação
+    });
+  });
+  document.querySelectorAll("[data-dash-situacao]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const alvo = btn.dataset.dashSituacao;
+      state.dashSituacao = (alvo === state.dashSituacao) ? "" : alvo; // clicar de novo no segmento ativo volta ao Total
+      renderApp();
     });
   });
   document.querySelectorAll("[data-dash-periodo]").forEach(btn => {
@@ -3169,7 +3200,7 @@ function attachDashboardHandlers() {
   document.getElementById("dashFiltroCras")?.addEventListener("change", e => { state.dashCras = e.target.value; renderApp(); });
   document.getElementById("dashFiltroTecnico")?.addEventListener("change", e => { state.dashTecnico = e.target.value; renderApp(); });
   document.getElementById("dashFiltroLimparBtn")?.addEventListener("click", () => {
-    state.dashPeriodo = "tudo"; state.dashCras = ""; state.dashTecnico = ""; renderApp();
+    state.dashPeriodo = "tudo"; state.dashCras = ""; state.dashTecnico = ""; state.dashSituacao = ""; renderApp();
   });
   document.querySelectorAll("[data-scrollto]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -3271,6 +3302,14 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   .resumo-print .resumo-cols > div:has(.pareto-chart), .resumo-print .resumo-cols > div:has(.histograma-chart), .resumo-print .resumo-cols > div:has(.medidor-wrap), .resumo-print .resumo-cols-donut > div:only-child { column-span: all; }
   .resumo-print .kpi-grid, .resumo-print .kpi-grid-sec { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   .resumo-print .kpi-grid-hero { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  /* RMA: A.1 e A.2 em duas colunas de largura total e o bloco inteiro na mesma página (a nota não se parte entre folhas) */
+  .resumo-print .kpi-grid-rma { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .resumo-print .resumo-secao-rma { break-inside: avoid !important; page-break-inside: avoid !important; }
+  .resumo-print .resumo-secao-rma .hint { break-inside: avoid !important; page-break-inside: avoid !important; }
+  /* quadros sem dados ocupam pouco espaço (menos vazio na folha) */
+  .resumo-print .resumo-cols > div:has(.chart-vazio) { padding-top: 6pt !important; padding-bottom: 4pt !important; }
+  .resumo-print .resumo-cols > div:has(.chart-vazio) strong { margin-bottom: 3pt !important; }
+  .resumo-print .resumo-cols > div:has(.chart-vazio) .chart-vazio { margin: 0 !important; }
   .resumo-print .resumo-cols > div:has(.medidor-wrap), .resumo-print .resumo-cols-donut > div:only-child { grid-column: 1 / -1 !important; }
   .resumo-print .donut-svg { width: 66pt !important; height: 66pt !important; }
   .resumo-print .donut-total-num { font-size: 22px !important; }
@@ -3962,7 +4001,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
         ${resumoMensalTabelaHTML(grupos)}
       </div>
-      ${rmaMensalHTML(computeRmaMensal(pafsRelacao))}
+      ${rmaMensalHTML(computeRmaMensal(contexto.pafsRma || pafsRelacao))}
       <div class="resumo-secao">
         <h4>Relação das famílias em acompanhamento (dados individuais)</h4>
         ${resumoFamiliasTabelaHTML(pafsRelacao)}
@@ -4672,45 +4711,14 @@ window.addEventListener("pagehide", salvarPendenteAgora);
 
 /* ---------------------------- Famílias desistentes ---------------------------- */
 
-// Quando a família desiste do acompanhamento, o PAF completo (todas as seções,
-// vulnerabilidades, membros etc.) é excluído e substituído por este registro
-// mínimo, mantido apenas para controle administrativo — nunca aparece nas listas,
-// filtros ou no painel de Gráficos junto aos PAFs ativos/arquivados.
-function criarStubDesistencia(paf) {
-  return {
-    id: paf.id,
-    tipo: "desistencia",
-    responsavel: paf.responsavel || "",
-    cpf: paf.cpf || "",
-    nis: paf.nis || "",
-    crasNome: paf.crasNome || "",
-    tecnicoReferencia: paf.tecnicoReferencia || "",
-    dataInicial: paf.dataInicial || "",
-    dataDesistencia: todayISO(),
-    createdAt: paf.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-}
-
+// Desistência: o PAF é excluído por completo e NÃO fica nenhum registro dele (nem lista, nem gráfico,
+// nem contagem). A única marca é a trilha de auditoria anônima (id + CRAS, sem nome), igual à exclusão comum.
 function registrarDesistencia(paf) {
-  descartarSalvamentoPendente();
-  const stub = criarStubDesistencia(paf);
-  stub.registradoPor = state.currentUser?.email || null;
-  if (state.mode === "cloud" && state.db) {
-    excluirAnexosSubcolecao(stub.id); // melhor esforço — o PAF completo, com seus anexos, está sendo excluído
-    excluirHistoricoSubcolecao(stub.id);
-    state.db.collection(FIRESTORE_COLLECTION).doc(stub.id).set(stub)
-      .then(() => { registrarAuditoria("desistencia", paf); toast("PAF excluído — família registrada como desistente."); })
-      .catch(err => { console.error(err); toast("Não foi possível sincronizar a desistência."); });
-  } else {
-    state.pafs = state.pafs.filter(p => p.id !== stub.id);
-    const idx = state.desistentes.findIndex(d => d.id === stub.id);
-    if (idx === -1) state.desistentes.unshift(stub); else state.desistentes[idx] = stub;
-    persistLocalArray();
-    toast("PAF excluído — família registrada como desistente.");
-  }
+  deletePAFRecord(paf.id);
 }
 
+// Registros de desistência antigos (criados por versões anteriores) continuam fora das listas e dos gráficos;
+// esta função só existe para o técnico poder apagá-los de vez em Config.
 function excluirDesistente(id) {
   state.desistentes = state.desistentes.filter(d => d.id !== id);
   if (state.mode === "cloud" && state.db) {
@@ -5166,7 +5174,7 @@ function attachHomeHandlers() {
       const frase = (paf?.responsavel || "").trim() || "EXCLUIR";
       confirmModalDigitarNome(
         "Excluir este PAF?",
-        "Essa ação não pode ser desfeita e não deixa nenhum registro administrativo depois (diferente de \"Desistência\"). O PAF será removido de todos os dispositivos sincronizados.",
+        "Essa ação não pode ser desfeita e não deixa nenhum registro depois. O PAF será removido de todos os dispositivos sincronizados.",
         frase,
         () => deletePAFRecord(el.dataset.del)
       );
@@ -5455,7 +5463,7 @@ function renderEditorHTML() {
             ${["andamento", "encaminhado", "concluido"].map(s => `
               <button class="status-opt ${paf.situacaoPAF === s ? "selected " + s : ""}" data-set-status="${s}">${STATUS_LABELS[s]}</button>
             `).join("")}
-            <button class="status-opt status-opt-desistencia" data-set-status="desistiu" title="Exclui este PAF e mantém apenas um registro mínimo de família desistente">Desistência</button>
+            <button class="status-opt status-opt-desistencia" data-set-status="desistiu" title="Exclui este PAF sem manter nenhum registro">Desistência</button>
           </div>
         </div>
         <div class="section-content" data-section-cat="${state.activeSection}">
@@ -6623,8 +6631,8 @@ function attachEditorHandlers() {
       const novoStatus = btn.dataset.setStatus;
       if (novoStatus === "desistiu") {
         confirmModal(
-          "Registrar desistência da família?",
-          "O PAF completo (todas as seções preenchidas) será excluído definitivamente, de todos os dispositivos sincronizados, e substituído por um registro mínimo de família desistente, mantido só para controle administrativo. Essa ação não pode ser desfeita.",
+          "Excluir o PAF por desistência da família?",
+          "O PAF completo (todas as seções preenchidas) será excluído definitivamente, de todos os dispositivos sincronizados, e não ficará nenhum registro dele — nem nas listas, nem nos gráficos. Essa ação não pode ser desfeita.",
           () => {
             registrarDesistencia(state.current);
             goHome();
