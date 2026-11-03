@@ -3105,3 +3105,125 @@ body:has(#authScreen:not([style*="display: none"]):not([style*="display:none"]))
   .chart-legend-inline i { width: 11px; height: 11px; }
   .chart-insight { font-size: var(--text-sm); }
 }
+
+
+/* ---------------------------- Login: refinamentos 3 (visual) ---------------------------- */
+.login-wrap {
+  background-image:
+    radial-gradient(ellipse at 15% 0%, rgba(46,125,107,.14), transparent 55%),
+    radial-gradient(ellipse at 90% 100%, rgba(185,138,52,.16), transparent 55%),
+    radial-gradient(ellipse at 50% 50%, #F4F0E4 0%, #E6E0D0 100%);
+  background-repeat: no-repeat; background-position: 0 0; background-size: auto; background-attachment: scroll;
+}
+.login-card {
+  max-width: 420px; border-radius: 20px;
+  box-shadow: 0 2px 4px rgba(23,44,72,.06), 0 18px 48px rgba(23,44,72,.20), 0 0 0 1px rgba(185,138,52,.18);
+}
+.login-card-band {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(243,231,208,.16), transparent 62%),
+    radial-gradient(circle at 100% 100%, rgba(46,125,107,.22), transparent 55%),
+    linear-gradient(180deg, #1F3E66 0%, #152A47 100%);
+  border-bottom: 0; padding: 62px 32px 26px; position: relative;
+}
+.login-card-band::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+  background: linear-gradient(90deg, transparent, var(--gold) 20%, #E3C27A 50%, var(--gold) 80%, transparent);
+}
+.login-card .seal-lg { width: 60px; height: 60px; background: rgba(243,231,208,.10); box-shadow: 0 0 28px rgba(227,194,122,.28); }
+.login-eyebrow { font-size: var(--text-sm); letter-spacing: .32em; text-transform: uppercase !important; margin-bottom: 6px; color: #E3C27A; }
+.login-card h1 { font-size: 18pt; line-height: 1.2; margin-bottom: 8px; }
+.login-card p.login-org { font-size: 10pt; color: #B7C6D4; margin-bottom: 16px; }
+.login-pilares { padding-top: 14px; border-top: 1px solid rgba(243,231,208,.14); }
+.login-card-body { padding: 28px 34px 30px; }
+.login-bemvindo { margin: 0 0 4px; text-align: center; font-size: 17pt; color: var(--ink); letter-spacing: -.01em; }
+.login-card p.sub { margin: 0 0 24px; font-size: var(--text-base); }
+.login-card .f label { font-weight: 700; color: var(--ink); }
+#authEmail, #authPassword {
+  min-height: 48px; border-radius: 12px !important; border: 1.5px solid #CFC8B4 !important; background-color: #FFFEFB;
+  transition: border-color .15s, box-shadow .15s, background-color .15s; font-size: 15px;
+}
+#authEmail:hover, #authPassword:hover { border-color: var(--ink-faint) !important; }
+#authEmail:focus, #authPassword:focus {
+  border-color: var(--accent) !important; background-color: #fff;
+  box-shadow: 0 0 0 4px rgba(46,125,107,.16) !important; outline: none;
+}
+.login-card .btn-primary {
+  min-height: 50px; border-radius: 12px; font-weight: 700; letter-spacing: .01em;
+  background: linear-gradient(180deg, #348A76 0%, #26705F 100%);
+  box-shadow: 0 6px 16px rgba(38,112,95,.32), inset 0 1px 0 rgba(255,255,255,.18);
+  transition: transform .15s, box-shadow .15s, filter .15s;
+}
+.login-card .btn-primary:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); box-shadow: 0 10px 22px rgba(38,112,95,.38), inset 0 1px 0 rgba(255,255,255,.18); }
+.login-card .btn-primary:focus-visible { outline: 3px solid rgba(46,125,107,.45); outline-offset: 2px; }
+.login-hint { margin-top: 18px; }
+.login-sigilo {
+  margin: 18px 0 0; padding: 10px 12px; border-radius: 10px; justify-content: center; align-items: center;
+  background: var(--paper-soft); border: 1px solid var(--line); color: var(--ink-soft);
+}
+@media (max-width: 420px) {
+  .login-card-body { padding: 24px 22px 26px; }
+  .login-card-band { padding: 56px 22px 22px; }
+  .login-card h1 { font-size: 16.5pt; }
+}
+/* compactação: o cartão deve caber em telas baixas e rolar se necessário (sem cortar o topo) */
+.login-wrap { overflow-y: auto; align-items: flex-start; padding: 24px 16px; }
+.login-card { margin: auto; }
+.login-card-band { padding: 50px 30px 20px; }
+.login-card h1 { font-size: 16.5pt; margin-bottom: 6px; }
+.login-card p.login-org { font-size: 9.5pt; margin-bottom: 12px; }
+.login-pilares { padding-top: 11px; }
+.login-card-body { padding: 22px 32px 24px; }
+.login-bemvindo { font-size: 14pt; }
+.login-card p.sub { font-size: var(--text-sm); margin-bottom: 18px; }
+.login-card .f { margin-bottom: 12px; }
+#authEmail, #authPassword { min-height: 44px; font-size: 14px; }
+.login-card .btn-primary { min-height: 46px; }
+.login-hint { margin-top: 14px; }
+.login-sigilo { margin-top: 12px; padding: 8px 12px; }
+@media (max-width: 420px) { .login-wrap { padding: 16px 12px; } .login-card-body { padding: 20px 20px 22px; } .login-card-band { padding: 48px 20px 18px; } }
+.login-hint, .login-sigilo, .login-card p.sub { text-wrap: balance; }
+
+/* Guarda-chuva principal (maior, em gomos dourado/creme, com chuva escorrendo na copa) */
+.login-card-band { padding-top: 90px; }
+.hero-umbrella { width: 180px; height: 76px; margin-left: -90px; top: -76px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.28)); }
+.hero-drop { opacity: 0; animation: heroDrop 1.9s ease-in var(--dl, 0s) infinite; }
+@keyframes heroDrop {
+  0%   { transform: translateY(0); opacity: 0; }
+  15%  { opacity: .75; }
+  80%  { opacity: .55; }
+  100% { transform: translateY(var(--fall, 30px)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .hero-drop { animation: none !important; opacity: 0; } }
+@media (max-width: 420px) { .login-card-band { padding-top: 88px !important; } }
+
+/* Guarda-chuva fofinho: rostinho, bochechas, piscadinha e brilhinhos */
+.login-card-band { padding-top: 100px !important; }
+.hero-umbrella { height: 84px; top: -84px; filter: drop-shadow(0 7px 10px rgba(0,0,0,.25)); }
+.hero-umbrella svg { animation: heroBob 3.6s ease-in-out 1.4s infinite; }
+@keyframes heroBob {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1, 1); }
+  35%      { transform: translateY(-4px) rotate(-1.6deg) scale(.985, 1.02); }
+  70%      { transform: translateY(-1px) rotate(1.4deg) scale(1.01, .99); }
+}
+.hero-face { transition: opacity .3s; }
+.login-wrap.u-closed:not(.u-peek) .hero-face { opacity: 0; }
+.hero-olhos { transform-box: fill-box; transform-origin: 50% 50%; animation: heroPisca 4.8s ease-in-out 2s infinite; }
+@keyframes heroPisca { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+.hero-brilhinho { transform-box: fill-box; transform-origin: 50% 50%; animation: heroBrilha 2.6s ease-in-out infinite; }
+.hero-brilhinho.b2 { animation-delay: 1.2s; }
+@keyframes heroBrilha { 0%, 100% { transform: scale(.4) rotate(0); opacity: .2; } 50% { transform: scale(1) rotate(45deg); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .hero-olhos, .hero-brilhinho { animation: none !important; } }
+@media (max-width: 420px) { .login-card-band { padding-top: 98px !important; } }
+
+/* Guarda-chuva tecnológico: ciano/menta, pulso de luz na copa, nós de circuito piscando */
+.hero-umbrella { filter: drop-shadow(0 0 7px rgba(134,227,242,.45)); }
+.hero-umbrella svg { animation: heroFlutua 5s ease-in-out 1.4s infinite; }
+@keyframes heroFlutua { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.hero-pulso { stroke-dasharray: 10 90; animation: heroPulso 3.2s linear infinite; }
+@keyframes heroPulso { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -100; } }
+.hero-no { animation: heroNo 1.8s ease-in-out var(--nd, 0s) infinite; }
+@keyframes heroNo { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.hero-anel { transform-box: fill-box; transform-origin: 50% 50%; animation: heroAnel 2.4s ease-out infinite; }
+@keyframes heroAnel { 0% { transform: scale(.6); opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .hero-pulso, .hero-no, .hero-anel { animation: none !important; } .hero-pulso { opacity: 0; } }
