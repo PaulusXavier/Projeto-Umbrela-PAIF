@@ -1635,8 +1635,9 @@ function dataSaidaEfetiva(p) {
   return "";
 }
 
-function computeRmaMensal(pafsParam) {
+function computeRmaMensal(pafsParam, desistParam) {
   const pafs = pafsParam || state.pafs;
+  const desist = desistParam || (pafsParam ? [] : state.desistentes);
   const hoje = new Date();
   const ymAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
   const fimMesISO = dataISOLocal(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
@@ -1652,6 +1653,10 @@ function computeRmaMensal(pafsParam) {
     const saida = dataSaidaEfetiva(p);
     if (saida && saida.slice(0, 7) < ymAtual) return false;
     return true;
+  }).length + desist.filter(d => {
+    const base = d.dataInicial || (d.createdAt || "").slice(0, 10);
+    if (!base || base > fimMesISO) return false;
+    return !(d.dataDesistencia && d.dataDesistencia.slice(0, 7) < ymAtual);
   }).length;
 
   return {
@@ -1931,10 +1936,10 @@ async function restaurarBackupJSON(arquivo) {
   let dados;
   try { dados = JSON.parse(await arquivo.text()); } catch (err) { toast("Arquivo inválido: não é um backup JSON."); return; }
   const lista = Array.isArray(dados) ? dados : (dados && Array.isArray(dados.pafs) ? dados.pafs : null);
-  if (!lista) { toast("Arquivo inválido: não encontrei a lista de PAFs."); return; }
+  if (!lista && !(dados && Array.isArray(dados.desistentes))) { toast("Arquivo inválido: não encontrei a lista de PAFs."); return; }
   const idsExistentes = new Set([...state.pafs, ...state.desistentes].map(p => p.id));
   let novos = 0, ignorados = 0;
-  for (const bruto of lista) {
+  for (const bruto of (lista || [])) {
     if (!bruto || typeof bruto !== "object" || typeof bruto.id !== "string" || !/^[\w-]{4,64}$/.test(bruto.id)) { ignorados++; continue; }
     if (idsExistentes.has(bruto.id)) { ignorados++; continue; }
     const paf = { ...bruto };
@@ -1951,7 +1956,24 @@ async function restaurarBackupJSON(arquivo) {
       novos++;
     } catch (err) { console.error(err); ignorados++; }
   }
-  toast(`Backup restaurado: ${novos} PAF(s) adicionado(s), ${ignorados} ignorado(s) (já existiam ou inválidos).`);
+  // Registros de desistência (backup versão 2): também voltam, sem sobrescrever nada que já exista.
+  let desistRestauradas = 0;
+  const listaDes = dados && !Array.isArray(dados) && Array.isArray(dados.desistentes) ? dados.desistentes : [];
+  for (const bruto of listaDes) {
+    if (!bruto || typeof bruto !== "object" || typeof bruto.id !== "string" || !/^[\w-]{4,64}$/.test(bruto.id) || idsExistentes.has(bruto.id)) continue;
+    const reg = { ...bruto, tipo: "desistencia" };
+    try {
+      if (state.mode === "cloud" && state.db) {
+        await state.db.collection(FIRESTORE_COLLECTION).doc(reg.id).set(reg);
+      } else {
+        state.desistentes.push(reg);
+        persistLocalArray();
+      }
+      idsExistentes.add(reg.id);
+      desistRestauradas++;
+    } catch (err) { console.error(err); }
+  }
+  toast(`Backup restaurado: ${novos} PAF(s) adicionado(s)${desistRestauradas ? `, ${desistRestauradas} desistência(s)` : ""}, ${ignorados} ignorado(s) (já existiam ou inválidos).`);
   renderApp();
 }
 
@@ -1990,7 +2012,7 @@ function openSettingsModal() {
         <div class="settings-field"><span class="k">Armazenamento</span><span class="v">${modoLabel}</span></div>
         ${emailLinha}
         <div class="settings-field"><span class="k">Registros salvos</span><span class="v">${state.pafs.length} PAF(s)</span></div>
-        ${state.desistentes.length ? `<div class="settings-field"><span class="k">Registros antigos de desistência</span><span class="v">${state.desistentes.length} registro(s)</span></div>` : ""}
+        ${state.desistentes.length ? `<div class="settings-field"><span class="k">Desistências registradas</span><span class="v">${state.desistentes.length} registro(s)</span></div>` : ""}
 
         <div class="aparencia-panel">
           <strong>Aparência e leitura</strong>
@@ -2030,7 +2052,7 @@ function openSettingsModal() {
 
         <div class="modal-actions" style="justify-content:space-between;">
           <button class="btn btn-ghost" id="settingsCloseBtn">Fechar</button>
-          ${state.desistentes.length ? `<button class="btn btn-ghost" id="settingsDesistentesBtn">Registros antigos de desistência</button>` : ""}
+          ${state.desistentes.length ? `<button class="btn btn-ghost" id="settingsDesistentesBtn">Desistências registradas</button>` : ""}
         </div>
       </div>
     </div>`;
@@ -2057,16 +2079,16 @@ function openDesistentesModal() {
     .sort((a, b) => (b.dataDesistencia || "").localeCompare(a.dataDesistencia || ""))
     .map(d => `
       <div class="settings-field" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <span class="v" style="font-weight:600;">${escapeHtml(d.responsavel || "Sem nome")}<br><span style="font-weight:400;color:var(--ink-faint);font-size:12px;">${fmtDateBR(d.dataDesistencia)} · ${escapeHtml(d.crasNome || "—")}${d.tecnicoReferencia ? " · " + escapeHtml(d.tecnicoReferencia) : ""}</span></span>
+        <span class="v" style="font-weight:600;">${escapeHtml(d.responsavel || "Sem nome")}<br><span style="font-weight:400;color:var(--ink-faint);font-size:12px;">${fmtDateBR(d.dataDesistencia)} · ${escapeHtml(d.crasNome || "—")}${d.tecnicoReferencia ? " · " + escapeHtml(d.tecnicoReferencia) : ""}<br>${escapeHtml(rotuloMotivoDesistencia(d))}${d.desistenciaObs ? " — " + escapeHtml(d.desistenciaObs) : ""}</span></span>
         <button class="btn btn-ghost btn-sm" data-remover-desistente="${d.id}" style="flex-shrink:0;">Excluir</button>
       </div>`).join("");
 
   root.innerHTML = `
     <div class="modal-backdrop">
       <div class="modal">
-        <h3>Registros antigos de desistência</h3>
-        <p class="hint">Sobras de versões anteriores do app, que guardavam um registro mínimo ao excluir por desistência. Não aparecem em nenhuma lista, filtro ou gráfico — apague-os aqui se não quiser mais nenhum registro.</p>
-        ${state.desistentes.length ? linhas : `<p class="hint">Nenhum registro antigo.</p>`}
+        <h3>Desistências registradas</h3>
+        <p class="hint">Registro de cada família que desistiu (data, motivo e observação). Não aparece na lista de PAFs, mas conta na Evolução mensal, no RMA e na impressão do resumo. Excluir um registro aqui remove essa desistência também dos relatórios.</p>
+        ${state.desistentes.length ? linhas : `<p class="hint">Nenhuma desistência registrada.</p>`}
         <div class="modal-actions">
           <button class="btn btn-ghost" id="desistentesCloseBtn">Fechar</button>
         </div>
@@ -2078,7 +2100,7 @@ function openDesistentesModal() {
   root.querySelectorAll("[data-remover-desistente]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.removerDesistente;
-      confirmModal("Excluir este registro?", "O registro de família desistente será removido definitivamente, de todos os dispositivos sincronizados.", () => {
+      confirmModal("Excluir este registro?", "O registro será removido definitivamente, de todos os dispositivos sincronizados, e essa desistência deixará de constar nos relatórios.", () => {
         excluirDesistente(id);
         openDesistentesModal();
       });
@@ -2210,8 +2232,9 @@ function computeResumoGeral(pafsParam) {
   };
 }
 
-function computeResumoMensal(pafsParam) {
+function computeResumoMensal(pafsParam, desistParam) {
   const pafs = pafsParam || state.pafs;
+  const desist = desistParam || (pafsParam ? [] : state.desistentes);
   const grupos = {};
   pafs.forEach(p => {
     const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
@@ -2231,6 +2254,24 @@ function computeResumoMensal(pafsParam) {
     saidas[ym].quantidade++;
     const motivoLabel = ENCERRAMENTO_MOTIVOS.find(m => m.v === p.encerramentoMotivo)?.label || "Não informado";
     saidas[ym].motivos[motivoLabel] = (saidas[ym].motivos[motivoLabel] || 0) + 1;
+  });
+
+  // Desistências: contam como incluídas no mês em que a família entrou e como saídas no mês da desistência.
+  desist.forEach(d => {
+    const entrada = d.dataInicial || (d.createdAt || "").slice(0, 10);
+    if (entrada && entrada.length >= 7) {
+      const ymE = entrada.slice(0, 7);
+      if (!grupos[ymE]) grupos[ymE] = { quantidade: 0, status: {} };
+      grupos[ymE].quantidade++;
+    }
+    const saida = d.dataDesistencia || "";
+    if (saida.length >= 7) {
+      const ymS = saida.slice(0, 7);
+      if (!saidas[ymS]) saidas[ymS] = { quantidade: 0, motivos: {} };
+      saidas[ymS].quantidade++;
+      const label = rotuloMotivoDesistencia(d);
+      saidas[ymS].motivos[label] = (saidas[ymS].motivos[label] || 0) + 1;
+    }
   });
 
   return { grupos, saidas };
@@ -2919,7 +2960,7 @@ function resumoMensalTabelaHTML(dados) {
       </tbody>
       <tfoot><tr><th>Total</th><th>${totalIncluidas}</th><th>${totalExcluidas}</th><th>${totalIncluidas - totalExcluidas > 0 ? "+" : ""}${totalIncluidas - totalExcluidas}</th><th></th></tr></tfoot>
     </table>
-    <p class="hint" style="margin-top:6px;">Incluídas: famílias com data de início nesse mês. Excluídas: famílias com data de encerramento nesse mês (passe o mouse sobre o número para ver os motivos). Acumulado: saldo líquido de famílias em acompanhamento.</p>`;
+    <p class="hint" style="margin-top:6px;">Incluídas: famílias com data de início nesse mês. Excluídas: famílias com data de encerramento nesse mês ou que desistiram nesse mês (passe o mouse sobre o número para ver os motivos). Acumulado: saldo líquido de famílias em acompanhamento.</p>`;
 }
 
 // Ordem de exibição das situações do PAF na relação por família (mesma ordem usada nos KPIs do resumo geral).
@@ -3035,6 +3076,47 @@ function dashboardPafsFiltrados(ignorarSituacao) {
   });
 }
 
+// Registros de desistência, com os mesmos filtros de período/CRAS/técnico do painel.
+function dashboardDesistentesFiltrados() {
+  const { dashPeriodo, dashCras, dashTecnico } = state;
+  let limiteISO = null;
+  if (dashPeriodo && dashPeriodo !== "tudo") {
+    const hoje = new Date();
+    if (dashPeriodo === "ano") limiteISO = `${hoje.getFullYear()}-01-01`;
+    else limiteISO = dataISOLocal(dashboardSubtraiMeses(hoje, { "3m": 3, "6m": 6, "12m": 12 }[dashPeriodo] || 0));
+  }
+  return state.desistentes.filter(d => {
+    if (dashCras && (d.crasNome || "").trim() !== dashCras) return false;
+    if (dashTecnico && (d.tecnicoReferencia || "").trim() !== dashTecnico) return false;
+    if (limiteISO) {
+      const base = d.dataInicial || (d.createdAt || "").slice(0, 10) || d.dataDesistencia || "";
+      if (!base || base < limiteISO) return false;
+    }
+    return true;
+  });
+}
+
+// Tabela das desistências (impressão e painel): quem saiu, de onde, quando e por quê.
+function resumoExcluidosTabelaHTML(lista) {
+  if (!lista || !lista.length) return `<p class="muted">Nenhuma desistência registrada no período/filtro selecionado.</p>`;
+  const ordenados = [...lista].sort((a, b) => (b.dataDesistencia || "").localeCompare(a.dataDesistencia || ""));
+  return `
+    <table class="resumo-tabela">
+      <thead><tr><th>Responsável familiar</th><th>CRAS</th><th>Técnico(a)</th><th>Início</th><th>Desistência</th><th>Motivo</th></tr></thead>
+      <tbody>
+        ${ordenados.map(d => `<tr>
+          <td>${escapeHtml(d.responsavel || "Sem nome")}</td>
+          <td>${escapeHtml(d.crasNome || "—")}</td>
+          <td>${escapeHtml(d.tecnicoReferencia || "—")}</td>
+          <td>${d.dataInicial ? fmtDateBR(d.dataInicial) : "—"}</td>
+          <td>${d.dataDesistencia ? fmtDateBR(d.dataDesistencia) : "—"}</td>
+          <td>${escapeHtml(rotuloMotivoDesistencia(d).replace(/^Desistência — /, "") === "Desistência" ? "Não informado" : rotuloMotivoDesistencia(d).replace(/^Desistência — /, ""))}${d.desistenciaObs ? `<br><span style="font-size:11px;color:var(--ink-faint);">${escapeHtml(d.desistenciaObs)}</span>` : ""}</td>
+        </tr>`).join("")}
+      </tbody>
+      <tfoot><tr><th colspan="6">Total: ${ordenados.length} desistência(s)</th></tr></tfoot>
+    </table>`;
+}
+
 // Retorna a contagem de PAFs do período imediatamente anterior ao filtro atual (mesma
 // duração, mesmos filtros de CRAS/técnico), para comparação de tendência nos KPIs.
 // Retorna null quando o período selecionado é "tudo" (não há um "anterior" comparável).
@@ -3117,10 +3199,11 @@ function renderDashboardHTML() {
   const pafsBase = semRegistroAlgum ? [] : dashboardPafsFiltrados(true);      // período/CRAS/técnico, sem o segmento
   const pafsFiltrados = semRegistroAlgum ? [] : dashboardPafsFiltrados();     // + segmento escolhido
   const geral = computeResumoGeral(pafsFiltrados);
-  const grupos = computeResumoMensal(pafsFiltrados);
+  const desistFiltrados = semRegistroAlgum ? [] : dashboardDesistentesFiltrados();
+  const grupos = computeResumoMensal(pafsFiltrados, desistFiltrados);
   const contagens = { total: pafsBase.length, andamento: 0, encaminhado: 0, concluido: 0 };
   pafsBase.forEach(p => { if (contagens[p.situacaoPAF] != null) contagens[p.situacaoPAF]++; });
-  const seg = { contagens, atual: state.dashSituacao, grupos: computeResumoMensal(pafsBase).grupos };
+  const seg = { contagens, atual: state.dashSituacao, grupos: computeResumoMensal(pafsBase, desistFiltrados).grupos };
   const filtrosAtivos = dashboardFiltrosAtivos();
   const anteriorTotal = semRegistroAlgum ? null : dashboardPeriodoAnteriorTotal(true);
 
@@ -3166,6 +3249,10 @@ function renderDashboardHTML() {
             <h4>${sectionIconSvg("metas", 16)} Evolução mensal (famílias incluídas e excluídas)</h4>
             ${resumoMensalTabelaHTML(grupos)}
           </div>
+          <div class="resumo-secao" id="dash-sec-excluidos">
+            <h4>${sectionIconSvg("familia", 16)} Famílias que desistiram (registro de desistência)</h4>
+            ${resumoExcluidosTabelaHTML(desistFiltrados)}
+          </div>
         </div>`}`}
   </div>`;
 }
@@ -3187,11 +3274,13 @@ function attachDashboardHandlers() {
   document.getElementById("dashboardImprimirBtn")?.addEventListener("click", () => {
     // O relatório impresso é completo: ignora o segmento de situação (cartões Total/Em andamento/...) e respeita período, CRAS e técnico.
     const pafsFiltrados = dashboardPafsFiltrados(true);
-    imprimirResumoMensal(computeResumoGeral(pafsFiltrados), computeResumoMensal(pafsFiltrados), {
+    const desistImpressao = dashboardDesistentesFiltrados();
+    imprimirResumoMensal(computeResumoGeral(pafsFiltrados), computeResumoMensal(pafsFiltrados, desistImpressao), {
       filtros: dashboardFiltrosLabels(true),
       anteriorTotal: dashboardPeriodoAnteriorTotal(true),
       totalGeral: state.pafs.length,
       pafs: pafsFiltrados,
+      desistentes: desistImpressao,
       pafsRma: dashboardPafsFiltrados(true) // o RMA é oficial: não é recortado por situação
     });
   });
@@ -4007,10 +4096,14 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
         ${resumoMensalTabelaHTML(grupos)}
       </div>
-      ${rmaMensalHTML(computeRmaMensal(contexto.pafsRma || pafsRelacao))}
+      ${rmaMensalHTML(computeRmaMensal(contexto.pafsRma || pafsRelacao, contexto.desistentes || []))}
       <div class="resumo-secao">
         <h4>Relação das famílias em acompanhamento (dados individuais)</h4>
         ${resumoFamiliasTabelaHTML(pafsRelacao)}
+      </div>
+      <div class="resumo-secao">
+        <h4>Famílias que desistiram (desistências registradas)</h4>
+        ${resumoExcluidosTabelaHTML(contexto.desistentes || [])}
       </div>
       ${assinaturaHTML()}
 
@@ -4612,7 +4705,8 @@ function registrarAuditoria(acao, paf) {
   if (state.mode !== "cloud" || !state.db) return;
   state.db.collection("auditoria").add({
     acao,                                     // "criacao" | "exclusao" | "desistencia"
-    pafId: paf.id,                            // só o identificador: o nome da família não fica no log imutável
+    pafId: paf.id,
+    ...(acao === "desistencia" ? { responsavel: paf.responsavel || null } : {}),
     crasNome: paf.crasNome || null,
     usuario: state.currentUser?.email || null,
     timestamp: new Date().toISOString()
@@ -4677,21 +4771,81 @@ function savePAF(paf, opts = {}) {
   }
 }
 
-function deletePAFRecord(id) {
+// DESISTÊNCIA x EXCLUSÃO
+// - Exclusão: o PAF é apagado por completo (seções, anexos, histórico) e NÃO fica nenhum registro
+//   dele (só a trilha anônima de auditoria: id + CRAS + e-mail de quem apagou).
+// - Desistência: o conteúdo do PAF é apagado, mas fica um REGISTRO da desistência (responsável, CRAS,
+//   técnico, início, data, motivo e observação), que conta na Evolução mensal, no RMA e na impressão.
+function montarRegistroDesistencia(paf, dados) {
+  return {
+    id: paf.id,
+    tipo: "desistencia",
+    responsavel: paf.responsavel || "",
+    crasNome: paf.crasNome || "",
+    tecnicoReferencia: paf.tecnicoReferencia || "",
+    dataInicial: paf.dataInicial || (paf.createdAt || "").slice(0, 10) || "",
+    createdAt: paf.createdAt || "",
+    dataDesistencia: (dados && dados.data) || dataISOLocal(new Date()),
+    desistenciaMotivo: (dados && dados.motivo) || "",
+    desistenciaObs: ((dados && dados.obs) || "").trim(),
+    registradoPor: state.currentUser?.email || null
+  };
+}
+
+function rotuloMotivoDesistencia(d) {
+  const m = ENCERRAMENTO_MOTIVOS.find(x => x.v === d.desistenciaMotivo)?.label;
+  return m ? `Desistência — ${m}` : "Desistência";
+}
+
+function deletePAFRecord(id, dadosDesistencia) {
   descartarSalvamentoPendente();
   const paf = state.pafs.find(p => p.id === id) || { id };
+  const desistencia = !!dadosDesistencia;
+  const registro = desistencia ? montarRegistroDesistencia(paf, dadosDesistencia) : null;
   if (state.mode === "cloud" && state.db) {
     excluirAnexosSubcolecao(id); // melhor esforço, roda em paralelo — não precisa aguardar
     excluirHistoricoSubcolecao(id);
-    state.db.collection(FIRESTORE_COLLECTION).doc(id).delete()
-      .then(() => { registrarAuditoria("exclusao", paf); toast("Registro excluído."); })
-      .catch(err => { console.error(err); toast("Não foi possível excluir na nuvem."); });
+    const ref = state.db.collection(FIRESTORE_COLLECTION).doc(id);
+    // Desistência: .set() troca o documento inteiro pelo registro. Exclusão: .delete().
+    (desistencia ? ref.set(registro) : ref.delete())
+      .then(() => { registrarAuditoria(desistencia ? "desistencia" : "exclusao", paf); toast(desistencia ? "Desistência registrada." : "Registro excluído."); })
+      .catch(err => { console.error(err); toast("Não foi possível concluir na nuvem."); });
   } else {
     state.pafs = state.pafs.filter(p => p.id !== id);
+    state.desistentes = state.desistentes.filter(d => d.id !== id);
+    if (desistencia) state.desistentes.push(registro);
     persistLocalArray();
-    toast("Registro excluído.");
+    toast(desistencia ? "Desistência registrada." : "Registro excluído.");
   }
   if (!state.db) renderApp();
+}
+
+// Janela para registrar a desistência: data, motivo e observação.
+function desistenciaModal(paf, onConfirm) {
+  const root = document.getElementById("modalRoot");
+  if (!root) return;
+  const opcoes = ENCERRAMENTO_MOTIVOS.map(m => `<option value="${m.v}"${m.v === "5" ? " selected" : ""}>${escapeHtml(m.label)}</option>`).join("");
+  root.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal">
+        <h3>Registrar desistência da família</h3>
+        <p>O conteúdo do PAF (seções, anexos e histórico) será excluído de todos os dispositivos. Ficará registrado apenas: responsável, CRAS, técnico, data de início e os dados da desistência abaixo, que entram na Evolução mensal, no RMA e na impressão. Não pode ser desfeito.</p>
+        <div class="f"><label for="desistData">Data da desistência</label><input type="date" id="desistData" value="${dataISOLocal(new Date())}"></div>
+        <div class="f"><label for="desistMotivo">Motivo</label><select id="desistMotivo">${opcoes}</select></div>
+        <div class="f"><label for="desistObs">Observação (opcional)</label><textarea id="desistObs" rows="3"></textarea></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="modalCancel">Cancelar</button>
+          <button class="btn btn-danger" id="modalConfirm">Registrar desistência</button>
+        </div>
+      </div>
+    </div>`;
+  const fechar = ativarAcessibilidadeModal(root, () => root.innerHTML = "");
+  document.getElementById("modalCancel").onclick = fechar;
+  document.getElementById("modalConfirm").onclick = () => {
+    const data = document.getElementById("desistData").value || dataISOLocal(new Date());
+    onConfirm({ data, motivo: document.getElementById("desistMotivo").value, obs: document.getElementById("desistObs").value });
+    fechar();
+  };
 }
 
 function scheduleAutosave() {
@@ -4717,14 +4871,12 @@ window.addEventListener("pagehide", salvarPendenteAgora);
 
 /* ---------------------------- Famílias desistentes ---------------------------- */
 
-// Desistência: o PAF é excluído por completo e NÃO fica nenhum registro dele (nem lista, nem gráfico,
-// nem contagem). A única marca é a trilha de auditoria anônima (id + CRAS, sem nome), igual à exclusão comum.
-function registrarDesistencia(paf) {
-  deletePAFRecord(paf.id);
+function registrarDesistencia(paf, dados) {
+  deletePAFRecord(paf.id, dados);
 }
 
-// Registros de desistência antigos (criados por versões anteriores) continuam fora das listas e dos gráficos;
-// esta função só existe para o técnico poder apagá-los de vez em Config.
+// Registros de desistência: ficam fora da lista de PAFs, mas contam na Evolução Mensal, no RMA e na impressão.
+// Esta função serve para o técnico poder apagar um registro de vez em Config.
 function excluirDesistente(id) {
   state.desistentes = state.desistentes.filter(d => d.id !== id);
   if (state.mode === "cloud" && state.db) {
@@ -5180,7 +5332,7 @@ function attachHomeHandlers() {
       const frase = (paf?.responsavel || "").trim() || "EXCLUIR";
       confirmModalDigitarNome(
         "Excluir este PAF?",
-        "Essa ação não pode ser desfeita e não deixa nenhum registro depois. O PAF será removido de todos os dispositivos sincronizados.",
+        "Essa ação não pode ser desfeita e não deixa nenhum registro depois. O PAF será removido de todos os dispositivos sincronizados. Se a família desistiu do acompanhamento, use o botão Desistência dentro do PAF, que mantém o registro.",
         frase,
         () => deletePAFRecord(el.dataset.del)
       );
@@ -5469,7 +5621,7 @@ function renderEditorHTML() {
             ${["andamento", "encaminhado", "concluido"].map(s => `
               <button class="status-opt ${paf.situacaoPAF === s ? "selected " + s : ""}" data-set-status="${s}">${STATUS_LABELS[s]}</button>
             `).join("")}
-            <button class="status-opt status-opt-desistencia" data-set-status="desistiu" title="Exclui este PAF sem manter nenhum registro">Desistência</button>
+            <button class="status-opt status-opt-desistencia" data-set-status="desistiu" title="Registra a desistência da família (data e motivo) e exclui o conteúdo do PAF">Desistência</button>
           </div>
         </div>
         <div class="section-content" data-section-cat="${state.activeSection}">
@@ -6636,14 +6788,10 @@ function attachEditorHandlers() {
     btn.addEventListener("click", () => {
       const novoStatus = btn.dataset.setStatus;
       if (novoStatus === "desistiu") {
-        confirmModal(
-          "Excluir o PAF por desistência da família?",
-          "O PAF completo (todas as seções preenchidas) será excluído definitivamente, de todos os dispositivos sincronizados, e não ficará nenhum registro dele — nem nas listas, nem nos gráficos. Essa ação não pode ser desfeita.",
-          () => {
-            registrarDesistencia(state.current);
-            goHome();
-          }
-        );
+        desistenciaModal(state.current, dados => {
+          registrarDesistencia(state.current, dados);
+          goHome();
+        });
         return;
       }
       if (novoStatus === state.current.situacaoPAF) return;
