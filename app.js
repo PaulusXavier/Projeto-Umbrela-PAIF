@@ -1650,7 +1650,9 @@ function computeRmaMensal(pafsParam, desistParam) {
   const totalEmAcompanhamento = pafs.filter(p => {
     const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
     if (!base || base > fimMesISO) return false;
-    const saida = dataSaidaEfetiva(p);
+    // Só saem do total as famílias concluídas/encaminhadas antes do mês; PAF em andamento segue contando
+    // mesmo que tenha data de encerramento preenchida (assim o A.1 bate com o "Em andamento").
+    const saida = (p.situacaoPAF && p.situacaoPAF !== "andamento") ? dataSaidaEfetiva(p) : "";
     if (saida && saida.slice(0, 7) < ymAtual) return false;
     return true;
   }).length + desist.filter(d => {
@@ -1695,7 +1697,7 @@ function rmaMensalHTML(dados) {
         ${kpiCardHTML(d.totalEmAcompanhamento, "A.1. Total de famílias em acompanhamento pelo PAIF", "familia")}
         ${kpiCardHTML(totalNovas, "A.2. Novas famílias inseridas no acompanhamento do PAIF durante o mês de referência", "familia")}
       </div>
-      <p class="hint" style="margin-top:2px;">A.1: famílias com acompanhamento iniciado até o fim do mês de referência e ainda não encerrado antes dele. A.2: dentre essas, as famílias com data de início do acompanhamento dentro do mês de referência.</p>
+      <p class="hint" style="margin-top:2px;">A.1: famílias com acompanhamento iniciado até o fim do mês de referência e que não foram concluídas, encaminhadas ou desistentes antes dele. A.2: dentre essas, as famílias com data de início do acompanhamento dentro do mês de referência.</p>
     </div>
 
     <div class="resumo-secao resumo-secao-rma">
@@ -2110,8 +2112,9 @@ function openDesistentesModal() {
 
 /* ---------------------------- Resumo mensal (famílias em acompanhamento) ---------------------------- */
 
-function computeResumoGeral(pafsParam) {
+function computeResumoGeral(pafsParam, desistParam) {
   const pafs = pafsParam || state.pafs;
+  const totalDesistentes = (desistParam || (pafsParam ? [] : state.desistentes)).length;
   const total = pafs.length;
   const porStatus = { andamento: 0, encaminhado: 0, concluido: 0 };
   const porSexo = {}, porNacionalidade = {}, porFaixa = {}, porCras = {};
@@ -2217,7 +2220,7 @@ function computeResumoGeral(pafsParam) {
   const pct = n => total ? Math.round((n / total) * 100) : 0;
 
   return {
-    total, porStatus, porSexo, porNacionalidade, porFaixa, porCras,
+    total, totalDesistentes, porStatus, porSexo, porNacionalidade, porFaixa, porCras,
     porVulnerabilidade, porSituacaoSocial, porPrograma, porBeneficio, porEncArea,
     porParticipaProgramas, porRecebeBeneficio, porBeneficioEventualTipo, totalBeneficiosEventuais,
     porHabitacao, porEtnia, porInteriorizacao,
@@ -2247,11 +2250,13 @@ function computeResumoMensal(pafsParam, desistParam) {
 
   const saidas = {};
   pafs.forEach(p => {
+    if (!p.situacaoPAF || p.situacaoPAF === "andamento") return; // em andamento não é saída
     const dataSaida = dataSaidaEfetiva(p);
     if (!dataSaida || dataSaida.length < 7) return;
     const ym = dataSaida.slice(0, 7);
-    if (!saidas[ym]) saidas[ym] = { quantidade: 0, motivos: {} };
+    if (!saidas[ym]) saidas[ym] = { quantidade: 0, concluidas: 0, desistencias: 0, motivos: {} };
     saidas[ym].quantidade++;
+    saidas[ym].concluidas++;
     const motivoLabel = ENCERRAMENTO_MOTIVOS.find(m => m.v === p.encerramentoMotivo)?.label || "Não informado";
     saidas[ym].motivos[motivoLabel] = (saidas[ym].motivos[motivoLabel] || 0) + 1;
   });
@@ -2267,8 +2272,9 @@ function computeResumoMensal(pafsParam, desistParam) {
     const saida = d.dataDesistencia || "";
     if (saida.length >= 7) {
       const ymS = saida.slice(0, 7);
-      if (!saidas[ymS]) saidas[ymS] = { quantidade: 0, motivos: {} };
+      if (!saidas[ymS]) saidas[ymS] = { quantidade: 0, concluidas: 0, desistencias: 0, motivos: {} };
       saidas[ymS].quantidade++;
+      saidas[ymS].desistencias++;
       const label = rotuloMotivoDesistencia(d);
       saidas[ymS].motivos[label] = (saidas[ymS].motivos[label] || 0) + 1;
     }
@@ -2700,7 +2706,7 @@ function paretoChartSVG(obj, opts) {
     (brutas.length > top ? `<p class="hint chart-nota">Mostrando as ${top} mais frequentes de ${brutas.length} categorias registradas.</p>` : "");
 }
 
-// ---------- Evolução mensal: barras (incluídas x excluídas) + linha do saldo acumulado ----------
+// ---------- Evolução mensal: barras (incluídas, concluídas e desistências) + linha do saldo acumulado ----------
 function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
   opts = opts || {};
   const limite = opts.limite || 12;
@@ -2709,18 +2715,19 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
   // saldo acumulado desde o primeiro mês registrado (não só da janela exibida)
   let ac = 0;
   const todos = linhasCrescentes.map((ym) => {
-    const inc = grupos[ym]?.quantidade || 0, exc = saidas[ym]?.quantidade || 0;
+    const inc = grupos[ym]?.quantidade || 0, con = saidas[ym]?.concluidas || 0, des = saidas[ym]?.desistencias || 0;
+    const exc = con + des;
     ac += inc - exc;
-    return { ym, inc, exc, ac };
+    return { ym, inc, con, des, exc, ac };
   });
   const valores = todos.slice(-limite);
 
-  const maxBarra = Math.max(...valores.map((v) => Math.max(v.inc, v.exc)), 1);
+  const maxBarra = Math.max(...valores.map((v) => Math.max(v.inc, v.con, v.des)), 1);
   const eixo = eixoY(maxBarra);
   const acMin = Math.min(0, ...valores.map((v) => v.ac)), acMax = Math.max(1, ...valores.map((v) => v.ac));
   const escAc = (a) => 0 + (a - acMin) / (acMax - acMin); // 0..1
 
-  const colW = 50, barW = 15, padT = 24, chartH = 128, padB = 46;
+  const colW = 54, barW = 13, padT = 24, chartH = 128, padB = 46;
   const padL = margemEixoNum(eixo.topo), padR = margemEixoNum(Math.max(acMax, Math.abs(acMin))) + 14;
   const width = padL + valores.length * colW + padR;
   const height = chartH + padT + padB;
@@ -2729,16 +2736,21 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
 
   const barras = valores.map((v, i) => {
     const x0 = padL + i * colW, xc = x0 + colW / 2;
-    const hInc = Math.round((v.inc / eixo.topo) * chartH), hExc = Math.round((v.exc / eixo.topo) * chartH);
-    const yInc = padT + chartH - hInc, yExc = padT + chartH - hExc;
+    const alt = (n) => Math.round((n / eixo.topo) * chartH);
+    const hInc = alt(v.inc), hCon = alt(v.con), hDes = alt(v.des);
+    const yInc = padT + chartH - hInc, yCon = padT + chartH - hCon, yDes = padT + chartH - hDes;
+    const xI = xc - barW * 1.5 - 2, xC = xc - barW * 0.5, xD = xc + barW * 0.5 + 2;
     const saldo = v.inc - v.exc;
     const mes = labelYmCurto(v.ym);
+    const plural = (n, a, b) => n === 1 ? a : b;
     return `
       <g>
-        <path d="${barraArredondadaPath(xc - barW - 1.5, yInc, barW, hInc, 3)}" fill="var(--accent, #2E7D6B)" class="evo-bar" tabindex="0"><title>${mes}: ${v.inc} incluída${v.inc === 1 ? "" : "s"}</title></path>
-        <path d="${barraArredondadaPath(xc + 1.5, yExc, barW, hExc, 3)}" fill="var(--danger, #B5473F)" class="evo-bar" tabindex="0"><title>${mes}: ${v.exc} excluída${v.exc === 1 ? "" : "s"}</title></path>
-        ${v.inc ? `<text x="${xc - barW / 2 - 1.5}" y="${yInc - 4}" text-anchor="middle" class="chart-bar-num">${v.inc}</text>` : ""}
-        ${v.exc ? `<text x="${xc + barW / 2 + 1.5}" y="${yExc - 4}" text-anchor="middle" class="chart-bar-num">${v.exc}</text>` : ""}
+        <path d="${barraArredondadaPath(xI, yInc, barW, hInc, 3)}" fill="var(--accent, #2E7D6B)" class="evo-bar" tabindex="0"><title>${mes}: ${v.inc} ${plural(v.inc, "incluída", "incluídas")}</title></path>
+        <path d="${barraArredondadaPath(xC, yCon, barW, hCon, 3)}" fill="#52667C" class="evo-bar" tabindex="0"><title>${mes}: ${v.con} ${plural(v.con, "concluída", "concluídas")}</title></path>
+        <path d="${barraArredondadaPath(xD, yDes, barW, hDes, 3)}" fill="var(--danger, #B5473F)" class="evo-bar" tabindex="0"><title>${mes}: ${v.des} ${plural(v.des, "desistência", "desistências")}</title></path>
+        ${v.inc ? `<text x="${xI + barW / 2}" y="${yInc - 4}" text-anchor="middle" class="chart-bar-num">${v.inc}</text>` : ""}
+        ${v.con ? `<text x="${xC + barW / 2}" y="${yCon - 4}" text-anchor="middle" class="chart-bar-num">${v.con}</text>` : ""}
+        ${v.des ? `<text x="${xD + barW / 2}" y="${yDes - 4}" text-anchor="middle" class="chart-bar-num">${v.des}</text>` : ""}
         <text x="${xc}" y="${padT + chartH + 16}" text-anchor="middle" class="chart-bar-mes">${mes}</text>
         <text x="${xc}" y="${padT + chartH + 30}" text-anchor="middle" class="chart-bar-saldo ${saldo > 0 ? "saldo-pos" : saldo < 0 ? "saldo-neg" : "saldo-zero"}">${saldo > 0 ? "+" : ""}${saldo}</text>
       </g>`;
@@ -2753,10 +2765,11 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
   return `
     <div class="chart-legend-inline">
       <span><i style="background:var(--accent, #2E7D6B)"></i> Incluídas</span>
-      <span><i style="background:var(--danger, #B5473F)"></i> Excluídas</span>
+      <span><i style="background:#52667C"></i> Concluídas</span>
+      <span><i style="background:var(--danger, #B5473F)"></i> Desistências</span>
       <span><i class="lg-linha" style="background:var(--gold, #B98A34)"></i> Saldo acumulado (eixo à direita)</span>
       <span class="lg-texto">Número sob o mês = saldo do mês</span>
-    </div>` + svgGrafico(width, height, "evolucao-chart", "Evolução mensal de famílias incluídas e excluídas, com saldo acumulado", `
+    </div>` + svgGrafico(width, height, "evolucao-chart", "Evolução mensal de famílias incluídas, concluídas e desistentes, com saldo acumulado", `
       ${gradeEixoY(eixo, padL, xFim, padT, chartH)}
       ${linhaZero}
       ${eixoDir}
@@ -2781,20 +2794,24 @@ function assinaturaHTML() {
 function kpiHeroHTML(r, anteriorTotal, mensal, seg) {
   const g = (seg && seg.grupos) || (mensal && mensal.grupos) || {};
   const spark = (sit, cor) => sparklineSVG(serieKpiAcumulada(g, sit), cor);
-  const c = seg ? seg.contagens : { total: r.total, andamento: r.porStatus.andamento || 0, encaminhado: r.porStatus.encaminhado || 0, concluido: r.porStatus.concluido || 0 };
-  const delta = anteriorTotal != null ? { diff: c.total - anteriorTotal } : null;
+  const c = seg ? { ...seg.contagens } : { total: r.total, andamento: r.porStatus.andamento || 0, encaminhado: r.porStatus.encaminhado || 0, concluido: r.porStatus.concluido || 0 };
+  c.desistentes = seg ? (seg.contagens.desistentes || 0) : (r.totalDesistentes || 0);
+  const delta = anteriorTotal != null ? { diff: c.total - anteriorTotal } : null; // c.total = só PAFs com ficha (sem desistentes)
+  const totalFamilias = c.total + c.desistentes; // em andamento + concluídos (+ encaminhados) + desistentes
   const sg = (chave) => seg ? { chave, ativo: (seg.atual || "") === (chave === "total" ? "" : chave) } : null;
   return `
     <div class="kpi-grid kpi-grid-hero">
-      ${kpiCardHTML(c.total, "Total de PAFs", "cabecalho", delta, spark(null, "#1F3A5F"), sg("total"))}
+      ${kpiCardHTML(totalFamilias, "Total de famílias", "cabecalho", delta, spark(null, "#1F3A5F"), sg("total"))}
       ${kpiCardHTML(c.andamento, "Em andamento", "diagnostico", null, spark("andamento", "#2E7D6B"), sg("andamento"))}
-      ${kpiCardHTML(c.encaminhado, "Encaminhados", "encaminhamentos", null, spark("encaminhado", "#B98A34"), sg("encaminhado"))}
+      ${kpiCardHTML(c.desistentes, "Desistentes", "encerramento", null, null, null)}
       ${kpiCardHTML(c.concluido, "Concluídos", "encerramento", null, spark("concluido", "#52667C"), sg("concluido"))}
+      ${c.encaminhado ? kpiCardHTML(c.encaminhado, "Encaminhados", "encaminhamentos", null, spark("encaminhado", "#B98A34"), sg("encaminhado")) : ""}
     </div>`;
 }
 
 function resumoGeralGeralHTML(r, anteriorTotal, mensal, seg) {
   const c = seg ? seg.contagens : { andamento: r.porStatus.andamento || 0, encaminhado: r.porStatus.encaminhado || 0, concluido: r.porStatus.concluido || 0 };
+  const nDesist = seg ? (seg.contagens.desistentes || 0) : (r.totalDesistentes || 0);
   return `
     ${kpiHeroHTML(r, anteriorTotal, mensal, seg)}
     <div class="kpi-grid">
@@ -2806,12 +2823,12 @@ function resumoGeralGeralHTML(r, anteriorTotal, mensal, seg) {
       ${kpiCardHTML(r.totalEncaminhamentos, "Encaminhamentos registrados", "encaminhamentos")}
       ${kpiCardHTML(r.pctSituacoesSuperadas + "%", "Situações sociais superadas", "metas")}
     </div>
-    ${anteriorTotal != null ? `<p class="dash-comparativo-hint">Comparação de "Total de PAFs" com o período anterior equivalente (${anteriorTotal} PAF${anteriorTotal === 1 ? "" : "s"}).</p>` : ""}
+    ${anteriorTotal != null ? `<p class="dash-comparativo-hint">Comparação do total de PAFs com ficha com o período anterior equivalente (${anteriorTotal} PAF${anteriorTotal === 1 ? "" : "s"}).</p>` : ""}
 
     <div class="resumo-secao">
       <h4>${sectionIconSvg("diagnostico", 16)} Situação dos PAFs e perfil do responsável familiar</h4>
       <div class="resumo-cols resumo-cols-donut">
-        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": c.andamento, "Encaminhado": c.encaminhado, "Concluído": c.concluido }, { centro: "PAFs", legendaLinear: true })}</div>
+        <div><strong>Situação do PAF</strong>${donutChartSVG({ "Em andamento": c.andamento, "Desistente": nDesist, "Concluído": c.concluido, "Encaminhado": c.encaminhado }, { centro: "famílias", legendaLinear: true })}</div>
         <div><strong>Sexo do responsável</strong>${donutChartSVG(r.porSexo, { centro: "famílias" })}</div>
       </div>
       <div class="resumo-cols" style="margin-top:16px;">
@@ -2927,7 +2944,9 @@ function resumoMensalTabelaHTML(dados) {
 
   const linhasCrescentes = [...meses].reverse();
   const totalIncluidas = linhasCrescentes.reduce((a, ym) => a + (grupos[ym]?.quantidade || 0), 0);
-  const totalExcluidas = linhasCrescentes.reduce((a, ym) => a + (saidas[ym]?.quantidade || 0), 0);
+  const totalConcluidas = linhasCrescentes.reduce((a, ym) => a + (saidas[ym]?.concluidas || 0), 0);
+  const totalDesist = linhasCrescentes.reduce((a, ym) => a + (saidas[ym]?.desistencias || 0), 0);
+  const totalExcluidas = totalConcluidas + totalDesist;
 
   let acumulado = 0;
   const acumulados = {};
@@ -2942,25 +2961,27 @@ function resumoMensalTabelaHTML(dados) {
       ${linhasCrescentes.length > 12 ? `<p class="hint" style="margin-top:4px;">Gráfico com os últimos 12 meses. A tabela abaixo traz o histórico completo.</p>` : ""}
     </div>
     <table class="resumo-tabela">
-      <thead><tr><th>Mês</th><th>Incluídas</th><th>Excluídas</th><th>Saldo</th><th>Acumulado</th></tr></thead>
+      <thead><tr><th>Mês</th><th>Incluídas</th><th>Concluídas</th><th>Desistências</th><th>Saldo</th><th>Acumulado</th></tr></thead>
       <tbody>
         ${meses.map(ym => {
           const inc = grupos[ym]?.quantidade || 0;
-          const exc = saidas[ym]?.quantidade || 0;
+          const con = saidas[ym]?.concluidas || 0, des = saidas[ym]?.desistencias || 0;
+          const exc = con + des;
           const saldo = inc - exc;
           const motivosTitle = saidas[ym] ? Object.entries(saidas[ym].motivos).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
           return `<tr>
             <td>${labelYm(ym)}</td>
             <td>${inc}</td>
-            <td${motivosTitle ? ` title="${escapeHtml(motivosTitle)}"` : ""}>${exc}</td>
+            <td${motivosTitle ? ` title="${escapeHtml(motivosTitle)}"` : ""}>${con}</td>
+            <td>${des}</td>
             <td style="color:${saldo > 0 ? "var(--accent-dark)" : saldo < 0 ? "var(--danger)" : "inherit"};font-weight:600;">${saldo > 0 ? "+" : ""}${saldo}</td>
             <td>${acumulados[ym]}</td>
           </tr>`;
         }).join("")}
       </tbody>
-      <tfoot><tr><th>Total</th><th>${totalIncluidas}</th><th>${totalExcluidas}</th><th>${totalIncluidas - totalExcluidas > 0 ? "+" : ""}${totalIncluidas - totalExcluidas}</th><th></th></tr></tfoot>
+      <tfoot><tr><th>Total</th><th>${totalIncluidas}</th><th>${totalConcluidas}</th><th>${totalDesist}</th><th>${totalIncluidas - totalExcluidas > 0 ? "+" : ""}${totalIncluidas - totalExcluidas}</th><th></th></tr></tfoot>
     </table>
-    <p class="hint" style="margin-top:6px;">Incluídas: famílias com data de início nesse mês. Excluídas: famílias com data de encerramento nesse mês ou que desistiram nesse mês (passe o mouse sobre o número para ver os motivos). Acumulado: saldo líquido de famílias em acompanhamento.</p>`;
+    <p class="hint" style="margin-top:6px;">Incluídas: famílias com data de início nesse mês. Concluídas: famílias concluídas (ou encaminhadas) nesse mês (passe o mouse sobre o número para ver os motivos). Desistências: famílias que desistiram nesse mês. Acumulado: famílias ainda em acompanhamento (incluídas menos concluídas e desistentes).</p>`;
 }
 
 // Ordem de exibição das situações do PAF na relação por família (mesma ordem usada nos KPIs do resumo geral).
@@ -3198,12 +3219,13 @@ function renderDashboardHTML() {
   const semRegistroAlgum = state.pafs.length === 0;
   const pafsBase = semRegistroAlgum ? [] : dashboardPafsFiltrados(true);      // período/CRAS/técnico, sem o segmento
   const pafsFiltrados = semRegistroAlgum ? [] : dashboardPafsFiltrados();     // + segmento escolhido
-  const geral = computeResumoGeral(pafsFiltrados);
-  const desistFiltrados = semRegistroAlgum ? [] : dashboardDesistentesFiltrados();
+  const desistBase = dashboardDesistentesFiltrados();                          // período/CRAS/técnico
+  const desistFiltrados = state.dashSituacao ? [] : desistBase;                // com segmento escolhido, desistentes não entram
+  const geral = computeResumoGeral(pafsFiltrados, desistFiltrados);
   const grupos = computeResumoMensal(pafsFiltrados, desistFiltrados);
-  const contagens = { total: pafsBase.length, andamento: 0, encaminhado: 0, concluido: 0 };
+  const contagens = { total: pafsBase.length, desistentes: desistBase.length, andamento: 0, encaminhado: 0, concluido: 0 };
   pafsBase.forEach(p => { if (contagens[p.situacaoPAF] != null) contagens[p.situacaoPAF]++; });
-  const seg = { contagens, atual: state.dashSituacao, grupos: computeResumoMensal(pafsBase, desistFiltrados).grupos };
+  const seg = { contagens, atual: state.dashSituacao, grupos: computeResumoMensal(pafsBase, desistBase).grupos };
   const filtrosAtivos = dashboardFiltrosAtivos();
   const anteriorTotal = semRegistroAlgum ? null : dashboardPeriodoAnteriorTotal(true);
 
@@ -3246,7 +3268,7 @@ function renderDashboardHTML() {
           <div id="dash-sec-equipe">${resumoGeralEquipeRedeHTML(geral)}</div>
           <div id="dash-sec-metas">${resumoGeralMetasHTML(geral)}</div>
           <div class="resumo-secao" id="dash-sec-evolucao">
-            <h4>${sectionIconSvg("metas", 16)} Evolução mensal (famílias incluídas e excluídas)</h4>
+            <h4>${sectionIconSvg("metas", 16)} Evolução mensal (famílias incluídas, concluídas e desistentes)</h4>
             ${resumoMensalTabelaHTML(grupos)}
           </div>
           <div class="resumo-secao" id="dash-sec-excluidos">
@@ -3275,7 +3297,7 @@ function attachDashboardHandlers() {
     // O relatório impresso é completo: ignora o segmento de situação (cartões Total/Em andamento/...) e respeita período, CRAS e técnico.
     const pafsFiltrados = dashboardPafsFiltrados(true);
     const desistImpressao = dashboardDesistentesFiltrados();
-    imprimirResumoMensal(computeResumoGeral(pafsFiltrados), computeResumoMensal(pafsFiltrados, desistImpressao), {
+    imprimirResumoMensal(computeResumoGeral(pafsFiltrados, desistImpressao), computeResumoMensal(pafsFiltrados, desistImpressao), {
       filtros: dashboardFiltrosLabels(true),
       anteriorTotal: dashboardPeriodoAnteriorTotal(true),
       totalGeral: state.pafs.length,
@@ -4093,7 +4115,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
 
       ${resumoGeralHTML(geral, contexto.anteriorTotal)}
       <div class="resumo-secao">
-        <h4>Evolução mensal (famílias incluídas e excluídas)</h4>
+        <h4>Evolução mensal (famílias incluídas, concluídas e desistentes)</h4>
         ${resumoMensalTabelaHTML(grupos)}
       </div>
       ${rmaMensalHTML(computeRmaMensal(contexto.pafsRma || pafsRelacao, contexto.desistentes || []))}
@@ -4744,7 +4766,8 @@ function savePAF(paf, opts = {}) {
     paf.historicoCount = toSave.historicoCount;
     if (manterEmbutido) toSave.historico = hLista; else delete toSave.historico;
     histSincronizarCloud(paf).then(() => {
-      if (manterEmbutido) {
+      // Não regrava se o PAF foi excluído (ou virou desistência) enquanto o histórico sincronizava: ressuscitaria a ficha.
+      if (manterEmbutido && state.pafs.some(p => p.id === paf.id)) {
         hInfo.seguro = true;
         savePAF(paf, { silent: true, semAtualizarData: true }); // regrava já sem o array embutido
       }
@@ -4803,12 +4826,12 @@ function deletePAFRecord(id, dadosDesistencia) {
   const desistencia = !!dadosDesistencia;
   const registro = desistencia ? montarRegistroDesistencia(paf, dadosDesistencia) : null;
   if (state.mode === "cloud" && state.db) {
-    excluirAnexosSubcolecao(id); // melhor esforço, roda em paralelo — não precisa aguardar
-    excluirHistoricoSubcolecao(id);
     const ref = state.db.collection(FIRESTORE_COLLECTION).doc(id);
     // Desistência: .set() troca o documento inteiro pelo registro. Exclusão: .delete().
+    // Anexos e histórico só são apagados DEPOIS que a nuvem confirma: se a exclusão falhar (regras,
+    // conexão), o PAF continua inteiro, e se houver gravações pendentes elas já foram aplicadas.
     (desistencia ? ref.set(registro) : ref.delete())
-      .then(() => { registrarAuditoria(desistencia ? "desistencia" : "exclusao", paf); toast(desistencia ? "Desistência registrada." : "Registro excluído."); })
+      .then(() => { excluirAnexosSubcolecao(id); excluirHistoricoSubcolecao(id); registrarAuditoria(desistencia ? "desistencia" : "exclusao", paf); toast(desistencia ? "Desistência registrada." : "Registro excluído."); })
       .catch(err => { console.error(err); toast("Não foi possível concluir na nuvem."); });
   } else {
     state.pafs = state.pafs.filter(p => p.id !== id);
@@ -5193,6 +5216,10 @@ function renderHomeHTML() {
       <div class="stat-card stat-andamento" data-kpi-filtro="ativos" role="button" tabindex="0" title="Filtrar a lista">
         <span class="stat-icon">${sectionIconSvg("diagnostico", 19)}</span>
         <div class="stat-text"><span class="stat-value">${statsGeral.porStatus.andamento || 0}</span><span class="stat-label">Em andamento</span></div>
+      </div>
+      <div class="stat-card stat-desistente" title="Famílias que desistiram (registro de desistência)">
+        <span class="stat-icon">${sectionIconSvg("encerramento", 19)}</span>
+        <div class="stat-text"><span class="stat-value">${state.desistentes.length}</span><span class="stat-label">Desistentes</span></div>
       </div>
       <div class="stat-card stat-encaminhado" data-kpi-filtro="encaminhado" role="button" tabindex="0" title="Filtrar a lista">
         <span class="stat-icon">${sectionIconSvg("encaminhamentos", 19)}</span>
