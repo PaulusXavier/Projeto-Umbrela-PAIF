@@ -1647,18 +1647,11 @@ function computeRmaMensal(pafsParam, desistParam) {
     return base && base.slice(0, 7) === ymAtual;
   });
 
+  // Em acompanhamento = só os PAFs com situação "Em andamento" (concluídos, encaminhados e desistentes não contam).
   const totalEmAcompanhamento = pafs.filter(p => {
     const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
     if (!base || base > fimMesISO) return false;
-    // Só saem do total as famílias concluídas/encaminhadas antes do mês; PAF em andamento segue contando
-    // mesmo que tenha data de encerramento preenchida (assim o A.1 bate com o "Em andamento").
-    const saida = (p.situacaoPAF && p.situacaoPAF !== "andamento") ? dataSaidaEfetiva(p) : "";
-    if (saida && saida.slice(0, 7) < ymAtual) return false;
-    return true;
-  }).length + desist.filter(d => {
-    const base = d.dataInicial || (d.createdAt || "").slice(0, 10);
-    if (!base || base > fimMesISO) return false;
-    return !(d.dataDesistencia && d.dataDesistencia.slice(0, 7) < ymAtual);
+    return (p.situacaoPAF || "andamento") === "andamento";
   }).length;
 
   return {
@@ -1697,7 +1690,7 @@ function rmaMensalHTML(dados) {
         ${kpiCardHTML(d.totalEmAcompanhamento, "A.1. Total de famílias em acompanhamento pelo PAIF", "familia")}
         ${kpiCardHTML(totalNovas, "A.2. Novas famílias inseridas no acompanhamento do PAIF durante o mês de referência", "familia")}
       </div>
-      <p class="hint" style="margin-top:2px;">A.1: famílias com acompanhamento iniciado até o fim do mês de referência e que não foram concluídas, encaminhadas ou desistentes antes dele. A.2: dentre essas, as famílias com data de início do acompanhamento dentro do mês de referência.</p>
+      <p class="hint" style="margin-top:2px;">A.1: famílias com PAF em andamento (concluídas, encaminhadas e desistentes não entram), com início até o fim do mês de referência. A.2: dentre essas, as famílias com data de início do acompanhamento dentro do mês de referência.</p>
     </div>
 
     <div class="resumo-secao resumo-secao-rma">
@@ -2992,8 +2985,9 @@ const STATUS_ORDEM_TABELA = ["andamento", "encaminhado", "concluido", "cancelado
 // cada prontuário individualmente. Respeita o mesmo conjunto de PAFs (filtros de
 // período/CRAS/técnico) já usado nos gráficos agregados.
 function resumoFamiliasTabelaHTML(pafsParam) {
-  const pafs = pafsParam || state.pafs;
-  if (!pafs.length) return `<p class="muted">Nenhuma família no período/filtro selecionado.</p>`;
+  // Famílias em acompanhamento = só as com situação "Em andamento".
+  const pafs = (pafsParam || state.pafs).filter(p => (p.situacaoPAF || "andamento") === "andamento");
+  if (!pafs.length) return `<p class="muted">Nenhuma família em acompanhamento (em andamento) no período/filtro selecionado.</p>`;
 
   const linhas = [...pafs].sort((a, b) => {
     const oa = STATUS_ORDEM_TABELA.indexOf(a.situacaoPAF);
@@ -3047,9 +3041,9 @@ function resumoFamiliasTabelaHTML(pafsParam) {
           </tr>`;
         }).join("")}
       </tbody>
-      <tfoot><tr><th colspan="9">Total de famílias</th><th>${pafs.length}</th><th colspan="2"></th></tr></tfoot>
+      <tfoot><tr><th colspan="9">Total de famílias em acompanhamento</th><th>${pafs.length}</th><th colspan="2"></th></tr></tfoot>
     </table>
-    <p class="hint" style="margin-top:6px;">Relação de todas as famílias incluídas no período/filtro selecionado acima (uma linha por PAF), para conferência ao preencher o registro mensal. RF: responsável familiar. Membros: integrantes com nome cadastrado. Atend.: total de atendimentos registrados no prontuário. Últ. atend.: data do atendimento mais recente registrado.</p>`;
+    <p class="hint" style="margin-top:6px;">Relação das famílias em acompanhamento, isto é, com PAF em andamento, no período/filtro selecionado acima (uma linha por PAF), para conferência ao preencher o registro mensal. RF: responsável familiar. Membros: integrantes com nome cadastrado. Atend.: total de atendimentos registrados no prontuário. Últ. atend.: data do atendimento mais recente registrado.</p>`;
 }
 
 /* ---------------------------- Aba "Gráficos" (painel de indicadores em tela cheia) ---------------------------- */
@@ -3300,7 +3294,7 @@ function attachDashboardHandlers() {
     imprimirResumoMensal(computeResumoGeral(pafsFiltrados, desistImpressao), computeResumoMensal(pafsFiltrados, desistImpressao), {
       filtros: dashboardFiltrosLabels(true),
       anteriorTotal: dashboardPeriodoAnteriorTotal(true),
-      totalGeral: state.pafs.length,
+      totalGeral: state.pafs.length + state.desistentes.length,
       pafs: pafsFiltrados,
       desistentes: desistImpressao,
       pafsRma: dashboardPafsFiltrados(true) // o RMA é oficial: não é recortado por situação
@@ -4085,7 +4079,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
         </div>
         <div class="capa-ficha">
           <span class="lbl">${temFiltro ? "Famílias no filtro" : "Total de famílias"}</span>
-          <span class="num">${geral.total}${temFiltro && contexto.totalGeral != null ? ` <span style="font-size: 11px;font-weight:400;color:#8496A8;">/ ${contexto.totalGeral}</span>` : ""}</span>
+          <span class="num">${geral.total + (geral.totalDesistentes || 0)}${temFiltro && contexto.totalGeral != null ? ` <span style="font-size: 11px;font-weight:400;color:#8496A8;">/ ${contexto.totalGeral}</span>` : ""}</span>
           <span class="lbl" style="margin-top:5px;">Emitido em</span>
           ${fmtDateBR(todayISO())}
         </div>
