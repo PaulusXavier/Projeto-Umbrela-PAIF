@@ -84,13 +84,14 @@ os registros só para si (não compartilha com os outros).
   no console do Firebase (passo 1a). O botão "Sair", no topo, encerra a sessão.
 - **Tela inicial**: lista todos os PAFs cadastrados, com busca por responsável/CPF/CRAS
   e filtro por situação (Ativos = Em andamento; Arquivados = Encaminhado/Concluído).
-- **Desistência**: no lugar do antigo "Cancelado", o botão de status agora chama-se
-  "Desistência" (o registro guardado é o de "família desistente"). Ao usá-lo, o PAF completo (todas as seções preenchidas) é excluído
-  definitivamente — de todos os dispositivos, se a nuvem estiver ativa — e substituído por
-  um registro mínimo (nome do responsável, CPF/NIS, CRAS, técnico de referência e data da
-  desistência), guardado só para controle administrativo em **Configurações > Famílias
-  desistentes**. Esses registros nunca aparecem na lista de PAFs, nos filtros, na busca ou
-  no painel de Gráficos, e podem ser excluídos individualmente na mesma tela.
+- **Desistência x exclusão**:
+  - **Desistência** (botão de status dentro do PAF): abre uma janela para informar data, motivo e
+    observação. O conteúdo do PAF (seções, anexos e histórico) é apagado, mas fica o **registro da
+    desistência** (responsável, CRAS, técnico, início, data, motivo e observação). Ele não aparece na
+    lista, nos filtros nem na busca, mas **conta na Evolução mensal, no RMA e na impressão do resumo**
+    (tabela "Famílias que desistiram"). Pode ser apagado em **Configurações > Desistências registradas**.
+  - **Exclusão** (botão de excluir na lista): apaga o PAF por completo e **não deixa registro nenhum**
+    (só a trilha anônima de auditoria: id, CRAS e e-mail de quem apagou). Use para PAFs preenchidos por engano.
 - **+ Novo PAF**: abre um formulário dividido em seções (aba lateral), replicando o
   documento original: Cabeçalho, Membros da Família, Diagnóstico, Situações e Serviços,
   Encaminhamentos, Programas e Benefícios, Rede do Território, Metas e Evolução,
