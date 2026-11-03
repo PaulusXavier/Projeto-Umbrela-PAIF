@@ -369,7 +369,7 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 
 /* ---------- Faixa de estatísticas rápidas da home (Total/Andamento/Encaminhados/Concluídos) ---------- */
-.home-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.home-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
 .stat-card {
   position: relative; overflow: hidden;
   display: flex; align-items: center; gap: 13px;
@@ -392,6 +392,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .stat-andamento .stat-icon { background: var(--accent-soft); color: var(--accent-dark); }
 .stat-encaminhado::before { background: var(--gold); }
 .stat-encaminhado .stat-icon { background: var(--gold-soft); color: var(--gold-dark); }
+.stat-desistente::before { background: var(--danger, #B5473F); }
+.stat-desistente .stat-icon { background: #F5E0DD; color: var(--danger, #B5473F); }
 .stat-concluido::before { background: #8B6BAE; }
 .stat-concluido .stat-icon { background: #EFE7F5; color: #6B4E8E; }
 @media (max-width: 900px) { .home-stats-grid { grid-template-columns: repeat(2, 1fr); } }
