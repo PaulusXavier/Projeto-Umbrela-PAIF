@@ -4059,14 +4059,29 @@ function initLoginUmbrellas() {
   // Guarda-chuva principal sobre o selo: abre ao entrar e flutua suavemente
   const hero = document.getElementById("heroUmbrella");
   if (hero) {
+    const canopy = "M6 52L22 30L50 14L90 8L130 14L158 30L174 52L153 58L132 52L111 58L90 52L69 58L48 52L27 58Z";
+    const gotas = [[16, 0, 24], [38, .7, 16], [62, .3, 10], [118, .5, 10], [142, 1.3, 16], [164, .2, 24], [28, 1.6, 20], [152, 1.9, 20]]
+      .map(([x, d, f]) => `<line class="hero-drop" x1="${x}" y1="-14" x2="${x}" y2="-8" style="--fall:${f + 20}px;--dl:${d}s"/>`).join("");
+    const nos = [48, 90, 132].map((x, k) => `<circle class="hero-no" cx="${x}" cy="52" r="2.4" fill="#5EE6B8" stroke="none" style="--nd:${k * .5}s"/>`).join("");
+    // estilo tecnológico: linhas finas ciano, facetas, nós de circuito e um pulso de luz percorrendo a copa
     hero.innerHTML = `
-      <svg viewBox="0 0 132 46" width="132" height="46" fill="none" aria-hidden="true">
+      <svg viewBox="0 0 180 84" width="180" height="84" fill="none" aria-hidden="true" style="overflow:visible" stroke="#86E3F2" stroke-linecap="round" stroke-linejoin="round">
+        <g class="hero-chuva" stroke="#86E3F2" stroke-width="1.4" stroke-dasharray="2 2">${gotas}</g>
+        <path d="M90 52V74H79V67" stroke-width="2"/>
+        <circle cx="79" cy="65" r="1.8" fill="#5EE6B8" stroke="none"/>
         <g class="hero-canopy">
-          <path d="M4 30C4 12 30 2 66 2s62 10 62 28a15.5 5 0 0 1-31 0a15.5 5 0 0 1-31 0a15.5 5 0 0 1-31 0a15.5 5 0 0 1-31 0z" fill="rgba(243,231,208,.12)" stroke="#F3E7D0" stroke-opacity=".75" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M66 2V32M66 2 35 31M66 2l31 29" stroke="#F3E7D0" stroke-opacity=".3" stroke-width="1" stroke-linecap="round"/>
+          <path d="${canopy}" stroke-width="2"/>
+          <path d="M90 8L48 52M90 8V52M90 8L132 52M90 8L22 30M90 8L158 30" stroke-width="1" stroke-opacity=".45"/>
+          <path d="M22 30L50 36L90 28L130 36L158 30" stroke-width="1" stroke-opacity=".45"/>
+          <path d="M60 44h10l5-5h8M120 44h-10l-5-5h-8" stroke="#5EE6B8" stroke-width="1.2" stroke-opacity=".8"/>
+          <circle cx="83" cy="39" r="1.6" fill="#5EE6B8" stroke="none"/><circle cx="97" cy="39" r="1.6" fill="#5EE6B8" stroke="none"/>
+          <path class="hero-pulso" d="${canopy}" pathLength="100" stroke="#C8FBFF" stroke-width="2.6"/>
+          ${nos}
         </g>
-        <path d="M66 30V46" stroke="#F3E7D0" stroke-opacity=".75" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M66 2V0" stroke="#F3E7D0" stroke-opacity=".75" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M90 8V0" stroke-width="2"/>
+        <circle class="hero-anel" cx="90" cy="-3" r="3" stroke="#5EE6B8" stroke-width="1.6"/>
+        <path class="hero-brilhinho" d="M160 4v8M156 8h8" stroke-width="1.4"/>
+        <path class="hero-brilhinho b2" d="M18 14v8M14 18h8" stroke-width="1.4"/>
       </svg>`;
   }
 
@@ -7133,12 +7148,8 @@ function contracapaPafHTML(paf) {
 // Folha de rosto (NBR 14724) e Sumário (NBR 6027), cada um em sua página. A lista do sumário é preenchida na janela de impressão, com as páginas medidas.
 function folhaRostoSumarioHTML(paf) {
   const tecnico = String((paf && paf.tecnicoReferencia) || "").trim();
-  const ano = new Date().getFullYear();
   return `
     <section class="frente-pagina" id="folha-rosto">
-      <p class="fr-inst">Prefeitura Municipal de Boa Vista</p>
-      <p class="fr-inst-s">Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</p>
-      <p class="fr-inst-s">${escapeHtml(paf.crasNome) || "CRAS Cristiana Vicente Nunes"}</p>
       ${tecnico ? `<p class="fr-autor">${escapeHtml(tecnico)}</p>` : ""}
       <p class="fr-titulo">Plano de Acompanhamento Familiar</p>
       <p class="fr-sub">Serviço de Proteção e Atendimento Integral à Família (PAIF) · Proteção Social Básica</p>
@@ -7150,7 +7161,6 @@ function folhaRostoSumarioHTML(paf) {
         <tr><th>Início</th><td>${fmtDateBR(paf.dataInicial) || "—"}</td><th>Emitido em</th><td>${fmtDateBR(todayISO())}</td></tr>
       </table>
       <p class="fr-natureza">Plano de Acompanhamento Familiar elaborado no âmbito do Serviço de Proteção e Atendimento Integral à Família (PAIF), da Proteção Social Básica do Sistema Único de Assistência Social (SUAS), para o acompanhamento da família referenciada ao CRAS.</p>
-      <p class="fr-local">Boa Vista/RR<br>${ano}</p>
     </section>
     <section class="frente-pagina" id="sumario-pagina">
       <p class="fr-sumario-t">Sumário</p>
