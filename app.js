@@ -3000,6 +3000,13 @@ const DASH_PERIODOS = [
   { v: "3m", label: "Últimos 3 meses" }
 ];
 
+// Subtrai meses de uma data sem "estourar" o dia (31/08 − 6 meses = 28/02, e não 03/03).
+function dashboardSubtraiMeses(base, meses) {
+  const ano = base.getFullYear(), mes = base.getMonth() - meses;
+  const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+  return new Date(ano, mes, Math.min(base.getDate(), ultimoDia));
+}
+
 // Filtra os PAFs de acordo com o período/CRAS/técnico selecionados no painel de Gráficos.
 // A data de referência para o período é o início do acompanhamento (ou, na ausência dela, o cadastro).
 // `ignorarSituacao` serve aos cartões de segmento (Total/Em andamento/Encaminhados/Concluídos),
@@ -3013,8 +3020,7 @@ function dashboardPafsFiltrados(ignorarSituacao) {
       limiteISO = `${hoje.getFullYear()}-01-01`;
     } else {
       const meses = { "3m": 3, "6m": 6, "12m": 12 }[dashPeriodo] || 0;
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - meses, hoje.getDate());
-      limiteISO = dataISOLocal(d);
+      limiteISO = dataISOLocal(dashboardSubtraiMeses(hoje, meses));
     }
   }
   return state.pafs.filter(p => {
@@ -3039,12 +3045,13 @@ function dashboardPeriodoAnteriorTotal(ignorarSituacao) {
   const hoje = new Date();
   let inicioAnterior, fimAnterior;
   if (dashPeriodo === "ano") {
+    // Mesmo trecho do ano anterior (1º de janeiro até hoje), para comparar período equivalente.
     inicioAnterior = new Date(hoje.getFullYear() - 1, 0, 1);
-    fimAnterior = new Date(hoje.getFullYear() - 1, 11, 31);
+    fimAnterior = dashboardSubtraiMeses(hoje, 12);
   } else {
     const meses = { "3m": 3, "6m": 6, "12m": 12 }[dashPeriodo] || 0;
-    const inicioAtual = new Date(hoje.getFullYear(), hoje.getMonth() - meses, hoje.getDate());
-    inicioAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - meses * 2, hoje.getDate());
+    const inicioAtual = dashboardSubtraiMeses(hoje, meses);
+    inicioAnterior = dashboardSubtraiMeses(hoje, meses * 2);
     fimAnterior = new Date(inicioAtual.getTime() - 86400000);
   }
   const inicioISO = dataISOLocal(inicioAnterior);
@@ -3139,7 +3146,7 @@ function renderDashboardHTML() {
       </div>
       <div class="home-head-illustration" aria-hidden="true">${protecaoIllustration(128)}</div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-primary" id="dashboardImprimirBtn" ${geral.total ? "" : "disabled"}>${uiIconSvg("printer", 15)} Imprimir / Baixar PDF</button>
+        <button class="btn btn-primary" id="dashboardImprimirBtn" ${geral.total ? "" : "disabled"} title="${geral.total ? "Abre a folha do relatório com os filtros atuais. Na janela de impressão, escolha “Salvar como PDF” para baixar." : "Sem PAFs nos filtros atuais — nada para imprimir"}">${uiIconSvg("printer", 15)} Imprimir / Baixar PDF</button>
       </div>
     </div>
     ${semRegistroAlgum ? empty : `
@@ -3165,12 +3172,12 @@ function renderDashboardHTML() {
 
 // Descreve em texto os filtros ativos no painel de Gráficos (período/CRAS/técnico),
 // usado tanto no aviso em tela quanto no cabeçalho do relatório impresso/PDF.
-function dashboardFiltrosLabels() {
+function dashboardFiltrosLabels(ignorarSituacao) {
   const labels = [];
   if (state.dashPeriodo && state.dashPeriodo !== "tudo") {
     labels.push(DASH_PERIODOS.find(p => p.v === state.dashPeriodo)?.label || state.dashPeriodo);
   }
-  if (state.dashSituacao) labels.push(`Situação: ${STATUS_LABELS[state.dashSituacao] || state.dashSituacao}`);
+  if (state.dashSituacao && !ignorarSituacao) labels.push(`Situação: ${STATUS_LABELS[state.dashSituacao] || state.dashSituacao}`);
   if (state.dashCras) labels.push(`CRAS: ${state.dashCras}`);
   if (state.dashTecnico) labels.push(`Técnico: ${state.dashTecnico}`);
   return labels;
@@ -3178,10 +3185,11 @@ function dashboardFiltrosLabels() {
 
 function attachDashboardHandlers() {
   document.getElementById("dashboardImprimirBtn")?.addEventListener("click", () => {
-    const pafsFiltrados = dashboardPafsFiltrados();
+    // O relatório impresso é completo: ignora o segmento de situação (cartões Total/Em andamento/...) e respeita período, CRAS e técnico.
+    const pafsFiltrados = dashboardPafsFiltrados(true);
     imprimirResumoMensal(computeResumoGeral(pafsFiltrados), computeResumoMensal(pafsFiltrados), {
-      filtros: dashboardFiltrosLabels(),
-      anteriorTotal: dashboardPeriodoAnteriorTotal(),
+      filtros: dashboardFiltrosLabels(true),
+      anteriorTotal: dashboardPeriodoAnteriorTotal(true),
       totalGeral: state.pafs.length,
       pafs: pafsFiltrados,
       pafsRma: dashboardPafsFiltrados(true) // o RMA é oficial: não é recortado por situação
@@ -3242,7 +3250,7 @@ const RODAPE_INST_HTML = `
   <div class="inst-f">
     <p>CRAS CRISTIANA VICENTE NUNES</p>
     <p>Rua Santo Agostinho nº 193 – Centenário</p>
-    <p>Contato: (95) 98402-6617</p>
+    <p>Contato: (95) 98402-6627</p>
   </div>`;
 const CABECALHO_RODAPE_INST_CSS = `
   .page-header-fixed .inst-h { display: flex !important; align-items: flex-start; justify-content: space-between; gap: 3mm;
@@ -3725,8 +3733,6 @@ function imprimirResumoMensal(geral, grupos, contexto) {
     <head>
       <meta charset="UTF-8">
       <title>Resumo estatístico PAF-PAIF - ${todayISO()}</title>
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
         ${PRINT_COMMON_CSS}
         * { box-sizing: border-box; }
@@ -4018,7 +4024,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
 
     </body>
     </html>`;
-  printWin.document.write(marcarVaziosImpressao(html));
+  printWin.document.write(marcarVaziosImpressao(html).replace(" (passe o mouse sobre o número para ver os motivos)", ""));
   printWin.document.close();
   imprimirQuandoPronta(printWin);
 }
