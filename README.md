@@ -84,8 +84,8 @@ os registros só para si (não compartilha com os outros).
   no console do Firebase (passo 1a). O botão "Sair", no topo, encerra a sessão.
 - **Tela inicial**: lista todos os PAFs cadastrados, com busca por responsável/CPF/CRAS
   e filtro por situação (Ativos = Em andamento; Arquivados = Encaminhado/Concluído).
-- **Família desistiu**: no lugar do antigo "Cancelado", o botão de status agora chama-se
-  "Família desistiu". Ao usá-lo, o PAF completo (todas as seções preenchidas) é excluído
+- **Desistência**: no lugar do antigo "Cancelado", o botão de status agora chama-se
+  "Desistência" (o registro guardado é o de "família desistente"). Ao usá-lo, o PAF completo (todas as seções preenchidas) é excluído
   definitivamente — de todos os dispositivos, se a nuvem estiver ativa — e substituído por
   um registro mínimo (nome do responsável, CPF/NIS, CRAS, técnico de referência e data da
   desistência), guardado só para controle administrativo em **Configurações > Famílias
