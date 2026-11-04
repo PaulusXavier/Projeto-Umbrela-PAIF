@@ -116,13 +116,6 @@
     Paulus.init(Object.assign({
       app: APP_ID,
       endpoint: PAULUS_ENDPOINT,
-      // Token do usuário logado no Firebase: o Worker só responde a quem estiver autenticado.
-      obterToken: function () {
-        try {
-          const u = window.firebase && firebase.auth && firebase.auth().currentUser;
-          return u ? u.getIdToken() : Promise.resolve('');
-        } catch (e) { return Promise.resolve(''); }
-      }
       // "fichas" omitido de propósito: o Umbrella não tem diretório público, e dado de família jamais vai à IA.
     }, baseMesclada ? { conhecimento: baseMesclada } : { conhecimentoUrl: PAULUS_CONHECIMENTO }));
   }
@@ -465,6 +458,34 @@
     bolha.appendChild(d);
   }
 
+  // "Usei: Visita domiciliar": mostra o roteiro de trabalho que o Paulus aplicou (só o nome, vem do Worker).
+  function anexarHabilidades(bolha, habilidades) {
+    if (!habilidades || !habilidades.length) return;
+    bolha.appendChild(el("p", "paulus-aviso", "Usei: " + habilidades.join(" · ")));
+  }
+
+  // 👍 / 👎 / Mais curto: o Paulus aprende o estilo no aparelho (Paulus.avaliar); nada vai ao servidor.
+  function anexarReacao(bolha, r) {
+    if (typeof Paulus.avaliar !== "function" || !r || r.tipo === "calculo") return;
+    const linha = el("div", "paulus-reacao");
+    const botao = (rotulo, aria, sinal, resposta, refazer) => {
+      const b = el("button", "paulus-chip", rotulo);
+      b.type = "button";
+      b.setAttribute("aria-label", aria);
+      b.addEventListener("click", () => {
+        try { Paulus.avaliar(r, sinal); } catch (e) { /* aprender é opcional */ }
+        linha.remove();
+        if (resposta) bolha.appendChild(el("p", "paulus-aviso", resposta));
+        if (refazer) enviar(refazer);
+      });
+      return b;
+    };
+    linha.appendChild(botao("👍", "Resposta útil", "bom", "Obrigado! Vou lembrar do que funcionou."));
+    linha.appendChild(botao("👎", "Resposta ruim", "ruim", "Entendi. Vou ajustar o jeito de responder."));
+    linha.appendChild(botao("Mais curto", "Pedir resposta mais curta", "mais_curto", "", "mais curto"));
+    bolha.appendChild(linha);
+  }
+
   function mostrarTelefones(bolha, telefones) {
     if (!telefones || !telefones.length) return;
     const ul = el("ul", "paulus-telefones");
@@ -502,8 +523,11 @@
     switch (r.tipo) {
       case "ia":
       case "norma":
+      case "calculo":
         anexarFontes(bolha, r.fontes);
         anexarAvisos(bolha, r.avisos);
+        anexarHabilidades(bolha, r.habilidades);
+        anexarReacao(bolha, r);
         {
           const lista = (r.noApp || []).map(v => ({ rotulo: "No app: " + encurtar(v.rotulo || v.referencia, 34), verbete: v }))
             .concat((r.sugestoes || []).slice(0, 2).map(t => ({ rotulo: t, texto: t })));
