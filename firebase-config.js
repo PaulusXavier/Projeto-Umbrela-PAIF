@@ -28,6 +28,7 @@ const FIREBASE_CONFIG = {
 const FIRESTORE_COLLECTION = "planos_acompanhamento_familiar";
 
 // Inicializa o Firebase somente se as chaves acima já foram preenchidas.
-if (FIREBASE_CONFIG.apiKey !== "COLE_AQUI") {
+// typeof: se o script do Firebase (CDN) não carregar (sem internet na primeira abertura), o app segue em modo local em vez de dar erro.
+if (typeof firebase !== "undefined" && FIREBASE_CONFIG.apiKey !== "COLE_AQUI") {
   firebase.initializeApp(FIREBASE_CONFIG);
 }
