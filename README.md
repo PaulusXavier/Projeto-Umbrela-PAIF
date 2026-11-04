@@ -480,6 +480,7 @@ da família com o tempo.
 - **Anotações:** os campos de texto crescem sozinhos, mostram contagem de palavras/caracteres e têm o botão **⤢ Ampliar** (editor em tela cheia; *Esc* ou *Ctrl+Enter* conclui). Um selo discreto no canto inferior esquerdo mostra "Salvo às HH:MM".
 - **Anexos:** medidor de espaço do PAF, arrastar-e-soltar, **tipo de documento** e **legenda** por anexo (a legenda sai no PDF impresso), busca e visualizador interno de imagens (setas ← →).
 - **Config > Armazenamento:** espaço usado (fichas × anexos), famílias com mais anexos, **backup com anexos** e **restauração** (só acrescenta fichas inexistentes; nunca sobrescreve).
+- **Paulus v0.10.0 integrado (04/11/2026):** `paulus.v1.js` atualizado (era a v0.3.0): conta exata no aparelho, raciocínio antes de responder, conversa inteira, roteiros de trabalho (PAF a fundo, avaliação psicológica, psicodiagnóstico, psicopatologia) e autoconhecimento. `conhecimento.json` mesclado com o pacote geral do Paulus (mantém os documentos próprios do PAIF). O painel ganhou "Usei: ..." (roteiro aplicado), 👍/👎/"Mais curto" e tratamento de respostas de cálculo. O Umbrela deixou de enviar o token do Firebase ao Worker compartilhado (ele não o valida). Cache do service worker: `paf-paif-v122`. Publique o Worker do Paulus de novo (`npm run deploy:worker`) para a IA usar os roteiros.
 - Arquivo novo: `notas.js`. Cache do service worker atualizado para `paf-paif-v52`.
 
 ### Segunda rodada (anotações)
