@@ -61,6 +61,7 @@
   let verbetesApp = new Map();        // "titulo|referencia" -> verbete do app (texto completo e seção)
   let historicoLocal = [];            // últimas perguntas SEM dado pessoal, só para entender "e para adolescente?"
   let ocupado = false;
+  let ultimaPergunta = "";          // só para "Tentar de novo"; nunca guardada se tiver dado pessoal
   let aborto = null;
   let humorTimer = null;
   let painel = null, log = null, entrada = null, btnEnviar = null, btnParar = null,
@@ -112,10 +113,20 @@
     });
   }
 
+  // Identificador opaco da conta (hash do uid; nunca e-mail nem nome): cada pessoa tem a própria memória de estilo.
+  function perfilOpaco() {
+    const uid = String((state && state.currentUser && state.currentUser.uid) || "");
+    if (!uid) return "";
+    let h = 5381;
+    for (let i = 0; i < uid.length; i++) h = ((h << 5) + h + uid.charCodeAt(i)) >>> 0;
+    return "u" + h.toString(36);
+  }
+
   function iniciarPaulus() {
     Paulus.init(Object.assign({
       app: APP_ID,
       endpoint: PAULUS_ENDPOINT,
+      perfil: perfilOpaco(),
       // "fichas" omitido de propósito: o Umbrella não tem diretório público, e dado de família jamais vai à IA.
     }, baseMesclada ? { conhecimento: baseMesclada } : { conhecimentoUrl: PAULUS_CONHECIMENTO }));
   }
@@ -338,7 +349,8 @@
     const perguntaTela = PERGUNTAS_TELA[state && state.view];
     if (perguntaTela) base.push({ rotulo: perguntaTela, texto: perguntaTela });
     if (state && state.view === "editor" && secaoDisponivel(state.activeSection)) base.push({ rotulo: "Explicar esta seção", explicar: true });
-    ((sk && sk.sugestoes) || []).forEach(t => base.push({ rotulo: t, texto: t }));
+    const pessoais = (typeof Paulus.sugestoesPessoais === "function") ? Paulus.sugestoesPessoais(3) : ((sk && sk.sugestoes) || []);
+    pessoais.forEach(t => base.push({ rotulo: t, texto: t }));
     base.length = Math.min(base.length, 3);
     base.push({ rotulo: "Dica do PAIF", dica: true });
     chips(base, c => {
@@ -364,6 +376,7 @@
     if (aborto) aborto.abort();
     if (typeof Paulus !== "undefined") Paulus.limpar();
     historicoLocal = [];
+    ultimaPergunta = "";
     conversaIniciada = false;
     if (log) boasVindas();
     if (entrada) entrada.focus();
@@ -482,8 +495,24 @@
     };
     linha.appendChild(botao("👍", "Resposta útil", "bom", "Obrigado! Vou lembrar do que funcionou."));
     linha.appendChild(botao("👎", "Resposta ruim", "ruim", "Entendi. Vou ajustar o jeito de responder."));
+    const copiar = el("button", "paulus-chip", "Copiar");
+    copiar.type = "button";
+    copiar.addEventListener("click", () => {
+      const t = bolha.querySelector("p, ul") ? Array.from(bolha.querySelectorAll("p:not(.paulus-aviso), li")).map(n => n.textContent).join("\n") : "";
+      try {
+        navigator.clipboard.writeText(t).then(() => { copiar.textContent = "Copiado"; try { Paulus.avaliar(r, "copiou"); } catch (e) {} });
+      } catch (e) { copiar.textContent = "Não foi possível"; }
+    });
     linha.appendChild(botao("Mais curto", "Pedir resposta mais curta", "mais_curto", "", "mais curto"));
+    linha.appendChild(copiar);
     bolha.appendChild(linha);
+  }
+
+  function ofereceNovaTentativa(bolha, texto) {
+    const b = el("button", "paulus-chip", "↻ Tentar de novo");
+    b.type = "button";
+    b.addEventListener("click", () => { b.remove(); enviar(texto); });
+    bolha.appendChild(b);
   }
 
   function mostrarTelefones(bolha, telefones) {
@@ -545,11 +574,20 @@
         break;
       case "acao_desconhecida":
         mood = "pensativo";
-        if (r.opcoes && r.opcoes.length) chips(r.opcoes.map(o => ({ rotulo: "abrir " + o, texto: "abrir " + o })), c => enviar(c.texto));
+        if (r.opcoesAcoes && r.opcoesAcoes.length && typeof r.aprender === "function") {
+          bolha.appendChild(el("p", "paulus-aviso", "Não achei essa tela. Era uma destas?"));
+          chips(r.opcoesAcoes.map(o => ({ rotulo: o.rotulo, id: o.id })), c => {
+            try { r.aprender(c.id); } catch (e) { /* aprender é opcional */ }
+            enviar("abrir " + c.rotulo);
+          });
+        } else if (r.opcoes && r.opcoes.length) chips(r.opcoes.map(o => ({ rotulo: "abrir " + o, texto: "abrir " + o })), c => enviar(c.texto));
         break;
-      case "bloqueio":
       case "erro":
       case "sem_resposta":
+        mood = "preocupado";
+        if (r.pergunta || ultimaPergunta) ofereceNovaTentativa(bolha, ultimaPergunta);
+        break;
+      case "bloqueio":
         mood = "preocupado";
         break;
     }
@@ -563,6 +601,7 @@
     entrada.value = "";
     areaSugestoes.textContent = "";
     conversaIniciada = true;
+    ultimaPergunta = Paulus.temDadoPessoal(texto) ? "" : texto;
 
     // Se a mensagem tem dado pessoal, ela NÃO fica visível na tela (e o Paulus a bloqueia antes de qualquer envio).
     const sensivel = Paulus.temDadoPessoal(texto);
@@ -598,6 +637,7 @@
       if (!painel) return;
       bolha.classList.remove("paulus-digitando");
       renderTexto(bolha, "Não consegui responder agora. Tente de novo em instantes.");
+      if (ultimaPergunta) ofereceNovaTentativa(bolha, ultimaPergunta);
       humor("preocupado", 3500);
       chipsIniciais();
     } finally {
@@ -639,6 +679,7 @@
     if (aborto) aborto.abort();
     if (typeof Paulus !== "undefined") Paulus.limpar();
     historicoLocal = [];
+    ultimaPergunta = "";
     conversaIniciada = false;
     if (painel) { painel.remove(); painel = log = entrada = btnEnviar = btnParar = areaSugestoes = statusEl = null; }
     ocupado = false;
