@@ -21,11 +21,15 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.error('Erro ao registrar Service Worker:', err));
 
     // Quando o novo Service Worker assume o controle, avisa e recarrega automaticamente.
+    // Na primeira instalação ainda não havia Service Worker controlando a página: nada a atualizar,
+    // então não recarrega (antes a página recarregava sozinha na primeira visita).
+    const tinhaControlador = !!navigator.serviceWorker.controller;
     let jaRecarregando = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (jaRecarregando) return;
+      if (!tinhaControlador || jaRecarregando) return;
       jaRecarregando = true;
       try { toast("Atualizando para a versão mais recente…"); } catch (err) {}
+      try { if (typeof salvarPendenteAgora === "function") salvarPendenteAgora(); } catch (err) {}   // não perde o que ainda estava sendo digitado
       setTimeout(() => window.location.reload(), 900);
     });
   });
@@ -1327,6 +1331,17 @@ function dataISOLocal(d) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// Converte um carimbo ISO (createdAt/updatedAt/addedAt, gravado em UTC) na data LOCAL "AAAA-MM-DD".
+// Fatiar o texto (slice(0, 10)) devolve a data em UTC: em Boa Vista (UTC-4), depois das 20h isso é "amanhã",
+// e uma ficha criada na noite do último dia do mês cairia no mês seguinte. Datas puras ("AAAA-MM-DD") passam direto.
+function dataLocalDeISO(v) {
+  const t = String(v || "");
+  if (!t) return "";
+  if (t.length <= 10 || !t.includes("T")) return t.slice(0, 10);
+  const d = new Date(t);
+  return isNaN(d) ? t.slice(0, 10) : dataISOLocal(d);
+}
+
 /* ---------------------------- Pessoas da família (lista única) ----------------------------
    O responsável familiar tem campos próprios no cabeçalho; muitas fichas também o repetem na lista de
    membros. Para contagens, gráficos e tabela do documento, junta tudo numa lista só, SEM contar a mesma
@@ -1643,13 +1658,13 @@ function computeRmaMensal(pafsParam, desistParam) {
   const fimMesISO = dataISOLocal(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
 
   const novas = pafs.filter(p => {
-    const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+    const base = p.dataInicial || dataLocalDeISO(p.createdAt);
     return base && base.slice(0, 7) === ymAtual;
   });
 
   // Em acompanhamento = só os PAFs com situação "Em andamento" (concluídos, encaminhados e desistentes não contam).
   const totalEmAcompanhamento = pafs.filter(p => {
-    const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+    const base = p.dataInicial || dataLocalDeISO(p.createdAt);
     if (!base || base > fimMesISO) return false;
     return (p.situacaoPAF || "andamento") === "andamento";
   }).length;
@@ -1946,7 +1961,7 @@ async function restaurarBackupJSON(arquivo) {
         const col = anexosCollectionRef(paf.id);
         await Promise.all(paf.anexos.map(x => col.doc(x.id).set(x)));
       }
-      savePAF(paf, { silent: true });
+      savePAF(paf, { silent: true, semAtualizarData: true });   // restaurar não é editar: mantém a data de atualização original
       idsExistentes.add(paf.id);
       novos++;
     } catch (err) { console.error(err); ignorados++; }
@@ -2233,7 +2248,7 @@ function computeResumoMensal(pafsParam, desistParam) {
   const desist = desistParam || (pafsParam ? [] : state.desistentes);
   const grupos = {};
   pafs.forEach(p => {
-    const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+    const base = p.dataInicial || dataLocalDeISO(p.createdAt);
     if (!base || base.length < 7) return;
     const ym = base.slice(0, 7);
     if (!grupos[ym]) grupos[ym] = { quantidade: 0, status: {} };
@@ -2256,7 +2271,7 @@ function computeResumoMensal(pafsParam, desistParam) {
 
   // Desistências: contam como incluídas no mês em que a família entrou e como saídas no mês da desistência.
   desist.forEach(d => {
-    const entrada = d.dataInicial || (d.createdAt || "").slice(0, 10);
+    const entrada = d.dataInicial || dataLocalDeISO(d.createdAt);
     if (entrada && entrada.length >= 7) {
       const ymE = entrada.slice(0, 7);
       if (!grupos[ymE]) grupos[ymE] = { quantidade: 0, status: {} };
@@ -3084,7 +3099,7 @@ function dashboardPafsFiltrados(ignorarSituacao) {
     if (dashCras && (p.crasNome || "").trim() !== dashCras) return false;
     if (dashTecnico && (p.tecnicoReferencia || "").trim() !== dashTecnico) return false;
     if (limiteISO) {
-      const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+      const base = p.dataInicial || dataLocalDeISO(p.createdAt);
       if (!base || base < limiteISO) return false;
     }
     return true;
@@ -3104,7 +3119,7 @@ function dashboardDesistentesFiltrados() {
     if (dashCras && (d.crasNome || "").trim() !== dashCras) return false;
     if (dashTecnico && (d.tecnicoReferencia || "").trim() !== dashTecnico) return false;
     if (limiteISO) {
-      const base = d.dataInicial || (d.createdAt || "").slice(0, 10) || d.dataDesistencia || "";
+      const base = d.dataInicial || dataLocalDeISO(d.createdAt) || d.dataDesistencia || "";
       if (!base || base < limiteISO) return false;
     }
     return true;
@@ -3158,7 +3173,7 @@ function dashboardPeriodoAnteriorTotal(ignorarSituacao) {
     if (!ignorarSituacao && dashSituacao && p.situacaoPAF !== dashSituacao) return false;
     if (dashCras && (p.crasNome || "").trim() !== dashCras) return false;
     if (dashTecnico && (p.tecnicoReferencia || "").trim() !== dashTecnico) return false;
-    const base = p.dataInicial || (p.createdAt || "").slice(0, 10);
+    const base = p.dataInicial || dataLocalDeISO(p.createdAt);
     if (!base) return false;
     return base >= inicioISO && base <= fimISO;
   }).length;
@@ -4730,7 +4745,9 @@ function registrarAuditoria(acao, paf) {
 }
 
 function savePAF(paf, opts = {}) {
-  const isNovo = !paf.criadoPor && !paf.createdAt;
+  // Ficha nova = ainda sem "criadoPor" e nunca editada (createdAt == updatedAt). Antes o teste usava
+  // !paf.createdAt, que nunca é verdadeiro (emptyPAF já preenche createdAt): a auditoria "criacao" nunca era gravada.
+  const isNovo = !paf.criadoPor && (!paf.createdAt || paf.createdAt === paf.updatedAt);
   diarioCompilar(paf); // anotações datadas -> texto dos campos (historico.js)
   histRegistrar(paf); // histórico de evolução: compara com o último salvamento (historico.js)
   if (!opts.semAtualizarData) { // ações como exportar/imprimir não contam como edição da ficha
@@ -4800,7 +4817,7 @@ function montarRegistroDesistencia(paf, dados) {
     responsavel: paf.responsavel || "",
     crasNome: paf.crasNome || "",
     tecnicoReferencia: paf.tecnicoReferencia || "",
-    dataInicial: paf.dataInicial || (paf.createdAt || "").slice(0, 10) || "",
+    dataInicial: paf.dataInicial || dataLocalDeISO(paf.createdAt) || "",
     createdAt: paf.createdAt || "",
     dataDesistencia: (dados && dados.data) || dataISOLocal(new Date()),
     desistenciaMotivo: (dados && dados.motivo) || "",
@@ -5231,7 +5248,7 @@ function renderHomeHTML() {
     const protocolo = protocoloNumero(p);
     const avatarConteudo = avatarConteudoHTML(p, 20);
     const progresso = pafProgresso(p);
-    const atualizadoEm = fmtDateBR((p.updatedAt || "").slice(0, 10));
+    const atualizadoEm = fmtDateBR(dataLocalDeISO(p.updatedAt));
     return `
     <div class="record-row status-${p.situacaoPAF}" data-open="${p.id}">
       <div class="record-index record-index-${p.situacaoPAF}">${avatarConteudo}</div>
@@ -5837,7 +5854,7 @@ function tempoAcompanhamentoTexto(iso) {
 // Bloco dos gráficos da família: tempo de acompanhamento + linha do tempo (início → hoje)
 // com os atendimentos e os marcos de evolução. Também sai no PDF da ficha.
 function tempoAcompanhamentoBlocoHTML(paf) {
-  const inicioISO = paf.dataInicial || (paf.createdAt || "").slice(0, 10);
+  const inicioISO = paf.dataInicial || dataLocalDeISO(paf.createdAt);
   const titulo = `<h4>${sectionIconSvg("historico", 16)} Tempo de acompanhamento</h4>`;
   if (!inicioISO || isNaN(new Date(inicioISO + "T00:00:00").getTime())) {
     return `<div class="resumo-secao">${titulo}<p class="hint">Informe a "Data inicial do PAF" para ver aqui há quanto tempo a família é acompanhada.</p></div>`;
@@ -6153,7 +6170,7 @@ function renderSection(id, paf) {
           <div class="f c4"><label>CPF</label><input type="text" data-field="cpf" class="${cpfValido(paf.cpf) ? "" : "input-invalido"}" placeholder="000.000.000-00" value="${escapeHtml(paf.cpf)}"></div>
           <div class="f c3"><label>NIS</label><input type="text" data-field="nis" value="${escapeHtml(paf.nis)}"></div>
           <div class="f c3"><label>Data inicial do PAF</label><input type="date" data-field="dataInicial" value="${escapeHtml(paf.dataInicial)}"></div>
-          <div class="f c3"><label>Data de inclusão no sistema</label><input type="date" data-field="createdAt" value="${escapeHtml((paf.createdAt || "").slice(0, 10))}"></div>
+          <div class="f c3"><label>Data de inclusão no sistema</label><input type="date" data-field="createdAt" value="${escapeHtml(dataLocalDeISO(paf.createdAt))}"></div>
           <div class="f c4"><label>Periodicidade de acompanhamento</label><input type="text" data-field="periodicidade" placeholder="Ex.: mensal, quinzenal…" value="${escapeHtml(paf.periodicidade)}"></div>
           <div class="f c2"><label>RG</label><input type="text" data-field="rg" value="${escapeHtml(paf.rg)}"></div>
           <div class="f c2"><label>Órgão</label><input type="text" data-field="rgOrgao" value="${escapeHtml(paf.rgOrgao)}"></div>
@@ -6686,7 +6703,7 @@ function renderSection(id, paf) {
         const preview = ehImagem
           ? `<img src="${a.dataURL}" class="anexo-thumb" alt="${escapeHtml(a.legenda || a.nome)}" data-anexo-view="${a.id}">`
           : `<div class="anexo-thumb anexo-pdf-icon" data-anexo-view="${a.id}">PDF</div>`;
-        const data = a.addedAt ? fmtDateBR(String(a.addedAt).slice(0, 10)) : "";
+        const data = a.addedAt ? fmtDateBR(dataLocalDeISO(a.addedAt)) : "";
         return `
         <div class="anexo-card">
           ${preview}
@@ -7462,7 +7479,7 @@ async function exportPDFInterno(paf) {
     : `<p class="muted">Nenhum atendimento registrado.</p>`;
 
   const resumoAcompanhamentoHTML = (() => {
-    const inicioISO = paf.dataInicial || (paf.createdAt || "").slice(0, 10);
+    const inicioISO = paf.dataInicial || dataLocalDeISO(paf.createdAt);
     const inicioOk = inicioISO && !isNaN(new Date(inicioISO + "T00:00:00").getTime());
     const comData = atendimentosOrdenados.filter(a => a.data);
     const diasUlt = ultimoAtendimento ? diasDesde(ultimoAtendimento.data) : null;
@@ -7563,7 +7580,7 @@ async function exportPDFInterno(paf) {
   const leituraAcompanhamentoHTML = (() => {
     const E = escapeHtml;
     const plural = (n, s, p) => n + " " + (n === 1 ? s : p);
-    const inicioISO = paf.dataInicial || (paf.createdAt || "").slice(0, 10);
+    const inicioISO = paf.dataInicial || dataLocalDeISO(paf.createdAt);
     const inicioOk = inicioISO && !isNaN(new Date(inicioISO + "T00:00:00").getTime());
     const ats = atendimentosOrdenados;
     const comData = ats.filter(a => a.data);
