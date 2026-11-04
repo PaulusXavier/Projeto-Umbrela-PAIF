@@ -1211,18 +1211,18 @@ main { flex: 1; display: flex; min-height: 0; }
 @keyframes chart-aparece { from { opacity: 0; } to { opacity: 1; } }
 .hist-bar, .pareto-bar, .evo-bar { transform-box: fill-box; transform-origin: bottom; animation: chart-cresce .55s cubic-bezier(.2,.8,.2,1) both; }
 .chart-linha { stroke-dasharray: var(--len, 400); animation: chart-varre .9s ease-out .25s both; }
-.pareto-ponto, .chart-svg .pareto-pct-num { animation: chart-aparece .4s ease-out .8s both; }
+.pareto-ponto, .chart-svg .pareto-pct-num, .chart-svg .pareto-pill { animation: chart-aparece .4s ease-out .8s both; }
 .stat-bar-fill { transform-origin: left; animation: chart-cresce-x .5s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes chart-cresce-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .chart-svg:has(.hist-bar:hover) .hist-bar:not(:hover),
 .chart-svg:has(.pareto-bar:hover) .pareto-bar:not(:hover),
 .chart-svg:has(.evo-bar:hover) .evo-bar:not(:hover) { opacity: .4; }
 @media (prefers-reduced-motion: reduce) {
-  .hist-bar, .pareto-bar, .evo-bar, .chart-linha, .pareto-ponto, .chart-svg .pareto-pct-num, .stat-bar-fill { animation: none !important; }
+  .hist-bar, .pareto-bar, .evo-bar, .chart-linha, .pareto-ponto, .chart-svg .pareto-pct-num, .chart-svg .pareto-pill, .stat-bar-fill { animation: none !important; }
   .chart-linha { stroke-dasharray: none; }
 }
 @media print {
-  .hist-bar, .pareto-bar, .evo-bar, .chart-linha, .pareto-ponto, .chart-svg .pareto-pct-num, .stat-bar-fill { animation: none !important; }
+  .hist-bar, .pareto-bar, .evo-bar, .chart-linha, .pareto-ponto, .chart-svg .pareto-pct-num, .chart-svg .pareto-pill, .stat-bar-fill { animation: none !important; }
   .chart-linha { stroke-dasharray: none; }
 }
 
@@ -3238,3 +3238,85 @@ button.kpi-card-seg:focus-visible { outline: 3px solid var(--accent); outline-of
   background: linear-gradient(165deg, var(--accent-soft) 0%, var(--paper) 140%);
 }
 .kpi-card-seg.ativo .kpi-label { color: var(--ink); font-weight: 700; }
+
+
+/* ===== Painel de Gráficos: melhorias (cartões de situação, resumo dos concluídos) ===== */
+@media (min-width: 900px) {
+  .kpi-grid.kpi-grid-hero { grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); }
+}
+.kpi-grid-hero .kpi-card { min-width: 0; }
+
+.resumo-concluidos {
+  position: relative; padding: 18px 18px 14px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, #3B6EA5 28%, var(--line, #d7dee4));
+  border-left: 5px solid #3B6EA5;
+  background: linear-gradient(180deg, color-mix(in srgb, #3B6EA5 6%, var(--paper, #fff)) 0%, var(--paper, #fff) 140px);
+}
+.resumo-concluidos > h4 { margin-top: 0; }
+.resumo-concluidos > h4::before { background: #3B6EA5; }
+.resumo-concluidos .kpi-card { border-top-color: #3B6EA5 !important; }
+.resumo-concluidos .kpi-grid-concl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.resumo-cols-concl { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 4px; }
+.resumo-cols-concl1 { grid-template-columns: minmax(0, 1fr); margin-top: 14px; }
+.concl-vazio { padding: 14px 16px; border-radius: 10px; border: 1px dashed var(--line, #cfd8de); color: var(--ink-soft, #52667C); background: var(--paper, #fff); }
+.concl-faixa { margin-top: 10px; }
+.concl-aviso { margin-top: 4px; color: #8a6423; }
+@media (max-width: 760px) {
+  .resumo-concluidos { padding: 14px 12px 10px; }
+  .resumo-concluidos .kpi-grid-concl, .resumo-cols-concl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .resumo-cols-concl { grid-template-columns: 1fr; }
+}
+@media (max-width: 420px) {
+  .resumo-concluidos .kpi-grid-concl { grid-template-columns: 1fr 1fr; }
+}
+.pareto-pill { filter: drop-shadow(0 1px 1px rgba(31, 58, 95, .12)); }
+.resumo-concluidos, .resumo-concluidos .resumo-cols, .resumo-concluidos .resumo-cols > div, .resumo-concluidos .kpi-card { min-width: 0; }
+@media (max-width: 760px) {
+  .resumo-concluidos .stat-bar-row { grid-template-columns: minmax(0, 1fr) 56px auto; gap: 6px; }
+  .resumo-concluidos .stat-bar-label { white-space: normal; line-height: 1.2; }
+}
+
+/* Corrige excesso de largura no celular: colunas de gráficos podiam crescer além da tela */
+.resumo-cols > div, .chart-scroll { min-width: 0; max-width: 100%; }
+.concl-ultimas { margin-top: 14px; }
+.concl-ultimas > strong { display: block; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft, #52667C); margin-bottom: 6px; }
+.resumo-tabela-concl { width: 100%; }
+@media (max-width: 760px) { .concl-ultimas { overflow-x: auto; } }
+@media (max-width: 760px) {
+  .resumo-secao > table.resumo-tabela { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ---------------------------- Login: refinamentos 4 (duas colunas + telas baixas) ---------------------------- */
+/* Telas largas: painel azul à esquerda (marca) e formulário à direita — o cartão deixa de ser alto e estreito. */
+@media (min-width: 900px) {
+  .login-card { max-width: 880px; display: grid; grid-template-columns: 1fr 1.02fr; align-items: stretch; }
+  .login-card-band {
+    display: flex; flex-direction: column; justify-content: center; padding: 56px 38px 44px;
+  }
+  .login-card-band::after { left: 0; right: auto; top: 0; bottom: 0; width: 4px; height: auto;
+    background: linear-gradient(180deg, transparent, var(--gold) 20%, #E3C27A 50%, var(--gold) 80%, transparent); }
+  .login-card-band { order: 0; }
+  .login-card-band::after { right: 0; left: auto; }
+  .login-card h1 { font-size: 21pt; }
+  .login-card p.login-org { font-size: 10.5pt; margin-bottom: 20px; }
+  .login-card .seal-lg { width: 72px; height: 72px; }
+  .login-card-body { display: flex; flex-direction: column; justify-content: center; padding: 38px 40px 34px; }
+  .login-bemvindo { text-align: left; }
+  .login-card p.sub { text-align: left; }
+  .login-sigilo { justify-content: flex-start; text-align: left; }
+  .login-hint { text-align: left; }
+}
+/* Telas baixas (notebook pequeno, celular deitado): cabeçalho mais enxuto, sem precisar rolar à toa */
+@media (max-height: 760px) and (max-width: 899px) {
+  .login-wrap { align-items: flex-start; overflow-y: auto; padding-top: 18px; padding-bottom: 18px; }
+  .login-card-band { padding: 52px 24px 16px; }
+  .login-card p.login-org { margin-bottom: 10px; }
+  .login-pilares { padding-top: 10px; }
+  .login-card-body { padding: 20px 24px 22px; }
+  .login-card p.sub { margin-bottom: 14px; }
+}
+@media (max-width: 899px) {
+  .login-card h1 { font-size: 16pt; }
+  .login-sigilo { font-size: 11px; }
+}
+.login-card-body .f input:focus-visible { box-shadow: 0 0 0 3px rgba(46,125,107,.2); }
