@@ -2291,6 +2291,94 @@ function computeResumoMensal(pafsParam, desistParam) {
   return { grupos, saidas };
 }
 
+// ---------- Resumo dos concluídos ----------
+// Só PAFs com situação "Concluído" (encaminhados e desistentes não entram). `totalFamilias` = base do percentual
+// (famílias com ficha + desistentes, a mesma do cartão "Total de famílias").
+const CONCL_FAIXAS = ["Até 3 meses", "3 a 6 meses", "6 a 12 meses", "Mais de 12 meses"];
+const CONCL_FAIXAS_CURTA = { "Até 3 meses": "Até 3", "3 a 6 meses": "3 a 6", "6 a 12 meses": "6 a 12", "Mais de 12 meses": "12+" };
+const COR_CONCLUIDO = "#3B6EA5";
+
+function fmtDecimalBR(n, casas) {
+  if (n == null || isNaN(n)) return "—";
+  return Number(n).toFixed(casas == null ? 1 : casas).replace(".", ",");
+}
+
+function computeResumoConcluidos(pafsParam, totalFamilias) {
+  const lista = (pafsParam || []).filter(p => p.situacaoPAF === "concluido");
+  const total = lista.length;
+  const porMotivo = {}, porFaixa = {};
+  CONCL_FAIXAS.forEach(f => { porFaixa[f] = 0; });
+  const duracoes = [], porMesMap = {};
+  let semMotivo = 0, semDatas = 0, objetivosAlcancados = 0, totalMembros = 0, totalEnc = 0;
+  let sitAtivas = 0, sitSuperadas = 0, ultima = "";
+  const ultimas = [], tecDur = {};
+
+  lista.forEach(p => {
+    const motivo = ENCERRAMENTO_MOTIVOS.find(m => m.v === p.encerramentoMotivo);
+    if (!motivo) semMotivo++;
+    const label = motivo ? motivo.label : "Motivo não informado";
+    porMotivo[label] = (porMotivo[label] || 0) + 1;
+    if (p.encerramentoMotivo === "3") objetivosAlcancados++;
+
+    totalMembros += (p.membros || []).filter(m => m.nome).length;
+    totalEnc += (p.encaminhamentosForm || []).length;
+    (p.situacoesSociais || []).forEach(s => { if (s.membros) { sitAtivas++; if (s.superada) sitSuperadas++; } });
+
+    const ini = p.dataInicial || dataLocalDeISO(p.createdAt);
+    const fim = dataSaidaEfetiva(p);
+    const d1 = ini ? new Date(ini + "T00:00:00") : null, d2 = fim ? new Date(fim + "T00:00:00") : null;
+    ultimas.push({ nome: (p.responsavel || "").trim() || "Sem nome", fim, ini, motivo: label,
+      meses: (d1 && d2 && !isNaN(d1) && !isNaN(d2) && d2 >= d1) ? (d2 - d1) / 86400000 / 30.44 : null });
+    if (d2 && !isNaN(d2)) {
+      const ym = fim.slice(0, 7);
+      porMesMap[ym] = (porMesMap[ym] || 0) + 1;
+      if (fim > ultima) ultima = fim;
+    }
+    if (d1 && d2 && !isNaN(d1) && !isNaN(d2) && d2 >= d1) {
+      const meses = (d2 - d1) / 86400000 / 30.44;
+      duracoes.push(meses);
+      const tec = (p.tecnicoReferencia || "").trim() || "Não informado";
+      (tecDur[tec] = tecDur[tec] || []).push(meses);
+      porFaixa[meses <= 3 ? CONCL_FAIXAS[0] : meses <= 6 ? CONCL_FAIXAS[1] : meses <= 12 ? CONCL_FAIXAS[2] : CONCL_FAIXAS[3]]++;
+    } else {
+      semDatas++;
+    }
+  });
+
+  // Últimos 12 meses (terminando no mês atual ou na última conclusão, o que for mais recente)
+  const hoje = new Date();
+  let ymFim = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+  if (ultima && ultima.slice(0, 7) > ymFim) ymFim = ultima.slice(0, 7);
+  const [yF, mF] = ymFim.split("-").map(Number);
+  const porMes = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(yF, mF - 1 - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    porMes.push({ ym, n: porMesMap[ym] || 0 });
+  }
+  const noPeriodo = porMes.reduce((a, x) => a + x.n, 0);
+
+  const ord = duracoes.slice().sort((a, b) => a - b);
+  const mediana = ord.length ? (ord.length % 2 ? ord[(ord.length - 1) / 2] : (ord[ord.length / 2 - 1] + ord[ord.length / 2]) / 2) : null;
+  const media = ord.length ? ord.reduce((a, b) => a + b, 0) / ord.length : null;
+  const pico = porMes.reduce((m, x) => (x.n > m.n ? x : m), { ym: "", n: 0 });
+
+  return {
+    total, totalFamilias: totalFamilias || total,
+    pctDoTotal: totalFamilias ? Math.round(total / totalFamilias * 100) : 0,
+    porMotivo, porFaixa, porMes, noPeriodo, pico,
+    ultimas: ultimas.filter(x => x.fim).sort((a, b) => b.fim.localeCompare(a.fim)).slice(0, 5),
+    tempoPorTecnico: Object.fromEntries(Object.entries(tecDur).map(([k, v]) => [k, Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10])),
+    nPorTecnico: Object.fromEntries(Object.entries(tecDur).map(([k, v]) => [k, v.length])),
+    mediaMeses: media, medianaMeses: mediana,
+    minMeses: ord.length ? ord[0] : null, maxMeses: ord.length ? ord[ord.length - 1] : null,
+    comDuracao: ord.length, semDatas, semMotivo,
+    objetivosAlcancados, pctObjetivos: total ? Math.round(objetivosAlcancados / total * 100) : 0,
+    sitAtivas, sitSuperadas, pctSuperadas: sitAtivas ? Math.round(sitSuperadas / sitAtivas * 100) : 0,
+    totalMembros, encPorFamilia: total ? totalEnc / total : null
+  };
+}
+
 function labelYm(ym) {
   const [y, m] = ym.split("-");
   return `${MESES_NOMES[parseInt(m, 10) - 1] || m}/${y}`;
@@ -2426,8 +2514,8 @@ function barrasHTML(obj, opts) {
     return `
     <div class="stat-bar-row${i === 0 ? " is-top" : ""}" title="${escapeHtml(k)}: ${v} (${pct}%)">
       <span class="stat-bar-label">${escapeHtml(k)}</span>
-      <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${Math.max(Math.round(v / max * 100), 3)}%"></div></div>
-      <span class="stat-bar-value"><b>${v}</b> <em>(${pct}%)</em></span>
+      <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${Math.max(Math.round(v / max * 100), 3)}%${(opts.cores && opts.cores[k]) || opts.cor ? `;background:${(opts.cores && opts.cores[k]) || opts.cor}` : ""}"></div></div>
+      <span class="stat-bar-value">${opts.valorTxt ? `<b>${escapeHtml(opts.valorTxt(k, v))}</b>` : `<b>${v}</b> <em>(${pct}%)</em>`}</span>
     </div>`;
   }).join("") + `</div>` + (resto > 0 ? `<p class="hint chart-nota">+ ${resto} categoria${resto === 1 ? "" : "s"} com menos registros.</p>` : "");
 }
@@ -2626,7 +2714,7 @@ function histogramaSVG(obj, opts) {
     const ni = k === "Não informada";
     const eModa = moda && moda[0] === k && v > 0;
     const pct = Math.round(v / total * 100);
-    const cor = ni ? COR_NEUTRA : "var(--accent, #2E7D6B)";
+    const cor = ni ? COR_NEUTRA : (opts.cor || "var(--accent, #2E7D6B)");
     return `
       <path d="${barraArredondadaPath(x0 + 5, y, colW - 10, h, 4)}" fill="${cor}" opacity="${ni ? .75 : eModa ? 1 : .62}" class="hist-bar" tabindex="0"><title>${escapeHtml(rotulos[k] || k)}: ${v} (${pct}%)</title></path>
       ${v ? `<text x="${x0 + colW / 2}" y="${y - 5}" text-anchor="middle" class="hist-bar-num">${v}</text>` : ""}
@@ -2635,7 +2723,7 @@ function histogramaSVG(obj, opts) {
   }).join("");
 
   const leitura = moda && moda[1] > 0
-    ? `<div class="chart-insight">Faixa mais frequente: <b>${escapeHtml(rotulos[moda[0]] || moda[0])}</b> — ${moda[1]} (${Math.round(moda[1] / total * 100)}%).</div>` : "";
+    ? `<div class="chart-insight">${escapeHtml(opts.rotuloModa || "Faixa mais frequente")}: <b>${escapeHtml(rotulos[moda[0]] || moda[0])}</b> — ${moda[1]} (${Math.round(moda[1] / total * 100)}%).</div>` : "";
   return svgGrafico(width, height, "histograma-chart", "Histograma", `
     ${gradeEixoY(eixo, padL, width - padR, padT, chartH)}
     ${barras}`) + leitura;
@@ -2689,8 +2777,10 @@ function paretoChartSVG(obj, opts) {
   const marcadores = pontos.map(([x, y, pct, k, yBarra]) => {
     const colide = !(y - 8 < yBarra - 17 || y - 19 > yBarra - 3);
     const yTxt = colide ? y + 19 : y - 8;
+    const wPill = String(pct).length * 5.6 + 11;
     return `
     <circle cx="${x}" cy="${y}" r="3.6" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1.5" class="pareto-ponto" tabindex="0"><title>Acumulado até "${escapeHtml(k)}": ${pct}%</title></circle>
+    <rect x="${(x - wPill / 2).toFixed(1)}" y="${yTxt - 9.5}" width="${wPill.toFixed(1)}" height="13" rx="6.5" fill="#fff" fill-opacity=".94" stroke="var(--gold, #B98A34)" stroke-width=".9" class="pareto-pill"></rect>
     <text x="${x}" y="${yTxt}" text-anchor="middle" class="pareto-pct-num">${pct}%</text>`;
   }).join("");
   const y80 = padT + chartH - 0.8 * chartH;
@@ -2754,7 +2844,7 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
     return `
       <g>
         <path d="${barraArredondadaPath(xI, yInc, barW, hInc, 3)}" fill="var(--accent, #2E7D6B)" class="evo-bar" tabindex="0"><title>${mes}: ${v.inc} ${plural(v.inc, "incluída", "incluídas")}</title></path>
-        <path d="${barraArredondadaPath(xC, yCon, barW, hCon, 3)}" fill="#52667C" class="evo-bar" tabindex="0"><title>${mes}: ${v.con} ${plural(v.con, "concluída", "concluídas")}</title></path>
+        <path d="${barraArredondadaPath(xC, yCon, barW, hCon, 3)}" fill="${COR_CONCLUIDO}" class="evo-bar" tabindex="0"><title>${mes}: ${v.con} ${plural(v.con, "concluída", "concluídas")}</title></path>
         <path d="${barraArredondadaPath(xD, yDes, barW, hDes, 3)}" fill="var(--danger, #B5473F)" class="evo-bar" tabindex="0"><title>${mes}: ${v.des} ${plural(v.des, "desistência", "desistências")}</title></path>
         ${v.inc ? `<text x="${xI + barW / 2}" y="${yInc - 4}" text-anchor="middle" class="chart-bar-num">${v.inc}</text>` : ""}
         ${v.con ? `<text x="${xC + barW / 2}" y="${yCon - 4}" text-anchor="middle" class="chart-bar-num">${v.con}</text>` : ""}
@@ -2773,7 +2863,7 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
   return `
     <div class="chart-legend-inline">
       <span><i style="background:var(--accent, #2E7D6B)"></i> Incluídas</span>
-      <span><i style="background:#52667C"></i> Concluídas</span>
+      <span><i style="background:${COR_CONCLUIDO}"></i> Concluídas</span>
       <span><i style="background:var(--danger, #B5473F)"></i> Desistências</span>
       <span><i class="lg-linha" style="background:var(--gold, #B98A34)"></i> Saldo acumulado (eixo à direita)</span>
       <span class="lg-texto">Número sob o mês = saldo do mês</span>
@@ -2781,10 +2871,55 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
       ${gradeEixoY(eixo, padL, xFim, padT, chartH)}
       ${linhaZero}
       ${eixoDir}
+      <text x="${xFim + 6}" y="${padT - 8}" text-anchor="start" class="pareto-eixo-dir">acum.</text>
       ${barras}
       <polyline points="${linha}" fill="none" stroke="var(--gold, #B98A34)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="chart-linha" style="--len:${width * 2}"></polyline>
       ${pontos}`) +
     `<div class="chart-insight">Saldo acumulado em ${labelYmCurto(ultimo.ym)}: <b>${ultimo.ac}</b> família${Math.abs(ultimo.ac) === 1 ? "" : "s"}.</div>`;
+}
+
+// ---------- Conclusões por mês (colunas + linha tracejada da média mensal) ----------
+function conclusoesMensaisSVG(serie, opts) {
+  opts = opts || {};
+  const total = serie.reduce((a, x) => a + x.n, 0);
+  if (!total) return semDadosHTML("Nenhuma conclusão com data registrada nos últimos 12 meses.");
+  const cor = opts.cor || COR_CONCLUIDO;
+  const max = Math.max(...serie.map(x => x.n), 1);
+  const eixo = eixoY(max);
+  const media = total / serie.length;
+  const colW = 46, padT = 22, chartH = 128, padB = 36, padR = 70;
+  const padL = margemEixoNum(eixo.topo);
+  const width = padL + serie.length * colW + padR;
+  const height = chartH + padT + padB;
+  const xFim = width - padR;
+  const yMedia = padT + chartH - (media / eixo.topo) * chartH;
+  const picoN = Math.max(...serie.map(x => x.n));
+  const plural = (n) => n === 1 ? "conclusão" : "conclusões";
+
+  const barras = serie.map((x, i) => {
+    const x0 = padL + i * colW, xc = x0 + colW / 2;
+    const h = Math.round((x.n / eixo.topo) * chartH);
+    const y = padT + chartH - h;
+    const mes = labelYmCurto(x.ym);
+    const ehPico = x.n === picoN && x.n > 0;
+    return `
+      ${x.n ? `<path d="${barraArredondadaPath(x0 + 8, y, colW - 16, h, 4)}" fill="${cor}" opacity="${ehPico ? 1 : .72}" class="hist-bar" tabindex="0"><title>${mes}: ${x.n} ${plural(x.n)}</title></path>
+      <text x="${xc}" y="${y - 5}" text-anchor="middle" class="hist-bar-num">${x.n}</text>` : `<rect x="${x0 + 8}" y="${padT + chartH - 2}" width="${colW - 16}" height="2" rx="1" fill="${cor}" opacity=".25"></rect>`}
+      <text x="${xc}" y="${padT + chartH + 16}" text-anchor="middle" class="chart-bar-mes">${mes}</text>`;
+  }).join("");
+
+  const leitura = `Total nos 12 meses: <b>${total}</b> · média de <b>${fmtDecimalBR(media)}</b> por mês`
+    + (opts.pico && opts.pico.n ? ` · pico em <b>${labelYmCurto(opts.pico.ym)}</b> (${opts.pico.n}).` : ".");
+  return `
+    <div class="chart-legend-inline">
+      <span><i style="background:${cor}"></i> Famílias concluídas no mês</span>
+      <span><i class="lg-linha" style="background:var(--gold, #B98A34)"></i> Média mensal</span>
+    </div>` + svgGrafico(width, height, "histograma-chart conclusoes-chart", "Famílias concluídas por mês nos últimos 12 meses", `
+      ${gradeEixoY(eixo, padL, xFim, padT, chartH)}
+      ${barras}
+      <line x1="${padL}" y1="${yMedia}" x2="${xFim}" y2="${yMedia}" stroke="var(--gold, #B98A34)" stroke-width="1.6" stroke-dasharray="5 3"><title>Média mensal: ${fmtDecimalBR(media)}</title></line>
+      <text x="${xFim + 5}" y="${yMedia + 3}" text-anchor="start" class="pareto-eixo-dir">média ${fmtDecimalBR(media)}</text>`)
+    + `<div class="chart-insight">${leitura}</div>`;
 }
 
 function assinaturaHTML() {
@@ -2808,7 +2943,7 @@ function kpiHeroHTML(r, anteriorTotal, mensal, seg) {
   const totalFamilias = c.total + c.desistentes; // em andamento + concluídos (+ encaminhados) + desistentes
   const sg = (chave) => seg ? { chave, ativo: (seg.atual || "") === (chave === "total" ? "" : chave) } : null;
   return `
-    <div class="kpi-grid kpi-grid-hero">
+    <div class="kpi-grid kpi-grid-hero" style="--n:${c.encaminhado ? 5 : 4}">
       ${kpiCardHTML(totalFamilias, "Total de famílias", "cabecalho", delta, spark(null, "#1F3A5F"), sg("total"))}
       ${kpiCardHTML(c.andamento, "Em andamento", "diagnostico", null, spark("andamento", "#2E7D6B"), sg("andamento"))}
       ${kpiCardHTML(c.desistentes, "Desistentes", "encerramento", null, null, null)}
@@ -2939,10 +3074,55 @@ function resumoGeralMetasHTML(r) {
     </div>`;
 }
 
+// Resumo dos concluídos: um bloco só, com os números e gráficos das famílias com PAF "Concluído".
+function resumoGeralConcluidosHTML(c) {
+  const cab = `<h4>${sectionIconSvg("encerramento", 16)} Resumo dos concluídos</h4>`;
+  if (!c || !c.total) {
+    return `<div class="resumo-secao resumo-concluidos">${cab}
+      <div class="concl-vazio">Nenhum PAF concluído nos filtros atuais. Quando uma família for marcada como <b>Concluído</b>, o resumo aparece aqui.</div>
+    </div>`;
+  }
+  const avisos = [];
+  if (c.semMotivo) avisos.push(`${c.semMotivo} ${c.semMotivo === 1 ? "ficha concluída está" : "fichas concluídas estão"} sem motivo de encerramento`);
+  if (c.semDatas) avisos.push(`${c.semDatas} sem data de início/encerramento válida (fora do cálculo de tempo)`);
+  const tempoTxt = c.mediaMeses != null ? `${fmtDecimalBR(c.mediaMeses)} ${c.mediaMeses >= 1.95 ? "meses" : "mês"}` : "—";
+  const medTxt = c.medianaMeses != null ? `${fmtDecimalBR(c.medianaMeses)} ${c.medianaMeses >= 1.95 ? "meses" : "mês"}` : "—";
+  const coresMotivo = { "Objetivos do PAIF alcançados": "#2E7D6B", "Motivo não informado": COR_NEUTRA };
+  return `
+    <div class="resumo-secao resumo-concluidos">
+      ${cab}
+      <p class="hint">Famílias com PAF concluído, respeitando período, CRAS e técnico. O segmento escolhido nos cartões não altera este resumo. Tempo = data de início até a data de encerramento.</p>
+      <div class="kpi-grid kpi-grid-sec kpi-grid-concl">
+        ${kpiCardHTML(`${c.total} (${c.pctDoTotal}%)`, "Famílias concluídas (% do total)", "encerramento")}
+        ${kpiCardHTML(tempoTxt, "Tempo médio até a conclusão", "metas")}
+        ${kpiCardHTML(medTxt, "Tempo mediano (metade concluiu até)", "metas")}
+        ${kpiCardHTML(`${c.objetivosAlcancados} (${c.pctObjetivos}%)`, "Objetivos do PAIF alcançados", "metas")}
+        ${kpiCardHTML(c.sitAtivas ? c.pctSuperadas + "%" : "—", "Situações sociais superadas", "diagnostico")}
+        ${kpiCardHTML(c.totalMembros, "Pessoas nas famílias concluídas", "familia")}
+      </div>
+      <div class="resumo-cols resumo-cols-concl">
+        <div><strong>Motivo do encerramento</strong>${barrasHTML(c.porMotivo, { cores: coresMotivo, cor: COR_CONCLUIDO })}</div>
+        <div><strong>Tempo de acompanhamento até a conclusão (meses)</strong>${c.comDuracao ? histogramaSVG(c.porFaixa, { ordem: CONCL_FAIXAS, rotulos: CONCL_FAIXAS_CURTA, cor: COR_CONCLUIDO, rotuloModa: "Faixa de tempo mais comum" }) : semDadosHTML("Sem datas suficientes para calcular o tempo.")}</div>
+      </div>
+      <div class="resumo-cols resumo-cols-concl1">
+        <div><strong>Conclusões por mês (últimos 12 meses)</strong>${conclusoesMensaisSVG(c.porMes, { pico: c.pico })}${c.total > c.noPeriodo ? `<p class="hint chart-nota">${c.total - c.noPeriodo} conclusão(ões) fora dessa janela de 12 meses ou sem data.</p>` : ""}</div>
+      </div>
+      ${c.ultimas.length ? `<div class="concl-ultimas"><strong>Últimas conclusões</strong>
+        <table class="resumo-tabela resumo-tabela-concl">
+          <thead><tr><th>Responsável familiar</th><th>Encerramento</th><th>Tempo</th><th>Motivo</th></tr></thead>
+          <tbody>${c.ultimas.map(u => `<tr><td>${escapeHtml(u.nome)}</td><td>${fmtDateBR(u.fim)}</td><td>${u.meses != null ? fmtDecimalBR(u.meses) + " m" : "—"}</td><td>${escapeHtml(u.motivo)}</td></tr>`).join("")}</tbody>
+        </table></div>` : ""}
+      ${Object.keys(c.tempoPorTecnico).length > 1 ? `<div class="resumo-cols resumo-cols-concl1"><div><strong>Tempo médio até a conclusão por técnico (meses)</strong>${barrasHTML(c.tempoPorTecnico, { cor: COR_CONCLUIDO, valorTxt: (k, v) => `${fmtDecimalBR(v)} m · ${c.nPorTecnico[k]} fam.` })}</div></div>` : ""}
+      ${c.minMeses != null ? `<p class="hint concl-faixa">Menor tempo: <b>${fmtDecimalBR(c.minMeses)}</b> · maior tempo: <b>${fmtDecimalBR(c.maxMeses)}</b> meses · ${c.encPorFamilia != null ? `média de <b>${fmtDecimalBR(c.encPorFamilia)}</b> encaminhamentos por família concluída.` : ""}</p>` : ""}
+      ${avisos.length ? `<p class="hint concl-aviso">Atenção aos registros: ${avisos.join("; ")}.</p>` : ""}
+    </div>`;
+}
+
 // Mantida para o print/PDF (imprimirResumoMensal) e para o modal legado — reúne todas as seções em sequência.
-function resumoGeralHTML(r, anteriorTotal) {
+function resumoGeralHTML(r, anteriorTotal, concl) {
   return resumoGeralGeralHTML(r, anteriorTotal) + resumoGeralPerfilHTML(r) + resumoGeralTerritorioHTML(r)
-    + resumoGeralVulnerabilidadesHTML(r) + resumoGeralEquipeRedeHTML(r) + resumoGeralMetasHTML(r);
+    + resumoGeralVulnerabilidadesHTML(r) + resumoGeralEquipeRedeHTML(r) + resumoGeralMetasHTML(r)
+    + (concl ? resumoGeralConcluidosHTML(concl) : "");
 }
 
 function resumoMensalTabelaHTML(dados) {
@@ -3217,6 +3397,7 @@ const DASH_SECOES_NAV = [
   { id: "dash-sec-vulnerabilidades", label: "Vulnerabilidades" },
   { id: "dash-sec-equipe", label: "Equipe e rede" },
   { id: "dash-sec-metas", label: "Metas do Plano" },
+  { id: "dash-sec-concluidos", label: "Concluídos" },
   { id: "dash-sec-evolucao", label: "Evolução mensal" }
 ];
 
@@ -3235,6 +3416,7 @@ function renderDashboardHTML() {
   const contagens = { total: pafsBase.length, desistentes: desistBase.length, andamento: 0, encaminhado: 0, concluido: 0 };
   pafsBase.forEach(p => { if (contagens[p.situacaoPAF] != null) contagens[p.situacaoPAF]++; });
   const seg = { contagens, atual: state.dashSituacao, grupos: computeResumoMensal(pafsBase, desistBase).grupos };
+  const concluidos = computeResumoConcluidos(pafsBase, pafsBase.length + desistBase.length); // ignora o segmento: resumo estável
   const filtrosAtivos = dashboardFiltrosAtivos();
   const anteriorTotal = semRegistroAlgum ? null : dashboardPeriodoAnteriorTotal(true);
 
@@ -3276,6 +3458,7 @@ function renderDashboardHTML() {
           <div id="dash-sec-vulnerabilidades">${resumoGeralVulnerabilidadesHTML(geral)}</div>
           <div id="dash-sec-equipe">${resumoGeralEquipeRedeHTML(geral)}</div>
           <div id="dash-sec-metas">${resumoGeralMetasHTML(geral)}</div>
+          <div id="dash-sec-concluidos">${resumoGeralConcluidosHTML(concluidos)}</div>
           <div class="resumo-secao" id="dash-sec-evolucao">
             <h4>${sectionIconSvg("metas", 16)} Evolução mensal (famílias incluídas, concluídas e desistentes)</h4>
             ${resumoMensalTabelaHTML(grupos)}
@@ -3429,7 +3612,27 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   .resumo-print .resumo-cols > div { display: block !important; width: auto !important; margin: 0 0 4pt !important; break-inside: avoid !important; page-break-inside: avoid !important; vertical-align: top; }
   .resumo-print .resumo-cols > div:has(.pareto-chart), .resumo-print .resumo-cols > div:has(.histograma-chart), .resumo-print .resumo-cols > div:has(.medidor-wrap), .resumo-print .resumo-cols-donut > div:only-child { column-span: all; }
   .resumo-print .kpi-grid, .resumo-print .kpi-grid-sec { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
-  .resumo-print .kpi-grid-hero { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .resumo-print .kpi-grid-hero { grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)) !important; }
+  .resumo-print .kpi-grid-hero .kpi-label { font-size: 8.5pt !important; }
+  /* Resumo dos concluídos: o bloco inteiro cabe na mesma folha sempre que possível; gráficos de largura total */
+  .resumo-print .resumo-concluidos { break-inside: auto !important; page-break-inside: auto !important; }
+  .resumo-print .resumo-cols-concl { column-count: 2 !important; }
+  .resumo-print .resumo-cols-concl > div:has(.histograma-chart) { column-span: none !important; grid-column: auto !important; }
+  .resumo-print .resumo-concluidos .chart-svg { max-height: 58mm !important; }
+  .resumo-print .resumo-concluidos .histograma-chart:not(.conclusoes-chart) { max-height: 52mm !important; }
+  /* Pareto: altura limitada para que os dois gráficos da seção caibam juntos na mesma folha */
+  .resumo-print .pareto-chart { max-height: 78mm !important; }
+  .resumo-print .resumo-concluidos .kpi-grid-concl { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; margin-bottom: 6pt !important; }
+  .resumo-print .resumo-concluidos .kpi-valor { font-size: 14pt !important; }
+  .resumo-print .resumo-concluidos .kpi-label { font-size: 8.5pt !important; }
+  .resumo-print .resumo-concluidos .concl-vazio { border: 1px solid #000; padding: 6pt 8pt; }
+  .resumo-print .resumo-cols-concl1 > div { column-span: all; }
+  .resumo-print .conclusoes-chart { max-width: 100% !important; }
+  .resumo-print .concl-ultimas { break-inside: avoid !important; margin-top: 6pt !important; }
+  .resumo-print .concl-ultimas > strong { display: block; margin-bottom: 3pt; }
+  .resumo-print .pareto-pill { stroke: #000 !important; stroke-width: .6px !important; }
+  .resumo-print .pareto-pct-num { stroke: none !important; font-size: 8.5px !important; fill: #000 !important; }
+  .resumo-print .chart-legend-inline i { border: 1px solid #000; }
   /* RMA: A.1 e A.2 em duas colunas de largura total e o bloco inteiro na mesma página (a nota não se parte entre folhas) */
   .resumo-print .kpi-grid-rma { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .resumo-print .resumo-secao-rma { break-inside: avoid !important; page-break-inside: avoid !important; }
@@ -4116,13 +4319,14 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           <li>Programas, benefícios e encaminhamentos</li>
           <li>Equipe de referência e rede acionada</li>
           <li>Metas e evolução do Plano</li>
+          <li>Resumo dos concluídos</li>
           <li>Evolução mensal (entradas e saídas)</li>
           <li>Volume e perfil das famílias no mês de referência (RMA)</li>
           <li>Relação das famílias em acompanhamento (dados individuais)</li>
         </ul>
       </div>
 
-      ${resumoGeralHTML(geral, contexto.anteriorTotal)}
+      ${resumoGeralHTML(geral, contexto.anteriorTotal, computeResumoConcluidos(pafsRelacao, pafsRelacao.length + (contexto.desistentes || []).length))}
       <div class="resumo-secao">
         <h4>Evolução mensal (famílias incluídas, concluídas e desistentes)</h4>
         ${resumoMensalTabelaHTML(grupos)}
