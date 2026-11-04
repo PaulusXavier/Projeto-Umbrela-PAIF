@@ -265,7 +265,7 @@ const fim = readme.indexOf('## 4.', ini);
 if (ini >= 0 && fim > ini) {
   const corpo = readme.slice(ini, fim).replace(/^## 3\.[^\n]*\n/, '');
   corpo.split(/\n(?=- )/).forEach(b => {
-    const t = limpar(b.replace(/^- /, '').replace(/\n\s+/g, ' ').replace(/^>\s*/gm, ''));
+    const t = limpar(b.replace(/^- /, '').replace(/\n[ \t]+- /g, ' | ').replace(/\n\s+/g, ' ').replace(/^>\s*/gm, ''));  // subitens ("  - ...") viram " | " em vez de "- " solto no meio do texto
     const mb = /^- \*\*(.+?)\*\*/.exec(b);
     const nome = limpar(mb ? mb[1] : primeiraFrase(t, 70));
     partir(t, 800).forEach((p, i, arr) =>
