@@ -2489,8 +2489,62 @@ function semDadosHTML(msg) {
 
 // Envolve o SVG num contêiner que rola na horizontal quando a tela é mais estreita que o gráfico.
 function svgGrafico(largura, altura, classe, rotulo, conteudo) {
-  return `<div class="chart-scroll"><svg viewBox="0 0 ${largura} ${altura}" class="chart-svg ${classe}" style="--w:${largura}px" role="img" aria-label="${escapeHtml(rotulo)}">${conteudo}</svg></div>`;
+  return `<div class="chart-scroll"><svg viewBox="0 0 ${largura} ${altura}" class="chart-svg ${classe}" style="--w:${largura}px" role="img" aria-label="${escapeHtml(rotulo)}">${conteudo}</svg></div><button type="button" class="chart-baixar" data-baixar-grafico title="Baixar este gráfico como imagem (PNG)">⤓ Baixar imagem</button>`;
 }
+
+// Baixa um gráfico SVG como PNG (fundo branco, título e fonte). Copia os estilos calculados para
+// dentro do SVG, pois as classes do app não existem fora da página.
+(function instalarBaixarGrafico() {
+  if (typeof document === "undefined" || window.__baixarGrafico) return;
+  window.__baixarGrafico = true;
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest && e.target.closest("[data-baixar-grafico]");
+    if (!btn) return;
+    const svg = btn.previousElementSibling && btn.previousElementSibling.querySelector("svg");
+    if (!svg) return;
+    try {
+      const clone = svg.cloneNode(true);
+      const origs = svg.querySelectorAll("*"), cls = clone.querySelectorAll("*");
+      const props = ["fill", "stroke", "stroke-width", "stroke-dasharray", "opacity", "fill-opacity", "font-size", "font-family", "font-weight", "text-anchor", "paint-order"];
+      origs.forEach((o, i) => {
+        const cs = getComputedStyle(o), c = cls[i];
+        if (c.tagName === "title") return;
+        props.forEach((pr) => { const v = cs.getPropertyValue(pr); if (v) c.style.setProperty(pr, v); });
+        c.style.animation = "none";
+        if (c.hasAttribute("tabindex")) c.removeAttribute("tabindex");
+      });
+      clone.querySelectorAll("title").forEach((t) => t.remove());
+      const vb = svg.viewBox.baseVal, W = vb.width, H = vb.height;
+      const titulo = (svg.getAttribute("aria-label") || "Gráfico").slice(0, 110);
+      const topo = 34, base = 24, esc = 2;
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      clone.setAttribute("width", W); clone.setAttribute("height", H);
+      const xml = new XMLSerializer().serializeToString(clone);
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement("canvas");
+        cv.width = W * esc; cv.height = (H + topo + base) * esc;
+        const g = cv.getContext("2d");
+        g.scale(esc, esc);
+        g.fillStyle = "#fff"; g.fillRect(0, 0, W, H + topo + base);
+        g.fillStyle = "#1F3A5F"; g.font = "bold 13px 'Times New Roman', serif"; g.fillText(titulo, 12, 22);
+        g.drawImage(img, 0, topo, W, H);
+        g.fillStyle = "#6C7D8F"; g.font = "10px 'Times New Roman', serif";
+        g.fillText("Fonte: registros do Umbrela (PAF/PAIF) — emitido em " + fmtDateBR(todayISO()), 12, H + topo + 16);
+        cv.toBlob((blob) => {
+          if (!blob) return;
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "grafico-" + titulo.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) + ".png";
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }, "image/png");
+      };
+      img.onerror = () => { if (typeof toast === "function") toast("Não foi possível gerar a imagem deste gráfico."); };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+    } catch (err) { console.error(err); if (typeof toast === "function") toast("Não foi possível gerar a imagem deste gráfico."); }
+  });
+})();
 
 function gradeEixoY(eixo, padL, xFim, padT, chartH, estiloNum) {
   return eixo.marcas.map((valor, i) => {
@@ -2701,7 +2755,8 @@ function histogramaSVG(obj, opts) {
 
   const max = Math.max(...entradas.map(([, v]) => v), 1);
   const eixo = eixoY(max);
-  const padL = margemEixoNum(eixo.topo), padR = 10, padT = 20, padB = 42, chartH = 140, colW = 78;
+  const padL = margemEixoNum(eixo.topo), padR = 10, padT = 22, padB = 44, chartH = 156;
+  const colW = Math.max(78, Math.floor(640 / Math.max(entradas.length, 1))); // poucas classes -> colunas mais largas (sem vãos laterais)
   const width = padL + entradas.length * colW + padR;
   const height = chartH + padT + padB;
   // moda = classe mais frequente entre as informadas
@@ -2740,15 +2795,17 @@ function paretoChartSVG(obj, opts) {
   const max = Math.max(...entradas.map(([, v]) => v), 1);
   const eixo = eixoY(max);
 
-  // Rótulos inclinados: reserva altura e margem esquerda conforme o maior rótulo (largura média conservadora).
-  const CHAR = 5.8, COS = 0.788, SIN = 0.616; // ângulo de -38°
-  const rotulosTxt = entradas.map(([k]) => encurtarTexto(k, 26));
-  const comprimentos = rotulosTxt.map((t) => t.length * CHAR);
-  const colW = 58;
-  const padT = 22, chartH = 132, padR = 40;
-  const padB = Math.ceil(Math.max(...comprimentos) * SIN) + 20;
-  const extPrimeiro = comprimentos[0] * COS; // quanto o 1º rótulo avança para a esquerda
-  const padL = Math.min(Math.max(margemEixoNum(eixo.topo), Math.ceil(extPrimeiro - colW / 2 + 12)), 110);
+  // Rótulos horizontais quebrados em até 2 linhas (leitura direta, sem inclinar o pescoço).
+  const colW = 84;
+  const quebrar = (t) => {
+    const pal = String(t).split(/\s+/); const L = [""];
+    pal.forEach((w) => { const u = L[L.length - 1]; if (!u) L[L.length - 1] = w; else if ((u + " " + w).length <= 15) L[L.length - 1] = u + " " + w; else L.push(w); });
+    if (L.length > 2) { L.length = 2; L[1] = encurtarTexto(L[1] + "…", 15); }
+    return L.map((l) => encurtarTexto(l, 16));
+  };
+  const linhasRot = entradas.map(([k]) => quebrar(k));
+  const padT = 26, chartH = 168, padR = 44, padB = 44;
+  const padL = Math.max(margemEixoNum(eixo.topo), 32);
   const width = padL + Math.max(entradas.length, 4) * colW + padR;
   const height = chartH + padT + padB;
 
@@ -2766,9 +2823,9 @@ function paretoChartSVG(obj, opts) {
     pontos.push([x0 + colW / 2, padT + chartH - (pct / 100) * chartH, pct, k, y]);
     const pctBarra = Math.round((v / totalGeral) * 100);
     return `
-      <path d="${barraArredondadaPath(x0 + 6, y, colW - 12, h, 4)}" fill="var(--accent, #2E7D6B)" opacity="${vital ? 1 : .42}" class="pareto-bar" tabindex="0"><title>${escapeHtml(k)}: ${v} ocorrências (${pctBarra}%)</title></path>
+      <path d="${barraArredondadaPath(x0 + 10, y, colW - 20, h, 4)}" fill="var(--accent, #2E7D6B)" opacity="${vital ? 1 : .42}" class="pareto-bar" tabindex="0"><title>${escapeHtml(k)}: ${v} ocorrências (${pctBarra}%)</title></path>
       <text x="${x0 + colW / 2}" y="${y - 5}" text-anchor="middle" class="hist-bar-num">${v}</text>
-      <text x="${x0 + colW / 2 + 4}" y="${padT + chartH + 14}" text-anchor="end" class="pareto-bar-label" transform="rotate(-38 ${x0 + colW / 2 + 4} ${padT + chartH + 14})">${escapeHtml(rotulosTxt[i])}<title>${escapeHtml(k)}</title></text>`;
+      <text x="${x0 + colW / 2}" y="${padT + chartH + 16}" text-anchor="middle" class="pareto-bar-label">${linhasRot[i].map((l, n) => `<tspan x="${x0 + colW / 2}" dy="${n ? 12 : 0}">${escapeHtml(l)}</tspan>`).join("")}<title>${escapeHtml(k)}</title></text>`;
   }).join("");
 
   const xFim = width - padR;
@@ -2822,10 +2879,13 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
 
   const maxBarra = Math.max(...valores.map((v) => Math.max(v.inc, v.con, v.des)), 1);
   const eixo = eixoY(maxBarra);
-  const acMin = Math.min(0, ...valores.map((v) => v.ac)), acMax = Math.max(1, ...valores.map((v) => v.ac));
+  let acMin = Math.min(0, ...valores.map((v) => v.ac)), acMax = Math.max(1, ...valores.map((v) => v.ac));
+  // Sem saldo negativo, o eixo direito usa o mesmo número de divisões do esquerdo: as linhas de grade valem para as duas escalas.
+  let eixoAc = null;
+  if (acMin >= 0) { const nDiv = eixo.marcas.length - 1; const passoAc = Math.max(1, Math.ceil(acMax / nDiv)); eixoAc = { passo: passoAc, marcas: Array.from({ length: nDiv + 1 }, (_, i) => i * passoAc) }; acMax = passoAc * nDiv; }
   const escAc = (a) => 0 + (a - acMin) / (acMax - acMin); // 0..1
 
-  const colW = 54, barW = 13, padT = 24, chartH = 128, padB = 46;
+  const colW = 54, barW = 13, padT = 26, chartH = 150, padB = 46;
   const padL = margemEixoNum(eixo.topo), padR = margemEixoNum(Math.max(acMax, Math.abs(acMin))) + 14;
   const width = padL + valores.length * colW + padR;
   const height = chartH + padT + padB;
@@ -2856,7 +2916,8 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
 
   const linha = valores.map((v, i) => `${padL + i * colW + colW / 2},${yAc(v.ac)}`).join(" ");
   const pontos = valores.map((v, i) => `<circle cx="${padL + i * colW + colW / 2}" cy="${yAc(v.ac)}" r="3.2" fill="var(--gold, #B98A34)" stroke="var(--paper,#fff)" stroke-width="1.4" class="pareto-ponto" tabindex="0"><title>${labelYmCurto(v.ym)}: ${v.ac} famílias acumuladas</title></circle>`).join("");
-  const eixoDir = [acMax, ...(acMin < 0 ? [0, acMin] : [0])].map((a) => `<text x="${xFim + 6}" y="${yAc(a) + 3}" text-anchor="start" class="pareto-eixo-dir">${a}</text>`).join("");
+  const marcasDir = eixoAc ? eixoAc.marcas : [acMax, ...(acMin < 0 ? [0, acMin] : [0])];
+  const eixoDir = marcasDir.map((a) => `<text x="${xFim + 6}" y="${yAc(a) + 3}" text-anchor="start" class="pareto-eixo-dir">${a}</text>`).join("");
   const linhaZero = acMin < 0 ? `<line x1="${padL}" y1="${yAc(0)}" x2="${xFim}" y2="${yAc(0)}" stroke="var(--gold, #B98A34)" stroke-width="1" stroke-dasharray="3 3" opacity=".6"></line>` : "";
   const ultimo = valores[valores.length - 1];
 
@@ -3617,9 +3678,9 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   /* Resumo dos concluídos: o bloco inteiro cabe na mesma folha sempre que possível; gráficos de largura total */
   .resumo-print .resumo-concluidos { break-inside: auto !important; page-break-inside: auto !important; }
   .resumo-print .resumo-cols-concl { column-count: 2 !important; }
-  .resumo-print .resumo-cols-concl > div:has(.histograma-chart) { column-span: none !important; grid-column: auto !important; }
+  .resumo-print .resumo-cols-concl > div:has(.histograma-chart) { column-span: all !important; grid-column: 1 / -1 !important; }
   .resumo-print .resumo-concluidos .chart-svg { max-height: 58mm !important; }
-  .resumo-print .resumo-concluidos .histograma-chart:not(.conclusoes-chart) { max-height: 52mm !important; }
+  .resumo-print .resumo-concluidos .histograma-chart:not(.conclusoes-chart) { max-height: 50mm !important; }
   /* Pareto: altura limitada para que os dois gráficos da seção caibam juntos na mesma folha */
   .resumo-print .pareto-chart { max-height: 78mm !important; }
   .resumo-print .resumo-concluidos .kpi-grid-concl { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; margin-bottom: 6pt !important; }
@@ -3649,7 +3710,38 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   .resumo-print .donut-legend { min-width: 0 !important; }
   .resumo-print .donut-legend-linear { flex-wrap: wrap !important; }
   .resumo-print .medidor-svg { width: 150pt !important; }
-  .resumo-print .pareto-bar-label { font-size: 9px !important; }
+  .resumo-print .pareto-bar-label { font-size: 10px !important; fill: #000 !important; }
+  .resumo-print .pareto-chart, .resumo-print .histograma-chart, .resumo-print .evolucao-chart { max-width: 100% !important; }
+  .resumo-print .chart-bar-num, .resumo-print .chart-bar-mes, .resumo-print .chart-bar-saldo { font-size: 10px !important; }
+  .resumo-print .pareto-chart { max-height: 60mm !important; }
+  .resumo-print .histograma-chart:not(.conclusoes-chart) { max-height: 50mm !important; }
+  .resumo-print .resumo-secao > h4 + .hint, .resumo-print .resumo-secao > h4 + p { break-after: avoid !important; page-break-after: avoid !important; }
+  .resumo-print .evolucao-chart { max-height: 80mm !important; }
+  /* cartões de indicador: número em destaque e rótulo embaixo (o padrão ABNT os deixava numa linha só) */
+  .resumo-print .kpi-card { display: block !important; text-align: center !important; padding: 5pt 4pt !important; border: .6pt solid #000 !important; border-top: 2.2pt solid #000 !important; background: #fff !important; }
+  .resumo-print .kpi-valor { display: block !important; font-size: 16pt !important; font-weight: bold !important; line-height: 1.15 !important; }
+  .resumo-print .kpi-label { display: block !important; font-size: 8pt !important; text-transform: uppercase !important; line-height: 1.2 !important; margin-top: 1pt !important; }
+  .resumo-print .kpi-grid-hero .kpi-valor { font-size: 19pt !important; }
+  .resumo-print .kpi-icon, .resumo-print .kpi-spark-wrap { display: none !important; }
+  /* barras de lista: trilho visível também em impressão preto e branco */
+  .resumo-print .stat-bar-row { grid-template-columns: minmax(0, 1fr) 90pt auto !important; gap: 6pt !important; }
+  .resumo-print .stat-bar-track { height: 7pt !important; background: #fff !important; border: .6pt solid #555 !important; border-radius: 0 !important; }
+  .resumo-print .stat-bar-fill { border-radius: 0 !important; background: #3a3a3a !important; opacity: 1 !important; -webkit-print-color-adjust: exact; }
+  .resumo-print .stat-bar-row.is-top .stat-bar-fill { background: #000 !important; }
+  .resumo-print .stat-bar-value { min-width: 52pt; }
+  /* ABNT: ilustrações numeradas, com o título acima ("Figura n – ...") */
+  .resumo-print { counter-reset: fig; }
+  .resumo-print .resumo-cols > div > strong::before, .resumo-print .chart-box::before { counter-increment: fig; content: "Figura " counter(fig) " – "; font-weight: bold; }
+  .resumo-print .chart-box::before { display: block; font-size: 10pt; margin-bottom: 3pt; content: "Figura " counter(fig) " – Evolução mensal de famílias incluídas, concluídas e desistentes"; }
+  .resumo-print .resumo-cols > div > strong { display: block; }
+  /* quadros sem dados não gastam espaço na folha (a numeração das figuras não pula) */
+  .resumo-print .resumo-cols > div:has(.chart-vazio) { display: none !important; }
+  /* faixa institucional da capa repete o cabeçalho que já sai em todas as páginas: some para ganhar espaço */
+  .resumo-print .orgao-header, .resumo-print .chart-baixar { display: none !important; }
+  .resumo-print .capa-header { border-top: 1px solid #000 !important; border-radius: 0 !important; margin-bottom: 8pt !important; }
+  .resumo-print .donut-svg { width: 74pt !important; height: 74pt !important; }
+  /* ABNT: fonte abaixo de cada ilustração */
+  .resumo-print .resumo-cols > div:has(.chart-svg)::after, .resumo-print .chart-box::after { display: block; content: "Fonte: registros do Umbrela (PAF/PAIF), CRAS Cristiana Vicente Nunes."; font-size: 8pt; margin-top: 3pt; text-align: left; }
   .resumo-print .hist-bar-label, .resumo-print .hist-bar-num { font-size: 10px !important; }
   .resumo-print .hist-eixo-num, .resumo-print .hist-bar-pct, .resumo-print .pareto-eixo-dir, .resumo-print .pareto-pct-num { font-size: 9px !important; }
   .resumo-print .chart-legend-inline { gap: 10pt !important; flex-wrap: wrap; }
