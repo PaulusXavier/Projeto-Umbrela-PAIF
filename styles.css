@@ -1766,6 +1766,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .paulus-chips, .paulus-confirm { display: flex; flex-wrap: wrap; gap: 6px; }
 .paulus-chips { padding: 6px 12px 0; background: var(--paper-soft); }
 .paulus-chips:empty { display: none; }
+.paulus-reacao { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .paulus-confirm { margin-top: 8px; }
 .paulus-chip {
   background: var(--paper); color: var(--accent-dark); border: 1px solid var(--accent); border-radius: 999px;
