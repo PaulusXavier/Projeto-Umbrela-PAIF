@@ -11,6 +11,8 @@ com todos os campos do formulário original em Word.
   dispositivo (depois do passo único de configuração abaixo).
 - Exporta cada PAF preenchido em **PDF** e em **Word (.doc)**.
 
+- Tem **corretor ortográfico em português** nos campos de texto (igual ao do Verbus): sublinhado vermelho para ortografia e azul para estilo, clique direito (ou toque, no celular) para sugestões, autocorreção de acentos ao digitar e funcionamento offline. Código em `corretor.js`; dicionário em `spell/` (≈5 MB, baixado na 1ª vez que um campo é usado). O texto digitado não sai do aparelho.
+
 ---
 
 ## 1. Configurar o armazenamento compartilhado (Firebase) — ~5 minutos, uma única vez
