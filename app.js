@@ -2665,7 +2665,7 @@ function medidorSVG(pct, opts) {
   const arco = "M 20 100 A 80 80 0 0 1 180 100";
   return `<svg viewBox="0 0 200 124" class="medidor-svg" style="width:190px;max-width:100%;height:auto;flex-shrink:0" role="img" aria-label="${escapeHtml(opts.rotulo || "Medidor")}: ${v}%">
     <path d="${arco}" fill="none" stroke="#DDE5E1" stroke-width="18" stroke-linecap="round" pathLength="100"></path>
-    ${v > 0 ? `<path d="${arco}" fill="none" stroke="${cor}" stroke-width="18" stroke-linecap="round" pathLength="100" stroke-dasharray="${v} 100"></path>` : ""}
+    ${v > 0 ? `<path d="${arco}" fill="none" stroke="${cor}" stroke-width="18" stroke-linecap="round" pathLength="100" stroke-dasharray="${v} 100" class="medidor-arco" style="--v:${v}"></path>` : ""}
     <text x="100" y="92" text-anchor="middle" font-size="34" font-weight="700" fill="#1F3A5F">${v}%</text>
     <text x="100" y="112" text-anchor="middle" font-size="11" fill="#52667C">${escapeHtml(opts.rotulo || "")}</text>
     <text x="20" y="120" text-anchor="middle" font-size="9" fill="#8496A8">0%</text>
@@ -3650,6 +3650,8 @@ const SEM_BRANCO_CSS = `
   /* gráficos e rosquinhas um pouco mais compactos: cabem mais blocos por página */
   .chart-svg, .gbox .histograma-chart, .gbox-largo .chart-svg { max-height: 27mm !important; }
   .donut-svg { width: 48pt !important; height: 48pt !important; }
+  /* histograma da ficha: altura suficiente para os números e rótulos ficarem legíveis no papel */
+  .gbox-hist .chart-svg, .gbox-hist .histograma-chart { max-height: 52mm !important; }
 `;
 
 /* ---------------------------- CSS comum das folhas impressas ----------------------------
@@ -3674,6 +3676,7 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   .resumo-print .resumo-cols > div:has(.pareto-chart), .resumo-print .resumo-cols > div:has(.histograma-chart), .resumo-print .resumo-cols > div:has(.medidor-wrap), .resumo-print .resumo-cols-donut > div:only-child { column-span: all; }
   .resumo-print .kpi-grid, .resumo-print .kpi-grid-sec { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   .resumo-print .kpi-grid-hero { grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)) !important; }
+  .resumo-print .kpi-grid-sec .kpi-card:last-child:nth-child(3n+1) { grid-column: 1 / -1 !important; }
   .resumo-print .kpi-grid-hero .kpi-label { font-size: 8.5pt !important; }
   /* Resumo dos concluídos: o bloco inteiro cabe na mesma folha sempre que possível; gráficos de largura total */
   .resumo-print .resumo-concluidos { break-inside: auto !important; page-break-inside: auto !important; }
@@ -3773,6 +3776,8 @@ const PRINT_COMMON_CSS = `
   .chart-svg { max-width: calc(var(--w, 9999px) * 1.5) !important; max-height: 95mm; margin: 0 auto; }
   .resumo-secao { break-inside: auto !important; page-break-inside: auto !important; }
   @media print { body { background: #fff !important; } }
+  /* Controles da tela (botão "Baixar imagem" dos gráficos, tooltip) nunca saem no papel */
+  .chart-baixar, .chart-tip { display: none !important; }
 `;
 
 /* ---------------------------- Padrão ABNT para as folhas impressas ----------------------------
@@ -3881,6 +3886,7 @@ const ABNT_PRINT_CSS = `
 
   /* ===== Menos espaço em branco: rótulo na mesma linha do valor, margens e preenchimentos mínimos ===== */
   .label, .id-grid .k, .lbl { display: inline !important; margin: 0 4pt 0 0 !important; }
+  .capa-ficha .lbl:not(:first-child) { margin-left: 10pt !important; }
   .label::after, .id-grid .k::after { content: ":"; }
   .id-grid .v, .field .v { display: inline !important; }
   .field { margin: 0 !important; }
@@ -4415,6 +4421,7 @@ function imprimirResumoMensal(geral, grupos, contexto) {
           <li>Evolução mensal (entradas e saídas)</li>
           <li>Volume e perfil das famílias no mês de referência (RMA)</li>
           <li>Relação das famílias em acompanhamento (dados individuais)</li>
+          <li>Famílias que desistiram (desistências registradas)</li>
         </ul>
       </div>
 
@@ -6245,7 +6252,7 @@ function graficosFamiliaBlocosHTML(paf) {
       ${r.totalAtendimentos ? `
       <div class="resumo-cols">
         <div><strong>Atendimentos por tipo</strong>${donutChartSVG(r.porAtendimentoTipo, { centro: "atend." })}</div>
-        <div><strong>Atendimentos por mês</strong>${barrasHTML(r.porAtendimentoMes)}</div>
+        <div class="resumo-col-larga"><strong>Atendimentos por mês</strong>${atendimentosMesTelaSVG(paf)}</div>
         <div><strong>Encaminhamentos por área</strong>${barrasHTML(r.porEncArea)}</div>
       </div>` : `
       <div class="resumo-cols">
@@ -6303,6 +6310,69 @@ function graficoRendaPrintHTML(paf) {
 }
 
 // Atendimentos mês a mês (inclui meses sem atendimento), empilhados por tipo.
+// Atendimentos por mês (TELA): colunas em ordem cronológica, empilhadas por tipo, com meses sem
+// atendimento visíveis (zero), média mensal, tooltip e animação. A versão de impressão fica abaixo.
+function atendimentosMesTelaSVG(paf) {
+  const ats = (paf.atendimentos || []).filter(a => a.data).map(a => ({ ym: String(a.data).slice(0, 7), tipo: TIPO_ATENDIMENTO_COR[a.tipo] ? a.tipo : "Outro" }));
+  if (!ats.length) return `<p class="muted chart-vazio">Nenhum atendimento registrado ainda.</p>`;
+  const ini = (paf.dataInicial || "").slice(0, 7);
+  const yms = ats.map(a => a.ym).sort();
+  const ymA = ini && ini < yms[0] ? ini : yms[0];
+  const hoje = todayISO().slice(0, 7);
+  const ymB = hoje > yms[yms.length - 1] ? hoje : yms[yms.length - 1];
+  const meses = [];
+  let [y, m] = ymA.split("-").map(Number);
+  const [yb, mb] = ymB.split("-").map(Number);
+  while (y < yb || (y === yb && m <= mb)) { meses.push(y + "-" + String(m).padStart(2, "0")); if (++m > 12) { m = 1; y++; } }
+  const visiveis = meses.slice(-12);
+  const tipos = Object.keys(TIPO_ATENDIMENTO_COR).filter(t => ats.some(a => a.tipo === t));
+  const cont = {};
+  visiveis.forEach(ym => { cont[ym] = {}; });
+  ats.forEach(a => { if (cont[a.ym]) cont[a.ym][a.tipo] = (cont[a.ym][a.tipo] || 0) + 1; });
+  const totais = visiveis.map(ym => tipos.reduce((acc, t) => acc + (cont[ym][t] || 0), 0));
+  const totalJanela = totais.reduce((a, b) => a + b, 0);
+  const eixo = eixoY(Math.max(...totais, 1));
+  const colW = 48, padT = 22, chartH = 128, padB = 30, padR = 12;
+  const padL = margemEixoNum(eixo.topo);
+  const width = padL + visiveis.length * colW + padR;
+  const height = chartH + padT + padB;
+  const xFim = width - padR;
+  const media = totalJanela / visiveis.length;
+  const yMedia = padT + chartH - (media / eixo.topo) * chartH;
+  const picoN = Math.max(...totais);
+  const plural = (n) => n === 1 ? "atendimento" : "atendimentos";
+
+  const colunas = visiveis.map((ym, i) => {
+    const x0 = padL + i * colW, bw = colW - 18, x = x0 + 9, xc = x0 + colW / 2;
+    const mes = labelYmCurto(ym);
+    let base = padT + chartH;
+    let partes = "";
+    tipos.forEach(t => {
+      const n = cont[ym][t] || 0;
+      if (!n) return;
+      const h = Math.max((n / eixo.topo) * chartH, 2);
+      base -= h;
+      partes += `<rect x="${x}" y="${base.toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" fill="${TIPO_ATENDIMENTO_COR[t]}" stroke="var(--paper,#fff)" stroke-width="1" class="hist-bar" tabindex="0"><title>${mes} — ${escapeHtml(t)}: ${n}</title></rect>`;
+    });
+    const topo = totais[i]
+      ? `<text x="${xc}" y="${base - 5}" text-anchor="middle" class="hist-bar-num">${totais[i]}</text>`
+      : `<rect x="${x}" y="${padT + chartH - 2}" width="${bw}" height="2" rx="1" fill="var(--ink-faint,#8496A8)" opacity=".3"></rect>`;
+    const pico = totais[i] === picoN && picoN > 0 ? ` font-weight="700"` : "";
+    return `<g>${partes}${topo}<text x="${xc}" y="${padT + chartH + 16}" text-anchor="middle" class="chart-bar-mes"${pico}>${mes}</text></g>`;
+  }).join("");
+
+  const legenda = `<div class="chart-legend-inline">${tipos.map(t => `<span><i style="background:${TIPO_ATENDIMENTO_COR[t]}"></i> ${escapeHtml(t)}</span>`).join("")}<span><i class="lg-linha" style="background:var(--gold,#B98A34)"></i> Média mensal</span></div>`;
+  const iPico = totais.indexOf(picoN);
+  const leitura = `Total na janela: <b>${totalJanela}</b> ${plural(totalJanela)} · média de <b>${fmtDecimalBR(media)}</b> por mês`
+    + (picoN > 0 ? ` · pico em <b>${labelYmCurto(visiveis[iPico])}</b> (${picoN}).` : ".");
+  const nota = meses.length > visiveis.length ? `<p class="hint chart-nota">Mostrando os últimos ${visiveis.length} meses de ${meses.length}.</p>` : "";
+  return legenda + svgGrafico(width, height, "histograma-chart atend-mes-chart", "Atendimentos por mês, empilhados por tipo", `
+    ${gradeEixoY(eixo, padL, xFim, padT, chartH)}
+    ${colunas}
+    <line x1="${padL}" y1="${yMedia}" x2="${xFim}" y2="${yMedia}" stroke="var(--gold,#B98A34)" stroke-width="1.5" stroke-dasharray="5 3"><title>Média mensal: ${fmtDecimalBR(media)}</title></line>`)
+    + `<div class="chart-insight">${leitura}</div>` + nota;
+}
+
 function graficoAtendimentosMesPrintHTML(paf) {
   const ats = (paf.atendimentos || []).filter(a => a.data).map(a => ({ ym: String(a.data).slice(0, 7), tipo: TIPO_ATENDIMENTO_COR[a.tipo] ? a.tipo : "Outro" }));
   if (!ats.length) return `<p class="muted chart-vazio">Nenhum atendimento registrado ainda.</p>`;
@@ -8875,8 +8945,6 @@ function imprimirEncaminhamento(paf, enc) {
     <head>
       <meta charset="UTF-8">
       <title>Formulário de Encaminhamento - ${escapeHtml(paf.responsavel)}</title>
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
         ${PRINT_COMMON_CSS}
         * { box-sizing: border-box; }
