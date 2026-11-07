@@ -1,10 +1,10 @@
-const CACHE_NAME = 'paf-paif-v126';
+const CACHE_NAME = 'paf-paif-v127';
 
 // Arquivos "essenciais" do app: sempre tentamos buscar a versão mais nova na rede
 // primeiro, e só usamos o cache se o dispositivo estiver offline. Isso garante que
 // qualquer alteração publicada apareça automaticamente, sem precisar trocar o número
 // de versão do cache manualmente.
-const CORE_ASSETS = ['./', './index.html', './styles.css', './produtividade.css', './produtividade.js', './app.js', './historico.js', './notas.js', './firebase-config.js', './paulus.v1.js', './paulus-consulta.js', './paulus-umbrella.js', './print-runtime.js'];
+const CORE_ASSETS = ['./', './index.html', './styles.css', './produtividade.css', './produtividade.js', './app.js', './historico.js', './notas.js', './firebase-config.js', './paulus.v1.js', './paulus-consulta.js', './paulus-umbrella.js', './print-runtime.js', './corretor.js'];
 
 // Arquivos estáticos que raramente mudam (ícones, manifesto): cache primeiro,
 // com fallback para a rede.
@@ -51,6 +51,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = new URL(request.url);
+
+  // Dicionário do corretor (≈5 MB): o próprio corretor o guarda no cache do navegador; não passa pelo cache do app.
+  if (url.origin === self.location.origin && url.pathname.includes('/spell/')) return;
 
   if (isCoreRequest(url)) {
     // Network-first: busca sempre a versão mais recente; cai para o cache só se offline.
