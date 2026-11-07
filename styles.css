@@ -3367,3 +3367,20 @@ html { scrollbar-width: thin; scrollbar-color: var(--ink-faint) transparent; }
 
 /* Seleções de texto e legendas com mais contraste */
 ::selection { background: var(--accent-soft); color: var(--ink); }
+
+
+/* ---- Gráficos: acabamento (atendimentos por mês, roscas, medidor) ---- */
+.resumo-cols > .resumo-col-larga { grid-column: 1 / -1; }
+.atend-mes-chart .hist-bar { stroke-linejoin: round; }
+.chart-bar-mes[font-weight="700"] { fill: var(--ink); }
+@keyframes medidor-varre { from { stroke-dasharray: 0 100; } to { stroke-dasharray: var(--v, 0) 100; } }
+.medidor-arco { animation: medidor-varre .9s cubic-bezier(.2,.8,.2,1) both; }
+.donut-arc { animation: chart-aparece .5s ease-out backwards; }
+.donut-svg g .donut-arc:nth-child(2) { animation-delay: .07s; }
+.donut-svg g .donut-arc:nth-child(3) { animation-delay: .14s; }
+.donut-svg g .donut-arc:nth-child(4) { animation-delay: .21s; }
+.donut-svg g .donut-arc:nth-child(5) { animation-delay: .28s; }
+.donut-svg g .donut-arc:nth-child(6) { animation-delay: .35s; }
+.donut-svg g .donut-arc:nth-child(7) { animation-delay: .42s; }
+@media (prefers-reduced-motion: reduce) { .medidor-arco, .donut-arc { animation: none !important; } }
+@media print { .medidor-arco, .donut-arc { animation: none !important; } }
