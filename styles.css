@@ -3402,3 +3402,90 @@ html { scrollbar-width: thin; scrollbar-color: var(--ink-faint) transparent; }
 .ac-it.ac-b { font-weight: 700; }
 .ac-it.ac-dis, .ac-it:disabled { opacity: 0.6; cursor: default; background: transparent; }
 .ac-sep { height: 1px; margin: 3px 4px; background: var(--line); }
+
+/* ===================== Refinos de design (v3) =====================
+   Camada final: mantém a identidade (azul, verde, dourado, creme) e ajusta hierarquia, ritmo e consistência. */
+
+/* Números alinhados e legíveis em cartões, tabelas e listas */
+.stat-value, .kpi-valor, .record-row, .resumo-tabela, .record-ultimo { font-variant-numeric: tabular-nums lining-nums; }
+body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+/* Cartões da home: o número manda, o rótulo apoia */
+.home-stats-grid .stat-card { padding: 14px 16px; gap: 12px; }
+.home-stats-grid .stat-value { font-size: 30px; font-weight: 700; letter-spacing: -.01em; }
+.home-stats-grid .stat-label { font-size: var(--text-xs); text-transform: none; letter-spacing: .01em; font-weight: 600; color: var(--ink-soft); }
+.home-stats-grid .stat-card:hover { transform: translateY(-2px); }
+@media (max-width: 900px) { .home-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Título da tela e ações: mais respiro */
+.home-head { margin-bottom: 18px; }
+.home-head h1 { letter-spacing: -.01em; }
+
+/* Lista de registros: leitura em duas camadas (nome em destaque, detalhes discretos) */
+.record-row { transition: background .15s ease; }
+.record-row:hover { background: color-mix(in srgb, var(--accent-soft) 55%, var(--paper)); box-shadow: none; }
+.record-row::before { width: 3px; }
+.record-row .record-ultimo.alerta { color: var(--gold-dark); font-weight: 600; }
+.record-row .record-ultimo.alerta::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--gold); vertical-align: 1px; }
+.record-row .btn { min-height: 34px; }
+
+/* Bloco "Resumo da equipe" recolhido: discreto, sem competir com o título */
+.apoio-mobile { border: 1px solid var(--line); background: transparent; box-shadow: none; border-radius: var(--radius); }
+.apoio-mobile > summary { font-size: var(--text-sm); color: var(--ink-soft); font-weight: 600; padding: 9px 14px; }
+.apoio-mobile[open] { background: var(--paper); box-shadow: var(--shadow-sm); }
+
+/* Formulários: foco claro e campos com mesma linguagem */
+.f input, .f select, .f textarea { border-radius: var(--radius-sm); transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+.f input:hover, .f select:hover, .f textarea:hover { border-color: color-mix(in srgb, var(--ink-faint) 55%, var(--line)); }
+.f input:focus-visible, .f select:focus-visible, .f textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,125,107,.18); }
+.f label { color: var(--ink-soft); font-weight: 600; letter-spacing: .005em; }
+
+/* Barra inferior do editor: separa do conteúdo sem pesar */
+.footer-bar { background: color-mix(in srgb, var(--paper) 94%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 -6px 18px rgba(31,58,95,.07); }
+
+/* Mascote: não cobre a barra de salvar nem o conteúdo; o balão some sozinho depois de lido */
+body:has(.footer-bar) .mascote-wrap { bottom: 84px; }
+.mascote-bubble.show { animation: umb-balao-sai .5s ease 9s forwards; }
+@keyframes umb-balao-sai { to { opacity: 0; transform: translateY(6px) scale(.97); pointer-events: none; } }
+@media (prefers-reduced-motion: reduce) { .mascote-bubble.show { animation: none; } }
+
+/* Botões: peso e altura consistentes */
+.btn { font-weight: 700; letter-spacing: .005em; }
+.btn-ghost:hover:not(:disabled) { background: var(--paper-soft); border-color: color-mix(in srgb, var(--ink-faint) 50%, var(--line)); }
+.btn-primary { box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 4px 10px rgba(46,125,107,.22); }
+.btn-primary:hover:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 14px rgba(46,125,107,.3); }
+
+/* Foco por teclado visível em tudo que é clicável */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible, summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 70%, #fff); outline-offset: 2px; }
+
+/* Barra de rolagem e seleção no mesmo tom do app */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ink-faint) 45%, transparent) transparent; }
+@media print { body:has(.footer-bar) .mascote-wrap { display: none; } }
+
+/* ===================== Tela de login (v3) ===================== */
+/* Painel da marca: o guarda-chuva é a figura central; os ícones laterais repetiam os pilares logo abaixo */
+.login-scene-side { display: none; }
+.login-card-band .login-scene { gap: 0; }
+.login-eyebrow { letter-spacing: .14em; }
+.login-card h1 { text-wrap: balance; letter-spacing: -.005em; }
+
+/* Fundo: guarda-chuvas mais discretos para não competirem com o cartão */
+.umbrella-sky { opacity: .5; }
+
+/* Formulário: campos e botão com a mesma altura, foco claro, leitura alinhada à esquerda */
+.login-card .f input { min-height: 46px; }
+.login-card .f input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,125,107,.2); }
+.login-card .btn-primary { min-height: 48px; font-size: var(--text-md); }
+.login-lembrar { color: var(--ink-soft); }
+.login-card p.login-hint { font-size: var(--text-sm); color: var(--ink-soft); line-height: 1.5; }
+.login-card p.login-sigilo { font-size: var(--text-xs); line-height: 1.45; color: var(--ink-soft); }
+.login-error, .login-offline { font-size: var(--text-sm); line-height: 1.45; }
+.login-forgot { padding: 4px 0; }
+
+@media (max-width: 899px) {
+  .login-card-body { text-align: left; }
+  .login-bemvindo, .login-card p.sub, .login-card p.login-hint { text-align: left; }
+  .login-card p.login-sigilo { text-align: left; justify-content: flex-start; font-size: var(--text-xs); }
+  .login-bemvindo { margin-bottom: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { .umbrella-sky * { animation: none !important; } }
