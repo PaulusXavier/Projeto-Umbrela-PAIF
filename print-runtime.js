@@ -7,8 +7,8 @@
    2) clona a tabela-casca do documento para um contêiner de colunas com a largura e a altura exatas da área útil
       da folha, onde cada coluna equivale a uma página impressa; a coluna em que cada título cai é a sua página;
    3) escreve o sumário (com links internos) e os números. Se algo falhar, o sumário sai sem números. */
-function sumarioPafNaJanela(cfg) {
-  var doc = document;
+function sumarioPafNaJanela(cfg, docAlvo) {
+  var doc = docAlvo || document;   // docAlvo: quando chamada pela janela principal, mede o documento da janela de impressão
   var corpo = doc.getElementById("corpo-paf");
   var lista = doc.getElementById("sumarioLista");
   if (!corpo || !lista) return { ok: false, motivo: "sem corpo" };
@@ -153,7 +153,9 @@ function sumarioPafNaJanela(cfg) {
   return { ok: algum, itens: itens.length };
 }
 
-(function () {
+// Só roda dentro da janela de impressão (onde existe #umb-pdfs). Na janela principal o arquivo é carregado apenas
+// para expor sumarioPafNaJanela como plano B (ver exportPDFInterno em app.js).
+if (document.getElementById("umb-pdfs")) (function () {
           var RUNTIME_SRC = document.currentScript ? document.currentScript.src : location.href;
           var PDFS = JSON.parse(document.getElementById("umb-pdfs").textContent || "[]");
           var jaImprimiu = false;
