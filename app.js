@@ -2549,7 +2549,7 @@ function svgGrafico(largura, altura, classe, rotulo, conteudo) {
 function gradeEixoY(eixo, padL, xFim, padT, chartH, estiloNum) {
   return eixo.marcas.map((valor, i) => {
     const y = padT + chartH - (valor / eixo.topo) * chartH;
-    return `<line x1="${padL}" y1="${y}" x2="${xFim}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1"${i === 0 ? "" : ` stroke-dasharray="2 3"`} opacity="${i === 0 ? 1 : .8}"></line>
+    return `<line class="grade-y${i === 0 ? " grade-base" : ""}" x1="${padL}" y1="${y}" x2="${xFim}" y2="${y}" stroke="var(--line,#d7dee4)" stroke-width="1"${i === 0 ? "" : ` stroke-dasharray="2 3"`} opacity="${i === 0 ? 1 : .8}"></line>
       <text x="${padL - 6}" y="${y + 3}" text-anchor="end" class="${estiloNum || "hist-eixo-num"}">${valor}</text>`;
   }).join("");
 }
@@ -2749,7 +2749,7 @@ function histogramaSVG(obj, opts) {
   opts = opts || {};
   const ordem = opts.ordem || Object.keys(obj);
   const rotulos = opts.rotulos || {};
-  const entradas = ordem.map((k) => [k, obj[k] || 0]).filter(([, v]) => v > 0 || !opts.ocultarZerados);
+  const entradas = ordem.map((k) => [k, obj[k] || 0]).filter(([k, v]) => v > 0 || (!opts.ocultarZerados && k !== "Não informada"));
   const total = entradas.reduce((a, [, v]) => a + v, 0);
   if (!total) return semDadosHTML();
 
@@ -2903,9 +2903,9 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
     const plural = (n, a, b) => n === 1 ? a : b;
     return `
       <g>
-        <path d="${barraArredondadaPath(xI, yInc, barW, hInc, 3)}" fill="var(--accent, #2E7D6B)" class="evo-bar" tabindex="0"><title>${mes}: ${v.inc} ${plural(v.inc, "incluída", "incluídas")}</title></path>
-        <path d="${barraArredondadaPath(xC, yCon, barW, hCon, 3)}" fill="${COR_CONCLUIDO}" class="evo-bar" tabindex="0"><title>${mes}: ${v.con} ${plural(v.con, "concluída", "concluídas")}</title></path>
-        <path d="${barraArredondadaPath(xD, yDes, barW, hDes, 3)}" fill="var(--danger, #B5473F)" class="evo-bar" tabindex="0"><title>${mes}: ${v.des} ${plural(v.des, "desistência", "desistências")}</title></path>
+        <path d="${barraArredondadaPath(xI, yInc, barW, hInc, 3)}" fill="var(--accent, #2E7D6B)" class="evo-bar evo-inc" tabindex="0"><title>${mes}: ${v.inc} ${plural(v.inc, "incluída", "incluídas")}</title></path>
+        <path d="${barraArredondadaPath(xC, yCon, barW, hCon, 3)}" fill="${COR_CONCLUIDO}" class="evo-bar evo-con" tabindex="0"><title>${mes}: ${v.con} ${plural(v.con, "concluída", "concluídas")}</title></path>
+        <path d="${barraArredondadaPath(xD, yDes, barW, hDes, 3)}" fill="var(--danger, #B5473F)" class="evo-bar evo-des" tabindex="0"><title>${mes}: ${v.des} ${plural(v.des, "desistência", "desistências")}</title></path>
         ${v.inc ? `<text x="${xI + barW / 2}" y="${yInc - 4}" text-anchor="middle" class="chart-bar-num">${v.inc}</text>` : ""}
         ${v.con ? `<text x="${xC + barW / 2}" y="${yCon - 4}" text-anchor="middle" class="chart-bar-num">${v.con}</text>` : ""}
         ${v.des ? `<text x="${xD + barW / 2}" y="${yDes - 4}" text-anchor="middle" class="chart-bar-num">${v.des}</text>` : ""}
@@ -2923,12 +2923,16 @@ function evolucaoBarChartSVG(linhasCrescentes, grupos, saidas, opts) {
 
   return `
     <div class="chart-legend-inline">
-      <span><i style="background:var(--accent, #2E7D6B)"></i> Incluídas</span>
-      <span><i style="background:${COR_CONCLUIDO}"></i> Concluídas</span>
-      <span><i style="background:var(--danger, #B5473F)"></i> Desistências</span>
+      <span><i class="lg-inc" style="background:var(--accent, #2E7D6B)"></i> Incluídas</span>
+      <span><i class="lg-con" style="background:${COR_CONCLUIDO}"></i> Concluídas</span>
+      <span><i class="lg-des" style="background:var(--danger, #B5473F)"></i> Desistências</span>
       <span><i class="lg-linha" style="background:var(--gold, #B98A34)"></i> Saldo acumulado (eixo à direita)</span>
       <span class="lg-texto">Número sob o mês = saldo do mês</span>
     </div>` + svgGrafico(width, height, "evolucao-chart", "Evolução mensal de famílias incluídas, concluídas e desistentes, com saldo acumulado", `
+      <defs>
+        <pattern id="pat-con" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#fff"/><rect width="2.4" height="5" fill="#000"/></pattern>
+        <pattern id="pat-des" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#fff"/><circle cx="2" cy="2" r="1" fill="#000"/></pattern>
+      </defs>
       ${gradeEixoY(eixo, padL, xFim, padT, chartH)}
       ${linhaZero}
       ${eixoDir}
@@ -3640,6 +3644,8 @@ const PAGINA_PDF_MM = { larg: 210, alt: 297, topo: 10, dir: 15, base: 16, esq: 2
 const SEM_BRANCO_CSS = `
   @page { margin: ${PAGINA_PDF_MM.topo}mm ${PAGINA_PDF_MM.dir}mm ${PAGINA_PDF_MM.base}mm ${PAGINA_PDF_MM.esq}mm; }
   .tags-wrap:empty, .grid:empty, .anotacao:empty, p:empty { display: none !important; }
+  /* folga de 2px à direita: sem ela, a borda direita de caixas e tabelas ficava no limite da folha e era cortada na impressão */
+  .print-shell > tbody > tr > td { padding-right: 2px !important; }
   .sum-boxes, .sum-cols, .lei-cols, .g-par, .fam-graf, .resumo-cols, .resumo-cols-donut, .grid { align-items: start !important; }
   .sintese-fam .sum-box .s { min-height: 0 !important; }
   .sum-box, .gbox, .resumo-cols > div, .sum-cols > div, .lei-cols > div, .chart-box { height: auto !important; min-height: 0 !important; }
@@ -3665,6 +3671,53 @@ const SEM_BRANCO_CSS = `
 /* Folha do Resumo Estatístico: gráficos legíveis no papel. Entra DEPOIS de SEM_BRANCO_CSS (que limitava cada gráfico a ~27 mm de altura
    e fazia o histograma e o Pareto encolherem até o texto ficar ilegível). Vale só para body.resumo-print — a ficha individual não muda. */
 const RESUMO_PRINT_GRAFICOS_CSS = `
+  /* ---- Gráficos para papel (v2): legíveis em preto e branco ---- */
+  .resumo-print .chart-svg .grade-y { stroke: #9a9a9a !important; stroke-width: .6px !important; }
+  .resumo-print .chart-svg .grade-base { stroke: #000 !important; stroke-width: 1px !important; }
+  .resumo-print .chart-svg .hist-eixo-num, .resumo-print .chart-svg .pareto-eixo-dir { fill: #222 !important; }
+  .resumo-print .chart-svg .hist-bar-pct, .resumo-print .chart-svg .chart-bar-mes { fill: #222 !important; }
+  .resumo-print .chart-svg .pareto-bar-label, .resumo-print .chart-svg .hist-bar-label { fill: #000 !important; }
+  .resumo-print .chart-svg .hist-bar, .resumo-print .chart-svg .pareto-bar { stroke: #000; stroke-width: .6px; }
+  .resumo-print .chart-svg .evo-bar { stroke: #000; stroke-width: .7px; }
+  .resumo-print .chart-svg .evo-inc { fill: #2b2b2b !important; }
+  .resumo-print .chart-svg .evo-con { fill: url(#pat-con) !important; }
+  .resumo-print .chart-svg .evo-des { fill: url(#pat-des) !important; }
+  .resumo-print .chart-svg .chart-linha { stroke: #000 !important; stroke-width: 1.8px !important; }
+  .resumo-print .chart-svg .pareto-ponto { fill: #fff !important; stroke: #000 !important; stroke-width: 1.6px !important; }
+  .resumo-print .chart-svg line[stroke="#B0959C"] { stroke: #000 !important; }
+  .resumo-print .chart-svg line[stroke-dasharray="5 3"] { stroke: #000 !important; }
+  .resumo-print .chart-legend-inline i.lg-inc { background: #2b2b2b !important; }
+  .resumo-print .chart-legend-inline i.lg-con { background: repeating-linear-gradient(45deg, #000 0 1.2pt, #fff 1.2pt 2.4pt) !important; }
+  .resumo-print .chart-legend-inline i.lg-des { background: radial-gradient(#000 35%, #fff 40%) 0 0 / 3pt 3pt !important; }
+  .resumo-print .chart-legend-inline i.lg-linha { background: #000 !important; }
+  .resumo-print .chart-legend-inline i { width: 9pt !important; height: 9pt !important; border: .8pt solid #000; }
+  .resumo-print .chart-legend-inline i.lg-linha { height: 2pt !important; border: 0; }
+  .resumo-print .chart-legend-inline { font-size: 9.5pt !important; }
+  .resumo-print .conclusoes-chart .hist-bar, .resumo-print .pareto-bar, .resumo-print .histograma-chart .hist-bar { fill: #2b2b2b !important; }
+  .resumo-print .chart-svg .hist-bar-num, .resumo-print .chart-svg .chart-bar-num { paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+  .resumo-print .donut-arc { stroke-width: 24 !important; }
+  .resumo-print .donut-svg .donut-arc[data-i="0"] { stroke: #1c1c1c !important; }
+  .resumo-print .donut-legend-item[data-i="0"] .donut-legend-dot { background: #1c1c1c !important; }
+  .resumo-print .donut-svg .donut-arc[data-i="1"] { stroke: #6e6e6e !important; }
+  .resumo-print .donut-legend-item[data-i="1"] .donut-legend-dot { background: #6e6e6e !important; }
+  .resumo-print .donut-svg .donut-arc[data-i="2"] { stroke: #a8a8a8 !important; }
+  .resumo-print .donut-legend-item[data-i="2"] .donut-legend-dot { background: #a8a8a8 !important; }
+  .resumo-print .donut-svg .donut-arc[data-i="3"] { stroke: #d4d4d4 !important; }
+  .resumo-print .donut-legend-item[data-i="3"] .donut-legend-dot { background: #d4d4d4 !important; }
+  .resumo-print .donut-svg .donut-arc[data-i="4"] { stroke: #4a4a4a !important; }
+  .resumo-print .donut-legend-item[data-i="4"] .donut-legend-dot { background: #4a4a4a !important; }
+  .resumo-print .donut-svg .donut-arc[data-i="5"] { stroke: #8c8c8c !important; }
+  .resumo-print .donut-legend-item[data-i="5"] .donut-legend-dot { background: #8c8c8c !important; }
+  .resumo-print .donut-svg .donut-arc[data-i="6"] { stroke: #bdbdbd !important; }
+  .resumo-print .donut-legend-item[data-i="6"] .donut-legend-dot { background: #bdbdbd !important; }
+  .resumo-print .donut-legend-dot { width: 8pt !important; height: 8pt !important; border: .6pt solid #000; }
+  .resumo-print .chart-svg { max-height: 72mm; }
+  .resumo-print .pareto-chart { max-height: 47mm !important; }
+  .resumo-print .evolucao-chart { max-height: 85mm !important; }
+  .resumo-print .histograma-chart:not(.conclusoes-chart) { max-height: 62mm !important; }
+  .resumo-print .hist-bar-label, .resumo-print .hist-bar-num, .resumo-print .pareto-bar-label { font-size: 11px !important; }
+  .resumo-print .hist-eixo-num, .resumo-print .hist-bar-pct, .resumo-print .pareto-eixo-dir, .resumo-print .pareto-pct-num { font-size: 10px !important; }
+  .resumo-print .chart-bar-num, .resumo-print .chart-bar-mes, .resumo-print .chart-bar-saldo { font-size: 11px !important; }
   .resumo-print .chart-svg { max-height: none !important; width: 100% !important; max-width: calc(var(--w, 700px) * 1.35) !important; margin: 0 auto !important; }
   .resumo-print .resumo-cols > div:has(.pareto-chart), .resumo-print .resumo-cols > div:has(.histograma-chart) { grid-column: 1 / -1 !important; }
   .resumo-print .resumo-cols > div:has(.pareto-chart), .resumo-print .resumo-cols > div:has(.histograma-chart) { break-inside: avoid !important; page-break-inside: avoid !important; }
@@ -3685,7 +3738,6 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   .resumo-print .resumo-concluidos .chart-svg { max-height: 58mm !important; }
   .resumo-print .resumo-concluidos .histograma-chart:not(.conclusoes-chart) { max-height: 50mm !important; }
   /* Pareto: altura limitada para que os dois gráficos da seção caibam juntos na mesma folha */
-  .resumo-print .pareto-chart { max-height: 78mm !important; }
   .resumo-print .resumo-concluidos .kpi-grid-concl { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; margin-bottom: 6pt !important; }
   .resumo-print .resumo-concluidos .kpi-valor { font-size: 14pt !important; }
   .resumo-print .resumo-concluidos .kpi-label { font-size: 8.5pt !important; }
@@ -3695,7 +3747,7 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   .resumo-print .concl-ultimas { break-inside: avoid !important; margin-top: 6pt !important; }
   .resumo-print .concl-ultimas > strong { display: block; margin-bottom: 3pt; }
   .resumo-print .pareto-pill { stroke: #000 !important; stroke-width: .6px !important; }
-  .resumo-print .pareto-pct-num { stroke: none !important; font-size: 8.5px !important; fill: #000 !important; }
+  .resumo-print .pareto-pct-num { stroke: none !important; fill: #000 !important; }
   .resumo-print .chart-legend-inline i { border: 1px solid #000; }
   /* RMA: A.1 e A.2 em duas colunas de largura total e o bloco inteiro na mesma página (a nota não se parte entre folhas) */
   .resumo-print .kpi-grid-rma { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -3713,13 +3765,8 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   .resumo-print .donut-legend { min-width: 0 !important; }
   .resumo-print .donut-legend-linear { flex-wrap: wrap !important; }
   .resumo-print .medidor-svg { width: 150pt !important; }
-  .resumo-print .pareto-bar-label { font-size: 10px !important; fill: #000 !important; }
   .resumo-print .pareto-chart, .resumo-print .histograma-chart, .resumo-print .evolucao-chart { max-width: 100% !important; }
-  .resumo-print .chart-bar-num, .resumo-print .chart-bar-mes, .resumo-print .chart-bar-saldo { font-size: 10px !important; }
-  .resumo-print .pareto-chart { max-height: 60mm !important; }
-  .resumo-print .histograma-chart:not(.conclusoes-chart) { max-height: 50mm !important; }
   .resumo-print .resumo-secao > h4 + .hint, .resumo-print .resumo-secao > h4 + p { break-after: avoid !important; page-break-after: avoid !important; }
-  .resumo-print .evolucao-chart { max-height: 80mm !important; }
   /* cartões de indicador: número em destaque e rótulo embaixo (o padrão ABNT os deixava numa linha só) */
   .resumo-print .kpi-card { display: block !important; text-align: center !important; padding: 5pt 4pt !important; border: .6pt solid #000 !important; border-top: 2.2pt solid #000 !important; background: #fff !important; }
   .resumo-print .kpi-valor { display: block !important; font-size: 16pt !important; font-weight: bold !important; line-height: 1.15 !important; }
@@ -3745,8 +3792,6 @@ const RESUMO_PRINT_GRAFICOS_CSS = `
   .resumo-print .donut-svg { width: 74pt !important; height: 74pt !important; }
   /* ABNT: fonte abaixo de cada ilustração */
   .resumo-print .resumo-cols > div:has(.chart-svg)::after, .resumo-print .chart-box::after { display: block; content: "Fonte: registros do Umbrela (PAF/PAIF), CRAS Cristiana Vicente Nunes."; font-size: 8pt; margin-top: 3pt; text-align: left; }
-  .resumo-print .hist-bar-label, .resumo-print .hist-bar-num { font-size: 10px !important; }
-  .resumo-print .hist-eixo-num, .resumo-print .hist-bar-pct, .resumo-print .pareto-eixo-dir, .resumo-print .pareto-pct-num { font-size: 9px !important; }
   .resumo-print .chart-legend-inline { gap: 10pt !important; flex-wrap: wrap; }
   .resumo-print .pilha-barra { display: flex; height: 15pt; border: 1px solid #000; overflow: hidden; }
   .resumo-print .pilha-seg { display: flex; align-items: center; justify-content: center; min-width: 0; color: #fff !important; font-size: 9pt !important; font-weight: bold !important; border-right: 1px solid #fff; }
@@ -9442,6 +9487,8 @@ window.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("keydown", (e) => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
   if ((e.key || "").toLowerCase() !== "p") return;
+  const btnPainel = document.getElementById("dashboardImprimirBtn");
+  if (btnPainel && !btnPainel.disabled && state.view !== "editor") { e.preventDefault(); btnPainel.click(); return; } // painel de Gráficos: Ctrl+P abre o relatório
   if (state.view !== "editor" || !state.current) return;
   e.preventDefault();
   exportPDF(state.current);
