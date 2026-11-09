@@ -3658,6 +3658,13 @@ const SEM_BRANCO_CSS = `
   .donut-svg { width: 48pt !important; height: 48pt !important; }
   /* histograma da ficha: altura suficiente para os números e rótulos ficarem legíveis no papel */
   .gbox-hist .chart-svg, .gbox-hist .histograma-chart { max-height: 52mm !important; }
+  /* cartões pequenos, itens da linha do tempo e gráficos não se partem entre páginas; o título de cada meta fica com o 1º registro */
+  .sum-box, .gbox, .traj-item, .marco-item, .meta-notas li { break-inside: avoid !important; page-break-inside: avoid !important; }
+  .meta-topo { break-after: avoid !important; page-break-after: avoid !important; }
+  img, canvas, svg { break-inside: avoid; }
+  li { orphans: 2; widows: 2; }
+  /* links (ex.: sumário, e-mails) saem como texto comum, sem sublinhado nem cor */
+  a[href] { color: inherit !important; text-decoration: none !important; }
 `;
 
 /* ---------------------------- CSS comum das folhas impressas ----------------------------
@@ -8972,6 +8979,36 @@ async function exportPDFInterno(paf) {
   printWin.document.close();
   // Nome sugerido ao salvar em PDF: "Nome do Responsável - Plano de Acompanhamento Familiar".
   try { printWin.document.title = nomeArquivoPAF(paf); } catch (e) { /* ignora */ }
+  // Plano B: se o script da janela de impressão (print-runtime.js) não rodou — bloqueado por CSP, rede, cache antigo —,
+  // o sumário ficaria vazio, os PDFs anexados não apareceriam e a impressão nem abriria. Aqui a janela principal
+  // coloca os PDFs em quadros, monta o sumário medindo o documento da janela de impressão e dispara a impressão.
+  // Só age se a função não existir lá (sem impressão dupla).
+  setTimeout(() => {
+    try {
+      if (printWin.closed || typeof printWin.sumarioPafNaJanela === "function") return;
+      const d = printWin.document;
+      let pdfs = [];
+      try { pdfs = JSON.parse(d.getElementById("umb-pdfs").textContent || "[]"); } catch (e) { pdfs = []; }
+      pdfs.forEach((p, i) => {
+        const alvo = d.getElementById("anexoPdfAlvo" + i);
+        if (!alvo || !p || !p.dataURL) return;
+        const bin = atob(String(p.dataURL).split(",")[1] || "");
+        const bytes = new Uint8Array(bin.length);
+        for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+        alvo.innerHTML = "";
+        const f = d.createElement("iframe");
+        f.className = "anexo-pdf-embed";
+        f.title = p.nome || "Anexo PDF";
+        f.src = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+        alvo.appendChild(f);
+      });
+      if (typeof sumarioPafNaJanela === "function") {
+        const cfgEl = d.getElementById("umb-cfg");
+        if (cfgEl) sumarioPafNaJanela(JSON.parse(cfgEl.textContent), d);
+      }
+      imprimirQuandoPronta(printWin, pdfs.length ? 1500 : 100);
+    } catch (e) { console.error("Plano B da impressão falhou:", e); }
+  }, 4000);
 }
 
 /* ---------------------------- Impressão: Formulário de Encaminhamento (modelo SUAS) ---------------------------- */
