@@ -2,6 +2,8 @@
   "name": "Umbrela - PAIF/PAF",
   "short_name": "Umbrela",
   "description": "Umbrela: painel do Plano de Acompanhamento Familiar (PAF) do Serviço de Proteção e Atendimento Integral à Família (PAIF), com sincronização entre dispositivos.",
+  "lang": "pt-BR",
+  "id": "./index.html",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
