@@ -5667,7 +5667,8 @@ function renderHomeHTML() {
           <div class="export-dropdown" id="exp-${p.id}" style="display:none">
             <button data-atender="${p.id}">+ Registrar atendimento</button>
             <button data-export-pdf="${p.id}">Baixar PDF</button>
-            <button data-export-word="${p.id}">Baixar Word (.doc)</button>
+            <button data-export-word="${p.id}">Baixar Word (.docx)</button>
+            <button data-export-formatos="${p.id}">Outros formatos…</button>
             <button class="danger" data-del="${p.id}">Excluir este PAF…</button>
           </div>
         </div>
@@ -5780,6 +5781,9 @@ function attachHomeHandlers() {
   });
   document.querySelectorAll("[data-export-pdf]").forEach(el => {
     el.addEventListener("click", (e) => { e.stopPropagation(); exportPDF(state.pafs.find(p => p.id === el.dataset.exportPdf)); });
+  });
+  document.querySelectorAll("[data-export-formatos]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); abrirModalFormatos(state.pafs.find(p => p.id === el.dataset.exportFormatos)); });
   });
   document.querySelectorAll("[data-export-word]").forEach(el => {
     el.addEventListener("click", (e) => { e.stopPropagation(); exportWord(state.pafs.find(p => p.id === el.dataset.exportWord)); });
@@ -6072,7 +6076,8 @@ function renderEditorHTML() {
   </div>
   <div class="footer-bar">
     <button class="btn btn-ghost" id="exportPdfBtn">Baixar PDF</button>
-    <button class="btn btn-ghost" id="exportWordBtn">Baixar Word (.doc)</button>
+    <button class="btn btn-ghost" id="exportWordBtn">Baixar Word (.docx)</button>
+    <button class="btn btn-ghost" id="exportFormatosBtn" title="PDF, Word, pacote .zip com anexos, texto e dados">Outros formatos…</button>
     <button class="btn btn-primary" id="saveBtn">Salvar</button>
   </div>`;
 }
@@ -7268,6 +7273,7 @@ function attachEditorHandlers() {
 
   document.getElementById("exportPdfBtn")?.addEventListener("click", () => exportPDF(state.current));
   document.getElementById("exportWordBtn")?.addEventListener("click", () => exportWord(state.current));
+  document.getElementById("exportFormatosBtn")?.addEventListener("click", () => abrirModalFormatos(state.current));
 
   // Troca de Seções (Tabs)
   document.querySelectorAll("[data-section]").forEach(el => {
@@ -9199,12 +9205,9 @@ function abntWordHTML(h) {
     .replace(/(border(?:-bottom|-top|-left)?):\s*([\d.]+pt)\s+(solid|dashed)\s+#[0-9a-fA-F]{3,6}/g, "$1:$2 $3 #000000");
 }
 
-async function exportWord(paf) {
-  if (!paf) return;
-  await garantirAnexosCarregados(paf, { forcar: true });
-  await garantirHistoricoCarregado(paf);
-  histRegistrarAcao(paf, "exportou_word", "Exportou o prontuário em Word (.doc)");
-
+/* Monta o HTML do documento (modelo ABNT). É a fonte única dos formatos Word (.docx e .doc) e Texto (.txt):
+   mexer aqui muda todos eles de uma vez. Os anexos e o histórico já precisam estar carregados. */
+async function montarWordHTML(paf) {
   // ---- Cores e helpers compartilhados com o padrão visual do PDF ----
   const C = {
     azul: "#1F3A5F", azulEscuro: "#172C48", verde: "#1F5C4E", verdeClaro: "#DEEAE6",
@@ -9273,7 +9276,7 @@ async function exportWord(paf) {
   ) || `<tr><td colspan='3' style="text-align:center;color:${C.cinzaClaro};font-style:normal;">Nenhuma meta informada</td></tr>`;
 
   const temMigracaoWord = paf.migracaoDataChegadaBrasil || (paf.migracaoDocumentacao || []).length || paf.migracaoDocumentacaoOutro || paf.migracaoInteriorizacao || paf.habitacaoAbrigoNome;
-  const migracaoWordHTML = !temMigracaoWord ? "" : `
+  const migracaoWordHTML = () => !temMigracaoWord ? "" : `
     ${secao("02a", "Situação Migratória e de Abrigamento")}
     ${camposGrid([
       ["Abrigo", escapeHtml(paf.habitacaoAbrigoNome)],
@@ -9288,21 +9291,21 @@ async function exportWord(paf) {
   };
   const [statusCor, statusFundo] = statusCores[paf.situacaoPAF] || statusCores.andamento;
 
-  const encaminhamentosWordHTML = (paf.encaminhamentosForm || []).length ? `
+  const encaminhamentosWordHTML = () => (paf.encaminhamentosForm || []).length ? `
     ${secao("04a", "Encaminhamentos Formais (Formulário SUAS)")}
     <table class="dados">
       <tr><th>Data</th><th>Área</th><th>Órgão/Unidade</th><th>Objetivo</th><th>Contra-referência</th></tr>
       ${rowsWithZebra(paf.encaminhamentosForm, e => `<tr><td>${fmtDateBR(e.data)}</td><td>${escapeHtml(e.area)}</td><td>${escapeHtml(e.orgaoDestino)}</td><td class="anotacao">${escapeHtml(e.objetivo)}</td><td class="anotacao">${escapeHtml(e.contraReferencia) || "—"}</td></tr>`)}
     </table>` : "";
 
-  const beneficiosEventuaisWordHTML = (paf.beneficiosEventuaisForm || []).length ? `
+  const beneficiosEventuaisWordHTML = () => (paf.beneficiosEventuaisForm || []).length ? `
     ${secao("04b1", "Benefícios Eventuais (Art. 22 LOAS / Decreto nº 6.307/2007)")}
     <table class="dados">
       <tr><th>Data</th><th>Modalidade</th><th>Situação/motivo</th><th>Forma</th><th>Valor</th><th>Situação</th><th>Concedido em</th></tr>
       ${rowsWithZebra(paf.beneficiosEventuaisForm, b => `<tr><td>${fmtDateBR(b.data)}</td><td>${escapeHtml(b.tipo)}</td><td class="anotacao">${escapeHtml(b.situacaoMotivadora)}${b.situacaoDetalhe ? " — " + escapeHtml(b.situacaoDetalhe) : ""}</td><td>${escapeHtml(b.formaConcessao)}</td><td>${escapeHtml(b.valor)}</td><td>${escapeHtml(b.situacaoRequerimento) || "—"}</td><td>${fmtDateBR(b.dataConcessao) || "—"}</td></tr>`)}
     </table>` : "";
 
-  const anexosWordHTML = (() => {
+  const anexosWordHTML = () => {
     if (!(paf.anexos || []).length) return "";
     const imgs = (paf.anexos || []).filter(a => a && a.dataURL && String(a.tipo || "").startsWith("image/"));
     const pdfs = (paf.anexos || []).filter(a => a && a.dataURL && a.tipo === "application/pdf");
@@ -9316,7 +9319,7 @@ async function exportWord(paf) {
       out += `<p style="font-size: 10pt;line-height:115%;"><b>Documentos PDF anexados</b> (não incorporados a este arquivo — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map((a, k) => "Anexo " + letra(imgs.length + k) + " – " + escapeHtml(a.nome)).join("; ")}</p>`;
     }
     return out;
-  })();
+  };
 
   const content = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -9399,7 +9402,7 @@ async function exportWord(paf) {
         <tr><th>Nome</th><th>Data Nasc.</th><th>Sexo</th><th>Parentesco</th><th>Nacionalidade</th><th>Raça/cor/etnia</th><th>PCD</th></tr>
         ${membrosWordHTML}
       </table>
-      ${migracaoWordHTML}
+      ${migracaoWordHTML()}
 
       ${secao("03", "Diagnóstico e Vulnerabilidades")}
       <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};">${(paf.vulnerabilidades || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:normal;">Nenhuma registrada</span>`}</p>
@@ -9457,7 +9460,7 @@ async function exportWord(paf) {
         ${historicoWordLinhas(paf)}
       </table>` : ""}
 
-      ${encaminhamentosWordHTML}
+      ${encaminhamentosWordHTML()}
 
       ${secao("04b", "Programas, Projetos e Benefícios Socioassistenciais")}
       ${camposGrid([
@@ -9465,7 +9468,7 @@ async function exportWord(paf) {
         ["Recebe outro benefício assistencial", escapeHtml(paf.recebeBeneficio) + " — " + ((paf.beneficioQuais || []).map(escapeHtml).join(", ") || "nenhum selecionado") + (paf.beneficioOutro ? " · Outro: " + escapeHtml(paf.beneficioOutro) : "")]
       ])}
 
-      ${beneficiosEventuaisWordHTML}
+      ${beneficiosEventuaisWordHTML()}
 
       ${secao("04c", "Recursos do Território (Rede de Apoio)")}
       <p style="border:1pt solid ${C.borda};padding:7pt 9pt;background:${C.faixa};">${(paf.redeApoio || []).map(tag).join(" ") || `<span style="color:${C.cinzaClaro};font-style:normal;">Nenhum selecionado</span>`}${paf.redeApoioOutros ? "<br><b>Outros:</b> " + escapeHtml(paf.redeApoioOutros) : ""}</p>
@@ -9495,7 +9498,7 @@ async function exportWord(paf) {
       ])}
       ${paf.observacoes ? `<p><b>Observações:</b></p><p class="anotacao">${diarioBr(paf.observacoes)}</p>` : ""}
 
-      ${anexosWordHTML}
+      ${anexosWordHTML()}
 
       <!-- Fechamento e assinaturas -->
       <table style="width:100%;margin-top:12pt;border:1pt solid ${C.borda};background:${C.faixa};" cellpadding="6" cellspacing="0">
@@ -9524,16 +9527,174 @@ async function exportWord(paf) {
     </html>
   `;
 
-  const blob = new Blob(['\ufeff' + abntWordHTML(content)], { type: 'application/msword' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${nomeArquivoPAF(paf)}.doc`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast("Documento Word gerado.");
+  return abntWordHTML(content);
+}
+
+/* ---------------------------- Exportação: formatos de arquivo ----------------------------
+   Word (.docx), Word antigo (.doc), Texto (.txt), Dados (.json) e Pacote completo (.zip).
+   Os geradores ficam em exportacao.js (sem bibliotecas externas, tudo no próprio aparelho). */
+
+async function prepararParaExportar(paf) {
+  await garantirAnexosCarregados(paf, { forcar: true });
+  await garantirHistoricoCarregado(paf);
+}
+
+function exportacaoDisponivel() {
+  if (window.Exportacao) return true;
+  toast("O módulo de exportação não carregou. Atualize a página (Ctrl+F5) e tente de novo.", 5000);
+  return false;
+}
+
+// Word moderno (.docx de verdade). Se algo falhar na conversão, cai no .doc antigo em vez de não entregar nada.
+async function exportWord(paf) {
+  if (!paf || !exportacaoDisponivel()) return;
+  try {
+    toast("Gerando o Word…", 8000);
+    await prepararParaExportar(paf);
+    const html = await montarWordHTML(paf);
+    const blob = await Exportacao.htmlParaDocx(html, { titulo: nomeArquivoPAF(paf), autor: paf.tecnicoReferencia || "Umbrela PAIF" });
+    histRegistrarAcao(paf, "exportou_word", "Exportou o prontuário em Word (.docx)");
+    Exportacao.baixarBlob(`${Exportacao.nomeSeguro(nomeArquivoPAF(paf))}.docx`, blob);
+    toast("Documento Word (.docx) gerado.");
+  } catch (err) {
+    console.error("Falha ao gerar o .docx; usando o formato .doc:", err);
+    await exportWordLegado(paf);
+  }
+}
+
+// Word antigo (.doc = HTML que o Word abre): mantido para quem ainda precisa desse formato.
+async function exportWordLegado(paf) {
+  if (!paf || !exportacaoDisponivel()) return;
+  await prepararParaExportar(paf);
+  const html = await montarWordHTML(paf);
+  histRegistrarAcao(paf, "exportou_word", "Exportou o prontuário em Word (.doc)");
+  Exportacao.baixarBlob(`${Exportacao.nomeSeguro(nomeArquivoPAF(paf))}.doc`, new Blob(["\ufeff" + html], { type: "application/msword" }));
+  toast("Documento Word (.doc) gerado.");
+}
+
+async function exportTexto(paf) {
+  if (!paf || !exportacaoDisponivel()) return;
+  await prepararParaExportar(paf);
+  const txt = Exportacao.htmlParaTexto(await montarWordHTML(paf));
+  histRegistrarAcao(paf, "exportou_texto", "Exportou o prontuário em texto (.txt)");
+  Exportacao.baixarBlob(`${Exportacao.nomeSeguro(nomeArquivoPAF(paf))}.txt`, new Blob(["\ufeff" + txt], { type: "text/plain;charset=utf-8" }));
+  toast("Arquivo de texto (.txt) gerado.");
+}
+
+// Cópia dos dados de UM PAF no mesmo formato do backup geral — pode ser restaurada em Configurações > Restaurar.
+function pafParaJSON(paf) {
+  return JSON.stringify({
+    exportadoEm: new Date().toISOString(),
+    versaoBackup: 2,
+    incluiAnexos: true,
+    totalRegistros: 1,
+    pafs: [paf],
+    desistentes: []
+  }, null, 2);
+}
+
+async function exportJSON(paf) {
+  if (!paf || !exportacaoDisponivel()) return;
+  await prepararParaExportar(paf);
+  histRegistrarAcao(paf, "exportou_json", "Exportou os dados do PAF (.json)");
+  Exportacao.baixarBlob(`${Exportacao.nomeSeguro(nomeArquivoPAF(paf))}.json`, new Blob([pafParaJSON(paf)], { type: "application/json" }));
+  toast("Dados do PAF (.json) gerados.");
+}
+
+const EXT_POR_TIPO = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
+
+// Pasta única (.zip): Word + texto + dados + os anexos originais (PDFs e imagens como foram enviados).
+async function exportPacote(paf) {
+  if (!paf || !exportacaoDisponivel()) return;
+  try {
+    toast("Reunindo o pacote completo… pode levar alguns instantes.", 10000);
+    await prepararParaExportar(paf);
+    const base = Exportacao.nomeSeguro(nomeArquivoPAF(paf));
+    const html = await montarWordHTML(paf);
+    const arquivos = [];
+    try {
+      const docx = await Exportacao.htmlParaDocx(html, { titulo: nomeArquivoPAF(paf), autor: paf.tecnicoReferencia || "Umbrela PAIF" });
+      arquivos.push({ nome: `${base}.docx`, dados: new Uint8Array(await docx.arrayBuffer()) });
+    } catch (err) {
+      console.error("Pacote: .docx falhou, usando .doc", err);
+      arquivos.push({ nome: `${base}.doc`, dados: "\ufeff" + html });
+    }
+    arquivos.push({ nome: `${base}.txt`, dados: "\ufeff" + Exportacao.htmlParaTexto(html) });
+    arquivos.push({ nome: `dados/${base}.json`, dados: pafParaJSON(paf) });
+
+    const usados = new Set();
+    let n = 0;
+    for (const a of (paf.anexos || [])) {
+      if (!a || !a.dataURL) continue;
+      const d = Exportacao.dataURLParaBytes(a.dataURL);
+      if (!d) continue;
+      n++;
+      let nome = Exportacao.nomeSeguro(a.nome, "anexo");
+      if (!/\.[a-z0-9]{2,5}$/i.test(nome)) nome += "." + (EXT_POR_TIPO[a.tipo || d.tipo] || "bin");
+      nome = `${String(n).padStart(2, "0")} - ${nome}`;
+      while (usados.has(nome.toLowerCase())) nome = nome.replace(/^(\d+ - )/, "$1(2) ");
+      usados.add(nome.toLowerCase());
+      arquivos.push({ nome: `anexos/${nome}`, dados: d.bytes });
+    }
+    arquivos.push({
+      nome: "LEIA-ME.txt",
+      dados: "\ufeff" + [
+        "Pacote do Plano de Acompanhamento Familiar (PAF/PAIF)",
+        `Família: ${paf.responsavel || "Responsável não informado"}`,
+        `Gerado em ${fmtDateBR(todayISO())}`,
+        "",
+        `${base}.docx ........ documento em Word, editável (abre também no LibreOffice e no Google Docs)`,
+        `${base}.txt ......... o mesmo conteúdo em texto simples, para copiar para outros sistemas`,
+        `dados/${base}.json . cópia dos dados do PAF; pode ser restaurada no app (Configurações > Restaurar)`,
+        `anexos/ ............. ${n} arquivo(s) anexado(s), no formato original`,
+        "",
+        "Documento sujeito a sigilo profissional. Guarde e compartilhe somente com quem tem autorização."
+      ].join("\r\n")
+    });
+    const zip = await Exportacao.criarZip(arquivos);
+    histRegistrarAcao(paf, "exportou_pacote", "Exportou o pacote completo do PAF (.zip)");
+    Exportacao.baixarBlob(`${base}.zip`, zip);
+    toast("Pacote completo (.zip) gerado.");
+  } catch (err) {
+    console.error(err);
+    toast("Não foi possível montar o pacote. Tente exportar os formatos separadamente.", 5000);
+  }
+}
+
+// Janela "Outros formatos": explica cada arquivo em uma linha, para a equipe escolher sem adivinhar.
+function abrirModalFormatos(paf) {
+  if (!paf) return;
+  const root = document.getElementById("modalRoot");
+  if (!root) return;
+  const itens = [
+    ["pdf", "PDF", "Documento oficial para imprimir, assinar ou enviar. Na janela de impressão, escolha “Salvar como PDF”."],
+    ["docx", "Word (.docx)", "Editável. Abre no Word, LibreOffice, Google Docs e no celular."],
+    ["pacote", "Pacote completo (.zip)", "Word + texto + dados + os anexos originais, numa pasta só. Bom para arquivar ou transferir o prontuário."],
+    ["txt", "Texto simples (.txt)", "Só o conteúdo, sem formatação, para colar em outros sistemas."],
+    ["json", "Dados do PAF (.json)", "Cópia técnica deste PAF, que pode ser restaurada no app."],
+    ["doc", "Word antigo (.doc)", "Somente se precisar do formato antigo do Word."]
+  ];
+  root.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal">
+        <h3>Baixar este PAF</h3>
+        <p class="hint">${escapeHtml(paf.responsavel || "Responsável não informado")}</p>
+        <div class="formatos-lista">
+          ${itens.map(([id, nome, desc]) => `<button type="button" class="formato-opcao" data-formato="${id}"><strong>${escapeHtml(nome)}</strong><span>${escapeHtml(desc)}</span></button>`).join("")}
+        </div>
+        <div class="modal-actions"><button class="btn btn-ghost" id="formatosFechar">Fechar</button></div>
+      </div>
+    </div>`;
+  const fechar = ativarAcessibilidadeModal(root, () => root.innerHTML = "");
+  document.getElementById("formatosFechar").onclick = fechar;
+  const acoes = { pdf: exportPDF, docx: exportWord, pacote: exportPacote, txt: exportTexto, json: exportJSON, doc: exportWordLegado };
+  root.querySelectorAll("[data-formato]").forEach(b => {
+    b.onclick = async () => {
+      const f = acoes[b.dataset.formato];
+      fechar();
+      if (f) { try { await f(paf); } catch (err) { console.error(err); toast("Não foi possível gerar o arquivo."); } }
+    };
+  });
 }
 
 /* ---------------------------- Inicialização do App ---------------------------- */
