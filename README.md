@@ -9,7 +9,7 @@ com todos os campos do formulário original em Word.
 - Guarda os registros preenchidos **na nuvem**, compartilhados automaticamente entre
   todos os aparelhos que abrirem o mesmo link — sem precisar configurar nada em cada
   dispositivo (depois do passo único de configuração abaixo).
-- Exporta cada PAF preenchido em **PDF** e em **Word (.doc)**.
+- Exporta cada PAF em **PDF**, **Word (.docx)**, **pacote .zip** (Word + texto + dados + anexos originais), **texto (.txt)**, **dados (.json)** e, se precisar, **Word antigo (.doc)**. Botão **Outros formatos…** na ficha e no menu "Mais" da lista. Código em `exportacao.js` (sem bibliotecas externas).
 
 - Tem **corretor ortográfico em português** nos campos de texto (igual ao do Verbus): sublinhado vermelho para ortografia e azul para estilo, clique direito (ou toque, no celular) para sugestões, autocorreção de acentos ao digitar e funcionamento offline. Código em `corretor.js`; dicionário em `spell/` (≈5 MB, baixado na 1ª vez que um campo é usado). O texto digitado não sai do aparelho.
 
@@ -134,7 +134,7 @@ os registros só para si (não compartilha com os outros).
   "Exportar ▾" de cada ficha (com a mesma confirmação), para não ser clicado sem querer.
 - **Sem perder a última digitação**: ao voltar para a lista, trocar de ficha, abrir Gráficos/Prioridades, bloquear o celular ou fechar a aba, o que ainda estava aguardando o salvamento automático é gravado na hora.
 - O preenchimento é salvo automaticamente (nuvem ou local, conforme o passo 1).
-- **Baixar PDF** / **Baixar Word (.doc)**: geram o arquivo preenchido pronto para
+- **Baixar PDF** / **Baixar Word (.docx)**: geram o arquivo preenchido pronto para
   impressão/assinatura, tanto na tela do formulário quanto no menu "Exportar" de cada
   card na lista. O Word agora segue o mesmo padrão visual do PDF — faixa institucional,
   título com número da ficha, seções numeradas em destaque e bloco de assinaturas —
@@ -156,7 +156,7 @@ os registros só para si (não compartilha com os outros).
   as fotos aparecem no corpo do relatório e cada PDF anexado é incluído logo em
   seguida, uma página por documento (isso depende do navegador conseguir imprimir
   o PDF embutido — funciona bem no Chrome/Edge; se algum anexo não aparecer, baixe-o
-  separadamente pelo botão "Baixar" do próprio anexo). No **Word (.doc)**, as fotos
+  separadamente pelo botão "Baixar" do próprio anexo). No **Word (.docx)** e no **pacote .zip**, as fotos
   também são incorporadas ao documento, mas os PDFs continuam apenas listados por
   nome (o Word não permite embutir páginas de outro PDF).
   > **Sincronização em nuvem (Firestore):** cada anexo agora é salvo no seu próprio
