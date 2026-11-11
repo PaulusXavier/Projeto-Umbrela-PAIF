@@ -583,3 +583,10 @@ body .login-wrap .login-forgot { padding: 6px 0; }
 
 /* Barra empilhada: texto escuro nos segmentos claros (cinza neutro e dourado) */
 .pilha-seg[style*="#A9B5BF" i], .pilha-seg[style*="#C99A2E" i] { color: #14233A; }
+
+/* Janela "Baixar este PAF" (formatos de arquivo) */
+.formatos-lista { display: grid; gap: 8px; margin: 10px 0 4px; }
+.formato-opcao { display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper, #fff); cursor: pointer; font: inherit; color: inherit; }
+.formato-opcao strong { font-size: .95rem; }
+.formato-opcao span { font-size: .82rem; opacity: .75; line-height: 1.35; }
+.formato-opcao:hover, .formato-opcao:focus-visible { background: var(--paper-soft, #f3f6f8); border-color: var(--accent, #1F3A5F); outline: none; }
