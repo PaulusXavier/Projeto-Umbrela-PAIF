@@ -2804,7 +2804,7 @@ function paretoChartSVG(obj, opts) {
     return L.map((l) => encurtarTexto(l, 16));
   };
   const linhasRot = entradas.map(([k]) => quebrar(k));
-  const padT = 26, chartH = 168, padR = 44, padB = 44;
+  const padT = 26, chartH = 168, padR = 44, padB = 64;
   const padL = Math.max(margemEixoNum(eixo.topo), 32);
   const width = padL + Math.max(entradas.length, 4) * colW + padR;
   const height = chartH + padT + padB;
@@ -2825,7 +2825,8 @@ function paretoChartSVG(obj, opts) {
     return `
       <path d="${barraArredondadaPath(x0 + 10, y, colW - 20, h, 4)}" fill="var(--accent, #2E7D6B)" opacity="${vital ? 1 : .42}" class="pareto-bar" tabindex="0"><title>${escapeHtml(k)}: ${v} ocorrências (${pctBarra}%)</title></path>
       <text x="${x0 + colW / 2}" y="${y - 5}" text-anchor="middle" class="hist-bar-num">${v}</text>
-      <text x="${x0 + colW / 2}" y="${padT + chartH + 16}" text-anchor="middle" class="pareto-bar-label">${linhasRot[i].map((l, n) => `<tspan x="${x0 + colW / 2}" dy="${n ? 12 : 0}">${escapeHtml(l)}</tspan>`).join("")}<title>${escapeHtml(k)}</title></text>`;
+      <circle cx="${x0 + colW / 2}" cy="${padT + chartH + 14}" r="8.5" class="pareto-num-bg"></circle><text x="${x0 + colW / 2}" y="${padT + chartH + 17.5}" text-anchor="middle" class="pareto-num">${i + 1}</text>
+      <text x="${x0 + colW / 2}" y="${padT + chartH + 38}" text-anchor="middle" class="pareto-bar-label">${linhasRot[i].map((l, n) => `<tspan x="${x0 + colW / 2}" dy="${n ? 12 : 0}">${escapeHtml(l)}</tspan>`).join("")}<title>${escapeHtml(k)}</title></text>`;
   }).join("");
 
   const xFim = width - padR;
@@ -2841,8 +2842,9 @@ function paretoChartSVG(obj, opts) {
     <text x="${x}" y="${yTxt}" text-anchor="middle" class="pareto-pct-num">${pct}%</text>`;
   }).join("");
   const y80 = padT + chartH - 0.8 * chartH;
-  const eixoDir = [0, 50, 100].map((p) => `<text x="${xFim + 6}" y="${padT + chartH - (p / 100) * chartH + 3}" text-anchor="start" class="pareto-eixo-dir">${p}%</text>`).join("");
+  const eixoDir = [0, 50, 80, 100].map((p) => `<text x="${xFim + 6}" y="${padT + chartH - (p / 100) * chartH + 3}" text-anchor="start" class="pareto-eixo-dir">${p}%</text>`).join("");
 
+  const chave = `<ol class="pareto-chave">${entradas.map(([k, v], i) => `<li><span class="pareto-n">${i + 1}</span><span class="pareto-nome">${escapeHtml(k)}</span><b>${v}</b></li>`).join("")}</ol>`;
   const leitura = (nVitais && brutas.length > 2)
     ? `<div class="chart-insight">${nVitais === 1 ? "A categoria mais frequente concentra" : `As ${nVitais} categorias mais frequentes concentram`} <b>${pontos[nVitais - 1][2]}%</b> das ocorrências — é onde a intervenção rende mais.</div>` : "";
 
@@ -2857,7 +2859,7 @@ function paretoChartSVG(obj, opts) {
       ${eixoDir}
       ${barras}
       <polyline points="${linha}" fill="none" stroke="var(--gold, #B98A34)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="chart-linha" style="--len:${width * 2}"></polyline>
-      ${marcadores}`) + leitura +
+      ${marcadores}`) + chave + leitura +
     (brutas.length > top ? `<p class="hint chart-nota">Mostrando as ${top} mais frequentes de ${brutas.length} categorias registradas.</p>` : "");
 }
 
@@ -3513,7 +3515,7 @@ function renderDashboardHTML() {
     ${semRegistroAlgum ? empty : `
       ${dashboardFiltrosHTML()}
       ${geral.total === 0 ? kpiHeroHTML(geral, anteriorTotal, null, seg) + vazioComFiltro : `
-        ${notaTecnica("Monitoramento do PAIF (Trilha da Primeira Infância, MDS, 2026, Passo 5): a avaliação agregada serve à aprendizagem da gestão e à organização dos serviços — nunca à responsabilização moralizante das famílias, dos profissionais ou do serviço. A cada período definido no planejamento local (seis meses, um ano), o CRAS e a equipe de referência analisam o perfil e as mudanças nas condições de vida das famílias inseridas há mais de seis meses: número e perfil (mães solo, povos tradicionais e outras interseccionalidades), desproteções mais comuns, mais superadas e de maior dificuldade de superação, e vinculações mais frequentes. Os resultados alimentam a coletivização de demandas e o diagnóstico seguinte, reiniciando o ciclo do PAIF.")}
+        ${notaTecnicaRecolhivel("Monitoramento do PAIF (Trilha da Primeira Infância, MDS, 2026, Passo 5): a avaliação agregada serve à aprendizagem da gestão e à organização dos serviços — nunca à responsabilização moralizante das famílias, dos profissionais ou do serviço. A cada período definido no planejamento local (seis meses, um ano), o CRAS e a equipe de referência analisam o perfil e as mudanças nas condições de vida das famílias inseridas há mais de seis meses: número e perfil (mães solo, povos tradicionais e outras interseccionalidades), desproteções mais comuns, mais superadas e de maior dificuldade de superação, e vinculações mais frequentes. Os resultados alimentam a coletivização de demandas e o diagnóstico seguinte, reiniciando o ciclo do PAIF.")}
         ${dashboardNavHTML()}
         <div class="resumo-scroll">
           ${filtrosAtivos ? `<p class="dash-filtro-resumo">Mostrando <strong>${geral.total}</strong> de ${state.pafs.length} PAFs cadastrados, conforme os filtros${state.dashSituacao ? " e o segmento “" + escapeHtml(STATUS_LABELS[state.dashSituacao]) + "”" : ""} acima.</p>` : ""}
@@ -4742,7 +4744,9 @@ function translateAuthError(code) {
     "auth/wrong-password": "E-mail ou senha incorretos.",
     "auth/invalid-credential": "E-mail ou senha incorretos.",
     "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
-    "auth/network-request-failed": "Sem conexão com a internet."
+    "auth/network-request-failed": "Sem conexão com a internet.",
+    "auth/operation-not-allowed": "Login por e-mail e senha desativado. Fale com o administrador.",
+    "auth/internal-error": "Erro temporário no servidor de login. Tente novamente."
   };
   return map[code] || "Não foi possível entrar. Verifique os dados e tente novamente.";
 }
@@ -4764,6 +4768,11 @@ function attachAuthHandlers() {
       if (ck && ck.checked) { localStorage.setItem("paf_login_email", email); localStorage.setItem("paf_login_lembrar", "1"); }
       else { localStorage.removeItem("paf_login_email"); localStorage.setItem("paf_login_lembrar", "0"); }
     } catch (_) {}
+    if (typeof firebase === "undefined" || !firebase.auth) {
+      authError("Sem conexão com o servidor de login. Verifique a internet e recarregue a página.");
+      if (btn) { btn.disabled = false; btn.classList.remove("carregando"); const r = btn.querySelector(".btn-rot"); if (r) r.textContent = "Entrar"; }
+      return;
+    }
     firebase.auth().signInWithEmailAndPassword(email, password)
       .catch(err => {
         console.error(err);
@@ -4784,7 +4793,11 @@ function attachAuthHandlers() {
   ["authEmail", "authPassword"].forEach(id => document.getElementById(id)?.addEventListener("input", e => e.target.removeAttribute("aria-invalid")));
   document.getElementById("authSubmitBtn")?.addEventListener("click", submit);
   document.getElementById("authPassword")?.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
-  document.getElementById("authEmail")?.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  document.getElementById("authEmail")?.addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    const pw = document.getElementById("authPassword");
+    if (pw && !pw.value) { e.preventDefault(); pw.focus(); } else submit();
+  });
 
   let resetAte = 0;
   document.getElementById("forgotPasswordLink")?.addEventListener("click", (e) => {
@@ -4801,7 +4814,16 @@ function attachAuthHandlers() {
         if (ok) { ok.textContent = "Enviamos um link de redefinição para " + email + ". Confira também a caixa de spam."; ok.style.display = "block"; }
         else toast("E-mail de redefinição enviado para " + email + ".");
       })
-      .catch(err => { console.error(err); resetAte = 0; authError(translateAuthError(err.code)); });
+      .catch(err => {
+        console.error(err);
+        if (err.code === "auth/user-not-found") {
+          const ok = document.getElementById("authOk");
+          if (ok) { authError(null); ok.textContent = "Se este e-mail tiver cadastro, enviamos um link de redefinição. Confira também a caixa de spam."; ok.style.display = "block"; }
+          return;
+        }
+        resetAte = 0;
+        authError(err.code === "auth/invalid-email" ? "E-mail inválido." : translateAuthError(err.code).replace("E-mail ou senha incorretos.", "Não foi possível enviar o e-mail."));
+      });
   });
 
 }
@@ -5012,13 +5034,28 @@ function initStorage() {
   }
 }
 
+// Completa campos/listas ausentes de PAFs antigos ou incompletos (sem apagar nada). Sem isso,
+// um único registro sem alguma lista travava a lista de Registros e o painel de Gráficos.
+function completarPAFs(lista) {
+  const base = emptyPAF();
+  const preserva = new Set(["id", "createdAt", "updatedAt"]);
+  return lista.map(p => {
+    if (!p || typeof p !== "object") return p;
+    Object.keys(base).forEach(k => {
+      if (preserva.has(k)) return;
+      if (p[k] === undefined || p[k] === null || (Array.isArray(base[k]) && !Array.isArray(p[k]))) p[k] = JSON.parse(JSON.stringify(base[k]));
+    });
+    return p;
+  });
+}
+
 function subscribeCloud() {
   const col = state.db.collection(FIRESTORE_COLLECTION);
   state.unsub = col.onSnapshot(
     { includeMetadataChanges: true },
     snap => {
       const todos = snap.docs.map(d => d.data());
-      state.pafs = todos.filter(p => p.tipo !== "desistencia");
+      state.pafs = completarPAFs(todos.filter(p => p.tipo !== "desistencia"));
       state.desistentes = todos.filter(p => p.tipo === "desistencia");
       // (Sem cópia em localStorage: o próprio Firestore mantém o cache offline no IndexedDB,
       // que é apagado ao sair da conta — ver descartarBancoLocalDaSessao.)
@@ -5064,7 +5101,7 @@ function safeParseArray(raw) {
 
 function loadLocal() {
   const todos = safeParseArray(localStorage.getItem("paf_records"));
-  state.pafs = todos.filter(p => p.tipo !== "desistencia");
+  state.pafs = completarPAFs(todos.filter(p => p.tipo !== "desistencia"));
   state.desistentes = todos.filter(p => p.tipo === "desistencia");
   renderApp();
 }
@@ -6044,6 +6081,10 @@ function sectionHeader(num, title, sub) {
   const secao = SECTIONS[parseInt(num, 10) - 1];
   const icon = secao ? `<span class="section-icon-badge">${sectionIconSvg(secao.id, 17)}</span>` : "";
   return `<h2><span class="num">${num}</span>${icon}${title}</h2>${sub ? `<p class="section-sub">${sub}</p>` : ""}`;
+}
+
+function notaTecnicaRecolhivel(html) {
+  return `<details class="nota-recolhivel"><summary>Nota técnica: como ler estes indicadores</summary>${notaTecnica(html)}</details>`;
 }
 
 function notaTecnica(html) {
