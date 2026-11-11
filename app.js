@@ -6007,7 +6007,7 @@ function renderEditorHTML() {
         <details class="apoio-mobile"><summary>Resumo da ficha</summary><div class="apoio-mobile-corpo" id="apoioEditorMobile">${apoioEditorHTML(paf)}</div></details>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="backHomeBtn">${uiIconSvg("chevronLeft", 13)} Voltar à lista</button>
-          <button class="btn btn-ghost btn-sm" id="modoFocoBtn" type="button" title="Esconde o menu de seções e o painel lateral para escrever com a tela inteira">${modoFocoAtivo() ? "⤡ Sair do modo foco" : "⤢ Modo foco (tela inteira)"}</button>
+          <button class="btn btn-ghost btn-sm" id="modoFocoBtn" type="button" title="Esconde o menu de seções e o painel lateral para escrever com a tela inteira">${modoFocoAtivo() ? "⤡ Sair do modo foco" : "⤢ Modo foco"}</button>
           <span class="protocolo-tag">Protocolo Nº ${protocoloNumero(paf)}</span>
           <span class="section-pos-tag">Seção ${activeIdx + 1} de ${SECTIONS.length}</span>
           <div class="status-picker" style="margin-left:auto">
@@ -7218,7 +7218,7 @@ function attachEditorHandlers() {
   document.getElementById("modoFocoBtn")?.addEventListener("click", (e) => {
     const on = document.getElementById("editorWrap")?.classList.toggle("modo-foco");
     try { localStorage.setItem("paif_modo_foco", on ? "1" : "0"); } catch (err) { /* ignora */ }
-    e.currentTarget.textContent = on ? "⤡ Sair do modo foco" : "⤢ Modo foco (tela inteira)";
+    e.currentTarget.textContent = on ? "⤡ Sair do modo foco" : "⤢ Modo foco";
   });
   document.getElementById("saveBtn")?.addEventListener("click", () => {
     savePAF(state.current);
