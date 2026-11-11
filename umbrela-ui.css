@@ -1,0 +1,469 @@
+/* ==========================================================================
+   Umbrela · UI v2 — camada de design (carregada por último)
+   Objetivo: interface limpa, legível e rápida de usar. Menos ornamento,
+   mais contraste, mais área útil, foco visível, alvos de clique confortáveis.
+   Para voltar ao visual anterior, remova o <link> deste arquivo no index.html.
+   ========================================================================== */
+
+/* ---------- 1. Fundamentos: cores, tipografia, raios, sombras ---------- */
+:root {
+  --bg: #F2F4F8;
+  --paper: #FFFFFF;
+  --paper-soft: #F7F9FB;
+  --ink: #14233A;
+  --ink-soft: #46576C;
+  --ink-faint: #637488;
+  --accent: #0E7C6B;
+  --accent-dark: #0A5E51;
+  --accent-soft: #E2F2EE;
+  --gold: #C08A2B;
+  --gold-dark: #8A611C;
+  --gold-soft: #FAF0DA;
+  --line: #E0E5EC;
+  --line-strong: #CBD3DD;
+  --danger: #C0392B;
+  --danger-soft: #FBE9E6;
+  --slate-soft: #E8EDF3;
+  --navy: #0F2742;
+
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 2px rgba(20,35,58,.05), 0 2px 8px rgba(20,35,58,.05);
+  --shadow-lift: 0 4px 12px rgba(20,35,58,.08), 0 12px 32px rgba(20,35,58,.10);
+  --shadow-sm: 0 1px 2px rgba(20,35,58,.06);
+
+  /* Escala de tela (a interface deixa de usar 12 pt em tudo). A escrita dos
+     campos de texto continua no padrão ABNT: Times New Roman 12 pt, 1,5, justificado. */
+  --text-micro: 11px;
+  --text-2xs: 11px;
+  --text-xs: 11.5px;
+  --text-sm: 12.5px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+  --topbar-h: 54px;
+
+  --font-display: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-serif: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+}
+
+html, body, input, select, textarea, button { font-family: var(--font-body); }
+body { font-size: var(--text-md); line-height: 1.5; }
+h1, h2, h3, h4, h5, h6, .display { font-family: var(--font-display); font-weight: 650; line-height: 1.25; }
+p, li, dd, blockquote { text-align: left; }
+.hint, .nota-tecnica, .chart-insight, .chart-nota, .muted, small, figcaption, .field-hint, .help { font-size: 12px; line-height: 1.45; }
+.records-list-head, .dyn-table th, .stat-label, .kpi-label, .prontuario-fields .k, .settings-field .k, .storage-top .k {
+  font-family: var(--font-body); font-size: 11.5px; font-weight: 650; letter-spacing: 0;
+}
+/* A ESCRITA segue o padrão ABNT (como já era): Times New Roman 12 pt, 1,5, justificado.
+   Para usar a mesma fonte da interface nos campos de texto, apague as 2 linhas abaixo. */
+#mainArea textarea, .nota-editor-area { font-family: "Times New Roman", Times, serif; font-size: 12pt; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg) !important;
+  font-feature-settings: "cv11", "ss01";
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -0.015em; font-weight: 650; }
+.record-col, .record-protocolo, .stat-value, .rail-progress-label, td, .kpi-valor, .donut-total-num {
+  font-variant-numeric: tabular-nums;
+}
+::selection { background: #BFE5DC; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- 2. Barra superior única (branca, 54 px) ---------- */
+.masthead, .masthead-strip { display: none !important; }
+
+.topbar {
+  min-height: var(--topbar-h);
+  padding: 0 20px;
+  gap: 14px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: none;
+  border-bottom: 1px solid var(--line);
+}
+.topbar .brand { font-family: var(--font-display); font-size: 15px; font-weight: 700; gap: 10px; color: var(--ink); letter-spacing: -.01em; }
+.topbar .brand > span:last-child { display: flex; flex-direction: column; line-height: 1.15; }
+.topbar .brand > span:last-child > span { opacity: 1 !important; font-weight: 500 !important; font-size: 11px; color: var(--ink-faint); letter-spacing: 0; }
+.brand .seal {
+  width: 32px; height: 32px; border: 0; border-radius: 9px;
+  background: linear-gradient(145deg, #12395F, var(--navy)); color: #fff;
+}
+.brand-org {
+  font-size: 12px; font-weight: 500; color: var(--ink-faint);
+  padding-left: 14px; margin-left: 2px; border-left: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+/* Abas: sublinhado em vez de pílulas */
+.topbar-tabs { background: none; border: 0; padding: 0; gap: 2px; align-self: stretch; margin-left: 6px; }
+.topbar-tab {
+  position: relative; background: none; color: var(--ink-soft);
+  font-size: 13.5px; font-weight: 550; letter-spacing: 0;
+  padding: 0 14px; border-radius: 0; height: 100%;
+  display: inline-flex; align-items: center;
+}
+.topbar-tab:hover { color: var(--ink); background: var(--paper-soft); }
+.topbar-tab.active { background: none; color: var(--accent-dark); font-weight: 650; }
+.topbar-tab.active::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px;
+  background: var(--accent); border-radius: 2px 2px 0 0;
+}
+
+.topbar .sync-pill { background: var(--paper-soft); border: 1px solid var(--line); color: var(--ink-soft); font-size: 12px; padding: 5px 11px; }
+.sync-pill.local .sync-dot { background: var(--gold); }
+.user-pill { background: var(--paper-soft); border: 1px solid var(--line); color: var(--ink-soft); border-radius: 999px; padding: 5px 11px; font-size: 12px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-btn {
+  background: #fff; border: 1px solid var(--line-strong); color: var(--ink);
+  padding: 6px 11px; font-size: 13px; font-weight: 550; border-radius: var(--radius);
+}
+.icon-btn:hover { background: var(--paper-soft); border-color: var(--ink-faint); }
+.icon-btn:active { background: var(--slate-soft); }
+.rail-toggle { color: var(--ink); }
+.topbar :focus-visible { outline-color: var(--accent); }
+
+/* ---------- 3. Botões ---------- */
+.btn { border-radius: var(--radius); font-weight: 600; letter-spacing: 0; }
+.btn-primary {
+  background: var(--accent); color: #fff; border: 1px solid var(--accent-dark);
+  box-shadow: 0 1px 2px rgba(10,94,81,.25);
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-dark); box-shadow: 0 1px 2px rgba(10,94,81,.3); filter: none; transform: none; }
+.btn-ghost { background: #fff; border: 1px solid var(--line-strong); color: var(--ink); }
+.btn-ghost:hover { background: var(--paper-soft); border-color: var(--ink-faint); box-shadow: none; }
+.btn-danger { background: #fff; color: var(--danger); border: 1px solid #EBC3BD; }
+.btn-danger:hover { background: var(--danger-soft); }
+.btn-sm { padding: 5px 11px; font-size: 12.5px; }
+
+/* ---------- 4. Campos de formulário ---------- */
+label, .f label, .field label { color: var(--ink); font-weight: 600; font-size: 12.5px; letter-spacing: 0; }
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+select, textarea {
+  background: #fff; color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  min-height: 38px; padding: 7px 11px; font-size: 14px;
+  transition: border-color .12s, box-shadow .12s, background .12s;
+}
+textarea { line-height: 1.55; min-height: 84px; }
+input::placeholder, textarea::placeholder { color: #8795A6; }
+input:not([type=checkbox]):not([type=radio]):hover, select:hover, textarea:hover { border-color: var(--ink-faint); }
+input:not([type=checkbox]):not([type=radio]):focus,
+select:focus, textarea:focus {
+  outline: none !important; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(14,124,107,.18);
+}
+input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* ---------- 5. Lista de registros ---------- */
+.home-wrap { max-width: 1240px; padding: 20px 24px 48px; }
+.home-head h1 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.home-pilares-toggle > summary { font-size: 12.5px; color: var(--ink-faint); }
+
+/* Indicadores: cartões planos, o número em destaque */
+.stat-card {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 10px 14px; box-shadow: none; overflow: hidden;
+}
+.stat-card::before { width: 3px; }
+.stat-card[data-kpi-filtro]:hover { border-color: var(--line-strong); background: var(--paper-soft); }
+.stat-value { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.stat-label { font-size: 11.5px; text-transform: none; letter-spacing: 0; font-weight: 550; color: var(--ink-soft); }
+.stat-icon { border-radius: 8px; }
+
+/* Busca grande, com cara de campo de busca */
+.search-row { top: var(--topbar-h); padding: 10px 0 0; background: var(--bg); }
+.search-row input[type=search] {
+  min-height: 44px; border: 1px solid var(--line-strong); border-radius: 10px;
+  padding: 10px 14px 10px 42px; font-size: 15px; box-shadow: var(--shadow-sm);
+  background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23637488' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>") no-repeat 14px center;
+}
+.search-row input[type=search]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14,124,107,.18); }
+
+/* Filtros como seletor segmentado */
+.filter-tabs { gap: 6px; }
+.filter-chip {
+  background: #fff; border: 1px solid var(--line-strong); border-radius: 999px;
+  color: var(--ink-soft); font-size: 13px; font-weight: 550; padding: 7px 14px; box-shadow: none;
+}
+.filter-chip:not(.active):hover { background: var(--paper-soft); color: var(--ink); }
+.filter-chip.active, .filter-chip[data-status].active {
+  background: var(--navy); border-color: var(--navy); color: #fff; box-shadow: none;
+}
+
+/* Tabela de registros */
+.records-list { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.records-list-head {
+  background: var(--paper-soft); border-bottom: 1px solid var(--line);
+  font-size: 11.5px; font-weight: 650; letter-spacing: .02em; text-transform: none; color: var(--ink-faint);
+}
+.record-row { border-bottom: 1px solid var(--line); background: #fff; transition: background .1s; }
+.records-list .record-row:nth-child(even) { background: #fff; }
+.record-row:last-child { border-bottom: 0; }
+.record-row:hover { background: #F3F9F7; }
+.record-name { font-size: 14.5px; font-weight: 650; letter-spacing: -.005em; }
+.record-protocolo { font-family: var(--font-body); font-size: 11.5px; letter-spacing: 0; }
+.record-cras, .record-col { font-family: var(--font-body); font-size: 12.5px; }
+.record-chip { font-weight: 600; }
+.record-index { border-radius: 50%; font-weight: 700; }
+.folder-tab { font-size: 11.5px; font-weight: 650; border-radius: 999px; padding: 3px 10px; letter-spacing: 0; text-transform: none; }
+.folder-tab.concluido { background: #EAEDF1; color: var(--ink-soft); }
+.record-progress { background: #E8ECF1; }
+.record-actions [data-anotar] { background: var(--accent); border-color: var(--accent-dark); }
+.export-dropdown { border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lift); }
+
+/* Estado vazio */
+.empty-state, .empty { border-radius: var(--radius-lg); border-color: var(--line-strong); background: #fff; }
+
+/* ---------- 6. Ficha (editor) ---------- */
+.tab-rail { width: 226px; background: #fff; border-right: 1px solid var(--line); padding: 12px 8px; }
+.tab-rail::before { display: none; }
+.rail-progress { padding: 4px 10px 12px; }
+.rail-progress-track { height: 6px; background: #E8ECF1; border: 0; }
+.rail-progress-fill { background: var(--accent); }
+.rail-progress-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0; }
+.tab-item {
+  padding: 8px 10px; font-size: 13.5px; border-left: 0; border-radius: var(--radius);
+  color: var(--ink-soft); margin-bottom: 1px; gap: 10px;
+}
+.tab-item:hover { background: var(--paper-soft); color: var(--ink); }
+.tab-item.active { background: var(--accent-soft); color: var(--accent-dark); font-weight: 650; }
+.tab-item.active::before { display: none; }
+
+.form-inner { max-width: 920px; padding: 16px 28px 110px; }
+.section-card {
+  background: #fff; border: 1px solid var(--line); border-top: 1px solid var(--line);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  padding: 20px 24px 24px;
+}
+.section-card h2 { font-size: 18px; font-weight: 700; gap: 12px; }
+.section-card h2 .num { font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 6px; }
+.section-icon-badge { background: var(--slate-soft); color: var(--ink-soft); border-radius: 8px; }
+.section-sub { color: var(--ink-faint); font-size: 13px; }
+
+/* Barra inferior de ações */
+.footer-bar {
+  background: rgba(255,255,255,.96); border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 16px rgba(20,35,58,.06);
+}
+.footer-bar #saveBtn { min-width: 150px; }
+
+/* Painéis laterais (atalhos, situação, alertas) */
+.apoio-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: none; }
+.apoio-card h3 { font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+
+/* Chips de situação no topo da ficha */
+.status-opt { border-radius: 999px; font-weight: 600; font-size: 13px; }
+
+/* ---------- 7. Rodapé institucional compacto ---------- */
+.app-footer { background: #fff; border-top: 1px solid var(--line); color: var(--ink-faint); }
+.app-footer-inner { opacity: .95; }
+.app-footer strong { color: var(--ink); }
+.app-footer-eyebrow { font-size: 11px; letter-spacing: .04em; color: var(--ink-faint); }
+
+/* ---------- 8. Detalhes ---------- */
+.toast { border-radius: 10px; box-shadow: var(--shadow-lift); }
+.modal, .modal-card, .modal-box { border-radius: 14px; }
+.mascote-btn { box-shadow: var(--shadow-lift); }
+.tab-rail, .form-scroll, .resumo-scroll { scrollbar-color: var(--line-strong) transparent; }
+.tab-rail::-webkit-scrollbar-thumb, .form-scroll::-webkit-scrollbar-thumb, .resumo-scroll::-webkit-scrollbar-thumb { background: var(--line-strong); border-color: #fff; }
+
+@media (max-width: 900px) {
+  :root { --topbar-h: 50px; }
+  .brand-org { display: none; }
+  .topbar { padding: 0 12px; }
+  .search-row { top: var(--topbar-h); }
+}
+@media (max-width: 640px) {
+  .topbar { gap: 8px; }
+  .topbar .brand > span:last-child { display: none; }
+  .topbar-tabs { flex: 1; min-width: 0; justify-content: center; margin-left: 0; }
+  .topbar-tab { padding: 0 8px; font-size: 13px; white-space: nowrap; }
+  .topbar .spacer { display: none; }
+  #syncLabel { display: none; }
+  .topbar .sync-pill { padding: 8px; }
+  .user-pill { display: none !important; }
+  #settingsBtn, #logoutBtn { font-size: 0; gap: 0; padding: 8px 10px; }
+}
+
+/* ==========================================================================
+   9. TELA DE LOGIN — tela dividida (marca à esquerda · acesso à direita)
+   ========================================================================== */
+body .login-wrap {
+  background: #fff !important; padding: 0; animation: none;
+  display: block; overflow-y: auto;
+}
+body .login-wrap .umbrella-sky { display: none; }
+
+body .login-wrap .login-card {
+  max-width: none; width: 100%; min-height: 100vh; min-height: 100dvh; margin: 0;
+  border-radius: 0; box-shadow: none; overflow: visible; animation: none;
+  display: grid; grid-template-columns: minmax(380px, 5fr) minmax(420px, 6fr);
+}
+
+/* --- painel da marca --- */
+body .login-wrap .login-card-band {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  padding: 56px 48px !important; border: 0; text-align: center;
+  background:
+    radial-gradient(900px 500px at 15% 0%, rgba(14,124,107,.35), transparent 60%),
+    radial-gradient(700px 500px at 100% 100%, rgba(192,138,43,.18), transparent 60%),
+    linear-gradient(160deg, #0F2742 0%, #0B1D33 100%);
+}
+body .login-wrap .login-card-band::before { background-image: none; animation: none; }
+body .login-wrap .login-card-band::after { display: none; }
+body .login-wrap .login-scene { margin: 96px auto 22px; }
+body .login-wrap .login-eyebrow {
+  font-size: 12px; font-weight: 700; letter-spacing: .22em !important; text-transform: uppercase !important;
+  color: #E7C87E; margin-bottom: 10px;
+}
+body .login-wrap .login-card h1,
+body .login-wrap h1 {
+  font-family: var(--font-serif); font-weight: 600; font-size: clamp(26px, 2.6vw, 36px);
+  line-height: 1.15; letter-spacing: -.01em; color: #fff; margin: 0 0 14px; text-wrap: balance; max-width: 15ch;
+}
+body .login-wrap .login-card p.login-org {
+  font-size: 14px; line-height: 1.6; color: #B9C8D8; margin: 0 0 28px;
+}
+body .login-wrap .login-pilares {
+  gap: 0; padding: 6px; border-radius: 999px;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+}
+body .login-wrap .login-pilar-item { padding: 6px 14px; color: #E7C87E; opacity: 1; gap: 6px; }
+body .login-wrap .login-pilar-item + .login-pilar-item { border-left: 1px solid rgba(255,255,255,.14); padding-left: 14px; }
+body .login-wrap .login-pilar-item em { font-size: 12.5px !important; color: #E6EDF4; font-weight: 550; }
+
+/* --- painel do formulário --- */
+body .login-wrap .login-card-body {
+  display: flex; flex-direction: column; justify-content: center;
+  width: 100%; max-width: 440px; margin: 0 auto; padding: 48px 32px;
+}
+body .login-wrap .login-bemvindo { font-size: 28px; font-weight: 700; letter-spacing: -.025em; margin: 0 0 6px; text-align: left; }
+body .login-wrap .login-card p.sub { text-align: left; font-size: 14.5px; color: var(--ink-soft); margin: 0 0 26px; }
+body .login-wrap .login-card .f { margin-bottom: 16px; }
+body .login-wrap .login-card .f label { font-weight: 600; font-size: 13px; color: var(--ink); }
+body .login-wrap #authEmail, body .login-wrap #authPassword {
+  min-height: 48px; font-size: 15px; background-color: #fff; border: 1px solid var(--line-strong); border-radius: 10px;
+}
+body .login-wrap #authEmail:focus, body .login-wrap #authPassword:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 4px rgba(14,124,107,.16);
+}
+body .login-wrap .login-forgot { font-size: 12.5px; font-weight: 600; color: var(--accent-dark); }
+body .login-wrap .login-lembrar { font-size: 13px; margin: 4px 0 18px; }
+body .login-wrap .login-card .btn-primary {
+  min-height: 50px; font-size: 15.5px; font-weight: 650; border-radius: 10px;
+  background: var(--accent); border: 1px solid var(--accent-dark); box-shadow: 0 1px 2px rgba(10,94,81,.3), 0 6px 16px rgba(14,124,107,.22);
+}
+body .login-wrap .login-card .btn-primary:hover:not(:disabled) { background: var(--accent-dark); filter: none; transform: none; box-shadow: 0 1px 2px rgba(10,94,81,.3), 0 8px 20px rgba(14,124,107,.28); }
+body .login-wrap .login-card .btn-primary:focus-visible { outline: 3px solid rgba(14,124,107,.4); outline-offset: 2px; }
+body .login-wrap .login-hint { text-align: left; font-size: 13px; color: var(--ink-faint); margin-top: 18px; }
+body .login-wrap .login-sigilo {
+  justify-content: flex-start; text-align: left; font-size: 12px; color: var(--ink-faint);
+  background: none; border: 0; padding: 14px 0 0; margin-top: 22px; border-top: 1px solid var(--line);
+}
+body .login-wrap .login-error { border-radius: 8px; font-size: 13.5px; }
+body .login-wrap .caps-warn { font-size: 12px; }
+
+/* --- telas médias e celulares: painel da marca vira faixa no topo --- */
+@media (max-width: 899px) {
+  body .login-wrap .login-card { grid-template-columns: 1fr; grid-template-rows: auto 1fr; min-height: 100dvh; }
+  body .login-wrap .login-card-band { padding: 20px 20px 22px !important; }
+  body .login-wrap .login-scene { margin: 72px auto 6px; transform: scale(.82); transform-origin: top center; margin-bottom: -4px; }
+  body .login-wrap .login-card h1 { font-size: 21px; max-width: none; margin-bottom: 6px; }
+  body .login-wrap .login-card p.login-org { font-size: 12.5px; margin-bottom: 0; }
+  body .login-wrap .login-pilares { display: none; }
+  body .login-wrap .login-card-body { padding: 26px 20px 32px; max-width: 480px; justify-content: flex-start; }
+  body .login-wrap .login-bemvindo { font-size: 24px; }
+}
+@media (min-width: 900px) and (max-height: 640px) {
+  body .login-wrap .login-scene { margin-top: 84px; }
+  body .login-wrap .login-card-band { padding-top: 24px !important; padding-bottom: 24px !important; }
+}
+
+/* ---------- 10. Ajustes finos ---------- */
+.apoio-mobile { width: min(1192px, calc(100% - 48px)); margin: 14px auto 0; border-radius: var(--radius-lg); border: 1px solid var(--line); background: #fff; box-shadow: none; }
+.apoio-mobile > summary { font-size: 13px; font-weight: 650; color: var(--ink-soft); }
+@media (max-width: 640px) { .apoio-mobile { width: calc(100% - 20px); } }
+
+/* números e códigos na fonte do app (nada de monoespaçada em listas) */
+.folder-tab, .record-col, .record-chip-sub, .record-protocolo, .record-ultimo, .rail-label, .tab-rail .rail-label,
+.form-inner > div[style*="flex-wrap"] .protocolo, .protocolo-pill { font-family: var(--font-body) !important; letter-spacing: 0 !important; }
+.record-chip-sub { font-size: 11px; }
+[class*="protocolo"] { font-family: var(--font-body); }
+
+body .login-wrap .login-sigilo { border-radius: 0; background: none; border-left: 0; border-right: 0; border-bottom: 0; }
+body .login-wrap .login-card .f input,
+body .login-wrap #authEmail, body .login-wrap #authPassword { border: 1px solid var(--line-strong) !important; }
+body .login-wrap .login-card .f input:focus { border-color: var(--accent) !important; }
+body .login-wrap .login-card p.sub, body .login-wrap .login-hint, body .login-wrap .login-sigilo { text-wrap: pretty; }
+
+/* ==========================================================================
+   11. Rodada 2 — mais área útil e menos ruído
+   ========================================================================== */
+
+/* Ficha: barra de ações numa linha só (a posição "Seção x de y" já está no menu lateral) */
+.section-pos-tag { display: none; }
+.form-inner > div[style*="flex-wrap"] { gap: 8px !important; padding: 8px 0; }
+.protocolo-tag { font-size: 12px; padding: 5px 10px; white-space: nowrap; }
+.status-picker { gap: 6px; flex-wrap: wrap; }
+.status-opt { padding: 5px 12px; font-size: 12.5px; min-height: 30px; }
+
+/* Faixas "Resumo…" no topo das telas: mais finas */
+.apoio-mobile { margin-top: 10px; }
+.apoio-mobile > summary { padding: 9px 14px; }
+
+/* Indicadores dos gráficos: planos e compactos */
+.kpi-grid { gap: 10px; }
+.kpi-card {
+  background: #fff; box-shadow: none; border-radius: var(--radius-lg);
+  padding: 11px 12px 10px; border-top-width: 3px;
+}
+.kpi-card:hover { transform: none; box-shadow: var(--shadow-sm); }
+.kpi-valor, .kpi-num, .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.kpi-label { font-size: 12px; }
+.dash-nav a, .dash-nav button { font-size: 12.5px; font-weight: 600; }
+
+/* Notas técnicas: discretas, sem competir com o trabalho */
+.nota-tecnica { background: var(--paper-soft); border: 1px solid var(--line); border-left: 3px solid var(--line-strong); border-radius: var(--radius); color: var(--ink-soft); font-size: 12.5px; line-height: 1.55; padding: 10px 14px; }
+.nota-tecnica, .nota-tecnica * { font-family: var(--font-body) !important; }
+.notas-grupo { border-radius: var(--radius); background: #fff; border: 1px solid var(--line); }
+
+/* Rodapé: compacto; a base técnica abre sob demanda */
+.app-footer { padding-top: 14px; margin-top: 0; }
+.app-footer-inner { gap: 12px 32px; }
+summary.app-footer-eyebrow { cursor: pointer; list-style: none; font-weight: 650; }
+summary.app-footer-eyebrow::-webkit-details-marker { display: none; }
+summary.app-footer-eyebrow::after { content: " ▾"; }
+details[open] > summary.app-footer-eyebrow::after { content: " ▴"; }
+.app-footer-tech { border-left: 0 !important; padding-left: 0 !important; }
+.app-footer-tech span { margin-top: 6px; font-size: 11.5px; line-height: 1.5; }
+
+/* Mascote: menor, não cobre os botões das linhas da lista */
+.mascote-btn { width: 52px; height: 52px; }
+
+/* Listas: linha ativa por teclado fica evidente */
+.record-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: #EEF8F5; }
+
+/* Impressão: nada da camada de tela */
+@media print { .topbar, .brand-org { display: none !important; } }
+
+/* Rodada 2 — ajustes finais */
+.status-opt { padding: 4px 10px; font-size: 12px; min-height: 28px; }
+.status-picker { gap: 5px; flex-wrap: nowrap; }
+.form-inner > div[style*="flex-wrap"] .btn-sm { padding: 5px 10px; }
+.kpi-grid .kpi-card, .kpi-grid-hero .kpi-card { background: #fff !important; box-shadow: none; padding: 10px 12px 9px; }
+.kpi-grid .kpi-card [class*="valor"], .kpi-grid .kpi-card [class*="num"], .kpi-grid .kpi-card [class*="value"] { font-size: 26px; }
+
+/* Rodada 3 — dica de atalhos nos botões e ficha mais leve */
+.btn[id="backHomeBtn"]::after { content: ""; }
+.tab-item { transition: background .1s, color .1s; }
+.section-nav .btn { min-height: 38px; }
+.record-actions .btn { min-width: 0; }
+@media (min-width: 1100px) { .status-picker { margin-left: auto; } }
