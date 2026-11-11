@@ -467,3 +467,119 @@ details[open] > summary.app-footer-eyebrow::after { content: " ▴"; }
 .section-nav .btn { min-height: 38px; }
 .record-actions .btn { min-width: 0; }
 @media (min-width: 1100px) { .status-picker { margin-left: auto; } }
+
+/* ==========================================================================
+   12. Revisão de design — login e cabeçalho
+   ========================================================================== */
+
+/* --- cabeçalho: marca em duas linhas, sem "·" órfão na quebra --- */
+.brand { white-space: nowrap; }
+.brand-name { display: flex; flex-direction: column; line-height: 1.1; font-weight: 700; letter-spacing: -.01em; }
+.brand-name small { font-size: 11px; font-weight: 500; letter-spacing: .02em; opacity: .65; }
+
+/* painel "Resumo da equipe" alinhado à largura do conteúdo */
+.apoio-mobile { width: 100%; }
+
+/* --- login: painel da marca --- */
+body .login-wrap .login-card-band {
+  align-items: flex-start; text-align: left;
+  padding: 64px clamp(40px, 6vw, 88px) !important;
+}
+body .login-wrap .login-scene { margin: 0 0 28px; justify-content: flex-start; }
+body .login-wrap .login-eyebrow {
+  font-family: var(--font-serif); font-size: 18px; font-weight: 600;
+  letter-spacing: .01em !important; text-transform: none !important;
+  color: #E7C87E; margin: 0 0 12px;
+}
+body .login-wrap .login-card h1,
+body .login-wrap h1 { font-size: clamp(30px, 3.2vw, 44px); line-height: 1.1; max-width: 14ch; margin-bottom: 18px; }
+body .login-wrap .login-card p.login-org {
+  padding-top: 18px; border-top: 2px solid #C08A2B; max-width: 34ch; margin-bottom: 32px;
+}
+body .login-wrap .login-pilares { background: none; border: 0; padding: 0; gap: 0; }
+body .login-wrap .login-pilar-item { padding: 0 16px 0 0; }
+body .login-wrap .login-pilar-item + .login-pilar-item { padding-left: 16px; }
+
+/* guarda-chuva principal na paleta da marca (dourado e verde) em vez do ciano */
+#heroUmbrella [stroke="#86E3F2"] { stroke: #E7C87E; }
+#heroUmbrella [stroke="#5EE6B8"] { stroke: #7FD1BD; }
+#heroUmbrella [stroke="#C8FBFF"] { stroke: #FFF3D1; }
+#heroUmbrella [fill="#5EE6B8"]   { fill: #7FD1BD; }
+
+/* --- login: formulário --- */
+body .login-wrap .login-card-body { background: #fff; }
+body .login-wrap .login-bemvindo { font-size: 30px; }
+body .login-wrap .login-lembrar { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+body .login-wrap .login-lembrar input { width: 18px; height: 18px; accent-color: var(--accent); }
+body .login-wrap .pw-toggle { min-width: 44px; min-height: 44px; }
+
+/* Correção: o estado de erro não aparecia (a regra de borda cinza com !important vencia) */
+body .login-wrap .login-card .f input#authEmail[aria-invalid="true"],
+body .login-wrap .login-card .f input#authPassword[aria-invalid="true"] {
+  border-color: var(--danger) !important; box-shadow: 0 0 0 3px var(--danger-soft) !important;
+}
+body .login-wrap .login-error,
+body .login-wrap .login-ok,
+body .login-wrap .login-offline { padding: 10px 12px; margin-bottom: 14px; line-height: 1.4; }
+body .login-wrap .login-error { border: 1px solid #E7B4AD; background: var(--danger-soft); color: #8E2A1F; }
+body .login-wrap .login-ok { border: 1px solid #A9D8CC; background: var(--accent-soft); color: var(--accent-dark); border-radius: 8px; font-size: 13.5px; }
+body .login-wrap .login-forgot { padding: 6px 0; }
+
+@media (max-width: 899px) {
+  body .login-wrap .login-card-band { align-items: center; text-align: center; padding: 20px 20px 22px !important; }
+  body .login-wrap .login-scene { justify-content: center; }
+  body .login-wrap .login-card p.login-org { border-top: 0; padding-top: 0; max-width: none; }
+  body .login-wrap .login-eyebrow { font-size: 15px; margin-bottom: 6px; }
+}
+
+@media (min-width: 900px) {
+  body .login-wrap .login-card-band h1,
+  body .login-wrap .login-card-band p.login-org,
+  body .login-wrap .login-card-band .login-eyebrow { text-align: left; }
+  body .login-wrap .login-card-band .login-pilares { justify-content: flex-start; }
+}
+
+@media (max-width: 899px) {
+  body .login-wrap .login-scene { margin: 72px auto -4px; }
+  body .login-wrap .login-card h1,
+  body .login-wrap h1 { font-size: 22px; max-width: none; margin-bottom: 6px; }
+  body .login-wrap .login-card-body { padding-bottom: 40px; }
+}
+
+/* ==========================================================================
+   13. Revisão de design — painel de Gráficos
+   ========================================================================== */
+.nota-recolhivel { margin: 0 0 14px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: #fff; }
+.nota-recolhivel > summary { cursor: pointer; padding: 11px 14px; font-size: 13px; font-weight: 650; color: var(--ink-soft); min-height: 44px; display: flex; align-items: center; }
+.nota-recolhivel > summary:hover { background: var(--paper-soft); }
+.nota-recolhivel .nota-tecnica { margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+
+/* Pareto: números nas barras e chave com o nome completo de cada categoria */
+.pareto-num-bg { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
+.pareto-num { font: 700 10px var(--font-body); fill: var(--accent-dark); }
+.pareto-chave { list-style: none; margin: 10px 0 4px; padding: 10px 0 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 6px 24px; }
+.pareto-chave li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: start; font-size: 12.5px; line-height: 1.35; color: var(--ink-soft); }
+.pareto-chave b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pareto-n { width: 20px; height: 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-dark); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+.pareto-bar { transition: opacity .12s; }
+.pareto-bar:hover, .pareto-bar:focus-visible { opacity: 1 !important; }
+
+/* Barras e legendas: leitura mais firme, números alinhados */
+.stat-bar-track { height: 10px; border-radius: 999px; }
+.stat-bar-fill { border-radius: 999px; }
+.stat-bar-value, .donut-legend-value, .kpi-valor { font-variant-numeric: tabular-nums; }
+.stat-bar-row:hover .stat-bar-fill { filter: brightness(1.08); }
+.kpi-label { overflow-wrap: anywhere; text-wrap: balance; }
+
+/* ==========================================================================
+   14. Correções de contraste
+   ========================================================================== */
+/* O fundo claro de .section-card cobria o azul do cabeçalho do PAF e deixava o texto branco invisível */
+.section-card.prontuario-header {
+  background: linear-gradient(135deg, var(--navy) 0%, #24476F 100%);
+  border-color: var(--navy); border-top: 4px solid var(--gold);
+  color: #EDF2F5;
+}
+
+/* Barra empilhada: texto escuro nos segmentos claros (cinza neutro e dourado) */
+.pilha-seg[style*="#A9B5BF" i], .pilha-seg[style*="#C99A2E" i] { color: #14233A; }
