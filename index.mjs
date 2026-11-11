@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.workers.dev; frame-src 'self' blob:; worker-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Umbrela - PAIF/PAF | Plano de Acompanhamento Familiar</title>
+<meta name="description" content="Umbrela: painel do Plano de Acompanhamento Familiar (PAF) do PAIF, CRAS Cristiana Vicente Nunes, Boa Vista/RR. Acesso restrito a profissionais autorizados.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1F3A5F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Umbrela">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="produtividade.css">
+<style>
+  .skip-link{position:absolute;left:-9999px;top:0;z-index:10000;background:#1F3A5F;color:#fff;padding:.6rem 1rem;border-radius:0 0 8px 0;font:600 14px system-ui,sans-serif;text-decoration:none}
+  .skip-link:focus{left:0}
+  #mainArea:focus{outline:none}
+  .noscript-aviso{max-width:560px;margin:15vh auto;padding:1.5rem;border:1px solid #c9d3dc;border-radius:12px;background:#fff;color:#1F3A5F;font:16px/1.5 system-ui,sans-serif;text-align:center}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#mainArea">Pular para o conteúdo</a>
+<noscript><div class="noscript-aviso"><strong>O Umbrela precisa do JavaScript.</strong><br>Ative o JavaScript no navegador e recarregue a página.</div></noscript>
+<div id="app">
+
+  <div class="masthead-strip">
+    <div class="masthead-strip-inner">
+      <span>Prefeitura Municipal de Boa Vista</span>
+      <span class="masthead-strip-sep" aria-hidden="true">·</span>
+      <span>Sistema Único de Assistência Social (SUAS)</span>
+    </div>
+  </div>
+
+  <div class="masthead" id="top">
+    <div class="masthead-inner">
+      <div class="masthead-brasao" aria-hidden="true" title="Guarda-chuva da proteção social à família">
+        <svg viewBox="0 0 48 48" width="38" height="38">
+          <path d="M4 22A20 18 0 0 1 44 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M24 6V37" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M24 37Q24 41.5 20 41.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <g fill="currentColor" stroke="none">
+            <circle cx="9" cy="30" r="2"/>
+            <circle cx="15" cy="34.5" r="1.6"/>
+            <circle cx="33" cy="34.5" r="1.6"/>
+            <circle cx="39" cy="30" r="2"/>
+          </g>
+          <g stroke="currentColor" stroke-width="1.1" stroke-linecap="round" fill="none" opacity=".85">
+            <path d="M9 32.3V43"/>
+            <path d="M15 36.4V43"/>
+            <path d="M33 36.4V43"/>
+            <path d="M39 32.3V43"/>
+          </g>
+        </svg>
+      </div>
+      <div class="masthead-text">
+        <span class="masthead-eyebrow">Secretaria Municipal de Assistência e Desenvolvimento Social — SEMADS</span>
+        <strong>CRAS Cristiana Vicente Nunes</strong>
+        <span class="masthead-service">Serviço de Proteção e Atendimento Integral à Família (PAIF)</span>
+      </div>
+      <div class="masthead-contact">
+        <span><svg class="mico" viewBox="0 0 16 16" width="11" height="11"><path d="M8 1.5c-3 0-5.4 2.4-5.4 5.4 0 4 5.4 7.6 5.4 7.6s5.4-3.6 5.4-7.6C13.4 3.9 11 1.5 8 1.5Z" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="8" cy="6.9" r="1.7" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
+        <span><svg class="mico" viewBox="0 0 16 16" width="11" height="11"><path d="M2.3 3.2h11.4c.4 0 .8.4.8.8v8c0 .4-.4.8-.8.8H2.3c-.4 0-.8-.4-.8-.8V4c0-.4.4-.8.8-.8Z" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2 4l6 4.6L14 4" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
+      </div>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="seal" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5A9.5 9.5 0 0 1 21.5 11.5"/><path d="M12 3.5v14.2"/><path d="M12 17.7q0 2.3-2.1 2.3"/><circle cx="4.7" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="19.3" cy="15" r="1" fill="currentColor" stroke="none"/></svg></span>
+      <span class="brand-name">Umbrela<small>PAIF/PAF</small></span>
+    </div>
+    <button type="button" class="icon-btn rail-toggle" id="railToggleBtn" title="Seções" aria-label="Abrir/fechar seções do formulário"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg></button>
+    <nav class="topbar-tabs" id="topbarTabs" aria-label="Seções principais">
+      <button class="topbar-tab active" data-view="home" type="button">Registros</button>
+      <button class="topbar-tab" data-view="prioridades" type="button">Prioridades</button>
+      <button class="topbar-tab" data-view="dashboard" type="button">Gráficos</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="sync-pill local" id="syncPill" role="status" aria-live="polite"><span class="sync-dot"></span><span id="syncLabel">Configurar sincronização</span></div>
+    <div class="user-pill" id="userPill" style="display:none"><span id="userEmailLabel"></span></div>
+    <button type="button" class="icon-btn" id="logoutBtn" style="display:none" title="Sair"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5"/><path d="M15.5 16.5 20 12l-4.5-4.5"/><path d="M9.5 12H20"/></svg>Sair</button>
+    <button type="button" class="icon-btn" id="settingsBtn" title="Configurações"><svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.9"/><path d="M12 3.6v2.3M12 18.1v2.3M20.4 12h-2.3M5.9 12H3.6M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6M17.7 17.7l-1.6-1.6M7.9 7.9 6.3 6.3"/></svg>Config</button>
+  </header>
+
+  <div class="rail-overlay" id="railOverlay"></div>
+
+  <main id="mainArea" tabindex="-1"></main>
+
+  <footer class="app-footer">
+    <div class="app-footer-inner">
+      <div class="app-footer-col app-footer-brand">
+        <div class="app-footer-brandmark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5A9.5 9.5 0 0 1 21.5 11.5"/><path d="M12 3.5v14.2"/><path d="M12 17.7q0 2.3-2.1 2.3"/><circle cx="4.7" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="19.3" cy="15" r="1" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <strong>Umbrela</strong>
+        <span class="app-footer-tagline">Painel de Acompanhamento Familiar · PAIF/PAF</span>
+      </div>
+      <div class="app-footer-col">
+        <span class="app-footer-eyebrow">Instituição</span>
+        <strong>Prefeitura Municipal de Boa Vista</strong>
+        <span>Secretaria Municipal de Assistência e Desenvolvimento Social (SEMADS)</span>
+        <span>CRAS Cristiana Vicente Nunes — Centenário</span>
+      </div>
+      <div class="app-footer-col">
+        <span class="app-footer-eyebrow">Contato</span>
+        <span><svg class="fico" viewBox="0 0 16 16" width="11" height="11"><path d="M8 1.5c-3 0-5.4 2.4-5.4 5.4 0 4 5.4 7.6 5.4 7.6s5.4-3.6 5.4-7.6C13.4 3.9 11 1.5 8 1.5Z" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="8" cy="6.9" r="1.7" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
+        <span><svg class="fico" viewBox="0 0 16 16" width="11" height="11"><path d="M2.3 3.2h11.4c.4 0 .8.4.8.8v8c0 .4-.4.8-.8.8H2.3c-.4 0-.8-.4-.8-.8V4c0-.4.4-.8.8-.8Z" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2 4l6 4.6L14 4" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>(95) 98402-6627</span>
+        <span><svg class="fico" viewBox="0 0 16 16" width="11" height="11"><rect x="1.5" y="1.5" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M4 5.5h8M4 8h8M4 10.5h5" stroke="currentColor" stroke-width="1.1"/></svg>crascentenariosemges@gmail.com</span>
+      </div>
+      <div class="app-footer-col app-footer-tech">
+        <span class="app-footer-eyebrow">Base técnica</span>
+        <span>PAF/PAIF fundamentado na Lei nº 8.742/1993 (LOAS), NOB-SUAS/2012, Tipificação Nacional de Serviços Socioassistenciais e Decretos nº 6.214/2007 e 6.307/2007</span>
+        <span>Orientações Técnicas do PAIF (MDS), Trilhas do PAIF (MDS, 2024–2026), Caderno A dimensão coletiva no SUAS (MDS/UNICEF, 2026), Protocolo do PAIF e Referências Técnicas do CFP/CREPOP para o CRAS/SUAS</span>
+        <span>Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR</span>
+      </div>
+    </div>
+    <div class="app-footer-bottom">
+      <span>© <span id="footerYear"></span> Umbrela · CRAS Cristiana Vicente Nunes · Boa Vista/RR</span>
+      <a href="#top" class="app-footer-top"><svg class="ui-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6M6 11.2 12 5l6 6.2"/></svg>Voltar ao topo</a>
+    </div>
+  </footer>
+</div>
+
+<div id="authScreen" class="login-wrap" style="display:none">
+  <div class="umbrella-sky" id="umbrellaSky" aria-hidden="true"></div>
+  <div class="login-card">
+    <div class="login-card-band">
+      <div class="login-scene">
+        <div class="hero-umbrella" id="heroUmbrella" aria-hidden="true"></div>
+        <span class="login-scene-side" id="loginSceneLeft" aria-hidden="true"></span>
+        <div class="seal-lg" id="loginIllustration"></div>
+        <span class="login-scene-side" id="loginSceneRight" aria-hidden="true"></span>
+      </div>
+      <p class="login-eyebrow">Umbrela</p>
+      <h1>Plano de Acompanhamento Familiar</h1>
+      <p class="login-org">Prefeitura Municipal de Boa Vista · SEMADS<br>CRAS Cristiana Vicente Nunes</p>
+      <div class="login-pilares" id="loginPilares" aria-hidden="true"></div>
+    </div>
+    <div class="login-card-body">
+      <h2 class="login-bemvindo">Bem-vindo(a)</h2>
+      <p class="sub">Entre com sua conta para acessar os registros do PAF/PAIF.</p>
+      <div class="login-error" id="authError" role="alert" style="display:none"></div>
+      <div class="login-ok" id="authOk" role="status" aria-live="polite" style="display:none"></div>
+      <div class="login-offline" id="authOffline" role="status" aria-live="polite" style="display:none">Sem conexão com a internet. Verifique sua rede para entrar.</div>
+      <div class="f"><label for="authEmail">E-mail</label><input type="email" id="authEmail" name="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="seu.email@exemplo.com"></div>
+      <div class="f"><div class="login-label-row"><label for="authPassword">Senha</label><a href="#" class="login-forgot" id="forgotPasswordLink">Esqueci minha senha</a></div>
+        <div class="pw-wrap">
+          <input type="password" id="authPassword" name="password" autocomplete="current-password" placeholder="••••••••">
+          <button type="button" class="pw-toggle" id="authPwToggle" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
+            <svg class="pw-eye" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="pw-eye-off" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>
+          </button>
+        </div>
+        <div class="caps-warn" id="authCaps" role="status" aria-live="polite" style="display:none">Caps Lock está ativado</div>
+      </div>
+      <label class="login-lembrar"><input type="checkbox" id="authLembrar" checked> Lembrar meu e-mail neste aparelho</label>
+      <button type="button" class="btn btn-primary" id="authSubmitBtn"><span class="btn-rot">Entrar</span></button>
+      <p class="login-hint">Não tem uma conta? Peça ao administrador do sistema para criá-la.</p>
+      <p class="login-sigilo"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg> Acesso restrito a profissionais autorizados. Informações sob sigilo profissional.</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div id="mascoteUmbrella" class="mascote-wrap">
+  <div class="mascote-bubble" id="mascoteBubble" role="status" aria-live="polite"></div>
+  <button class="mascote-btn" id="mascoteBtn" type="button" title="Umbrella" aria-label="Umbrella, o assistente do app — clique para conversar com o Paulus ou ver uma dica"></button>
+</div>
+
+<div id="modalRoot"></div>
+<datalist id="nacionalidadesList">
+  <option value="Brasileira">
+  <option value="Venezuelana">
+  <option value="Guianense">
+  <option value="Haitiana">
+  <option value="Cubana">
+</datalist>
+<datalist id="abrigosOperacaoAcolhidaList">
+  <option value="Rondon 1">
+  <option value="Rondon 5">
+  <option value="Waraotuma a Tuaronoko">
+  <option value="Janokoida">
+  <option value="BV-8 (Pacaraima)">
+</datalist>
+<datalist id="etniasIndigenasList">
+  <option value="Warao">
+  <option value="Macuxi">
+  <option value="Wapichana">
+  <option value="Taurepang">
+  <option value="Ingarikó">
+  <option value="Patamona">
+  <option value="Yanomami">
+  <option value="Pemón">
+  <option value="Ye'kuana">
+  <option value="Piaroa">
+  <option value="Kariña">
+  <option value="Eñepá (Panare)">
+  <option value="Wai-wai">
+  <option value="Waimiri-Atroari">
+  <option value="Sapará">
+  <option value="Ninam">
+  <option value="Sanoma">
+  <option value="Yanoma">
+</datalist>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="paulus.v1.js"></script>
+<script src="historico.js"></script>
+<script src="notas.js"></script>
+<script src="print-runtime.js"></script>
+<script src="app.js"></script>
+<script src="produtividade.js"></script>
+<script src="paulus-consulta.js"></script>
+<script src="paulus-umbrella.js"></script>
+<!-- corretor.js não está no projeto (404): reative esta linha quando o arquivo for adicionado. -->
+</body>
+</html>
