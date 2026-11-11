@@ -8,7 +8,11 @@
   function linhas() { return Array.prototype.slice.call(main.querySelectorAll(".record-row[data-open]")); }
 
   // Torna cada linha alcançável pelo teclado (a lista é redesenhada a cada busca/filtro).
-  function marcar() { linhas().forEach(function (r) { if (!r.hasAttribute("tabindex")) { r.setAttribute("tabindex", "0"); } }); }
+  function dica() {
+    var b = document.getElementById("searchInput");
+    if (b && !b.dataset.dica) { b.dataset.dica = "1"; b.placeholder = (b.placeholder || "Buscar").replace(/…?$/, "") + "…  (atalho: /)"; }
+  }
+  function marcar() { dica(); linhas().forEach(function (r) { if (!r.hasAttribute("tabindex")) { r.setAttribute("tabindex", "0"); } }); }
   new MutationObserver(marcar).observe(main, { childList: true, subtree: true });
   marcar();
 
@@ -24,6 +28,11 @@
     if (e.key === "Escape" && alvo && alvo.id === "searchInput" && alvo.value) {
       alvo.value = "";
       alvo.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+    if (e.key === "/" && !digitando) {
+      var busca = document.getElementById("searchInput");
+      if (busca) { e.preventDefault(); busca.focus(); busca.select(); }
       return;
     }
     if (digitando && !(alvo.id === "searchInput" && e.key === "ArrowDown")) return;
@@ -45,3 +54,15 @@
     }
   });
 })();
+
+// Ficha: Alt+↑ / Alt+↓ trocam de seção; Alt+← volta à lista (funcionam mesmo digitando).
+document.addEventListener("keydown", function (e) {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (!document.querySelector(".tab-rail")) return;
+  if (document.querySelector("#modalRoot .modal, #modalRoot [role=dialog]")) return;
+  var itens = Array.prototype.slice.call(document.querySelectorAll(".tab-rail .tab-item[data-section]"));
+  var i = itens.findIndex(function (x) { return x.classList.contains("active"); });
+  if (e.key === "ArrowDown" && itens[i + 1]) { e.preventDefault(); itens[i + 1].click(); }
+  else if (e.key === "ArrowUp" && i > 0) { e.preventDefault(); itens[i - 1].click(); }
+  else if (e.key === "ArrowLeft") { var v = document.getElementById("backHomeBtn"); if (v) { e.preventDefault(); v.click(); } }
+});
