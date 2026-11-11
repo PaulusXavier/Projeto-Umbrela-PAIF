@@ -174,11 +174,11 @@ Aplicativo web (PWA) para preencher, guardar e exportar o Plano de Acompanhament
 - Atalhos e leitura mais limpa: as "Notas técnicas" de cada seção ficam num bloco recolhível (fechado por padrão; o app lembra sua escolha); na lista, / vai direto para a busca; na ficha, Ctrl+S (ou ⌘+S) salva na hora e Alt+← / Alt+→ troca de seção. [...]
 - Sem perder a última digitação: ao voltar para a lista, trocar de ficha, abrir Gráficos/Prioridades, bloquear o celular ou fechar a aba, o que ainda estava aguardando o salvamento automático é gravado na hora.
 - O preenchimento é salvo automaticamente (nuvem ou local, conforme o passo 1).
-- Baixar PDF / Baixar Word (.doc): geram o arquivo preenchido pronto para impressão/assinatura, tanto na tela do formulário quanto no menu "Exportar" de cada card na lista. [...]
+- Baixar PDF / Baixar Word (.docx): geram o arquivo preenchido pronto para impressão/assinatura, tanto na tela do formulário quanto no menu "Exportar" de cada card na lista. [...]
 - Resumo mensal e Formulário de Encaminhamento: ambos ganharam a mesma identidade visual do prontuário individual (faixa institucional, título com "ficha"/contagem em destaque, cabeçalho e rodapé repetidos em cada página impressa), deixando as três folhas exportadas com aparência consistente.
 - Indicadores tipo RMA/Censo SUAS no Resumo mensal: além da evolução mensal, o relatório agora traz o volume de famílias em acompanhamento no mês de referência (A.1. Total em acompanhamento; A.2. [...]
 - Anexos: na aba "Anexos" do formulário é possível anexar fotos e documentos PDF a cada PAF. Imagens são comprimidas automaticamente ao anexar. Ao Baixar PDF, as fotos aparecem no corpo do relatório e cada PDF anexado é incluído logo em seguida, uma página por documento (isso depende do navegador [...]
-- No Word (.doc), as fotos também são incorporadas ao documento, mas os PDFs continuam apenas listados por nome (o Word não permite embutir páginas de outro PDF). [...]
+- No Word (.docx), as fotos também são incorporadas ao documento, mas os PDFs continuam apenas listados por nome (o Word não permite embutir páginas de outro PDF). [...]
 - Em > modo local (sem Firebase configurado), os anexos continuam guardados no > próprio aparelho, com limites um pouco mais conservadores (até 5 MB por arquivo, > 6 MB no total por PAF), por causa do espaço menor do armazenamento do navegador. [...]
 - O ícone ao lado de "Config" no topo mostra se a sincronização com a nuvem está ativa.
 - Em Config, é possível baixar um backup em JSON de todos os registros.
