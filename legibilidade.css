@@ -1,0 +1,245 @@
+/* ==========================================================================
+   Umbrela · Legibilidade e conforto de trabalho (carregada por ÚLTIMO)
+   Objetivo: textos maiores e com mais contraste, campos alinhados e fáceis
+   de preencher, lista de registros clara, mascote fora do caminho e
+   celular utilizável. Só muda a aparência; a lógica do app não é tocada.
+   Para voltar ao visual anterior, remova o <link> deste arquivo no index.html.
+   ========================================================================== */
+
+/* ---------- 1. Escala de texto e contraste ---------- */
+:root {
+  --text-micro: 12px;
+  --text-2xs: 12px;
+  --text-xs: 12.5px;
+  --text-sm: 13.5px;
+  --text-base: 15px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 21px;
+  --text-2xl: 25px;
+  --text-3xl: 29px;
+
+  /* textos secundários mais escuros (contraste ≥ 7:1 sobre branco) */
+  --ink: #0F1D33;
+  --ink-soft: #364A60;
+  --ink-faint: #4D6076;
+  --line: #D9DFE7;
+  --line-strong: #A9B6C5;
+  --field-border: #8FA0B3;
+
+  --focus-ring: 0 0 0 3px rgba(14,124,107,.28);
+}
+
+body { font-size: 16px; line-height: 1.55; }
+.hint, .nota-tecnica, .chart-insight, .chart-nota, .muted, small, figcaption, .field-hint, .help {
+  font-size: 13px; line-height: 1.5; color: var(--ink-soft);
+}
+:focus-visible { outline: 3px solid #0E7C6B; outline-offset: 2px; }
+
+/* ---------- 2. Barra superior ---------- */
+.topbar { --topbar-h: 58px; min-height: 58px; }
+.topbar-tab { font-size: 15px; padding: 0 16px; }
+.topbar .sync-pill, .user-pill { font-size: 13px; color: var(--ink-soft); }
+.icon-btn { font-size: 14px; min-height: 38px; }
+.brand-org { font-size: 13px; color: var(--ink-soft); }
+
+/* ---------- 3. Campos de formulário: rótulo claro, alinhamento, área de clique ---------- */
+.field-grid { gap: 16px 18px; align-items: end; }
+.f { gap: 6px; }
+.f label, label, .field label {
+  font-size: 13.5px; font-weight: 650; color: var(--ink);
+  text-transform: none; letter-spacing: 0; line-height: 1.3;
+}
+.f:focus-within label { color: var(--accent-dark); }
+
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+select, textarea {
+  min-height: 44px; padding: 9px 12px; font-size: 15.5px;
+  border: 1.5px solid var(--field-border); border-radius: 9px;
+  background-color: #fff; color: var(--ink);
+}
+input:not([type=checkbox]):not([type=radio]):hover, select:hover, textarea:hover { border-color: #5E7389; }
+input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus {
+  border-color: var(--accent); box-shadow: var(--focus-ring);
+}
+input::placeholder, textarea::placeholder { color: #6B7B8E; opacity: 1; }
+input:disabled, select:disabled, textarea:disabled, input[readonly] {
+  background: #EEF2F6; color: var(--ink-soft); border-style: dashed;
+}
+input[type=checkbox], input[type=radio] { width: 20px; height: 20px; }
+/* texto de escrita longa: confortável para ler e digitar */
+#mainArea textarea { line-height: 1.6; min-height: 110px; }
+
+/* Caixas de marcar (vulnerabilidades, serviços etc.): linha inteira clicável */
+.check-item, .checkbox-row, .chk, label.check, .opt-check {
+  min-height: 40px; padding: 6px 10px; border-radius: 8px; font-size: 15px;
+}
+.check-item:hover, .checkbox-row:hover, .chk:hover, label.check:hover, .opt-check:hover { background: var(--accent-soft); }
+
+/* ---------- 4. Botões ---------- */
+.btn { min-height: 42px; font-size: 14.5px; padding: 9px 16px; }
+.btn-sm { min-height: 36px; font-size: 13.5px; padding: 6px 12px; }
+.btn-primary { box-shadow: 0 1px 2px rgba(10,94,81,.3); }
+.btn-ghost { border: 1.5px solid var(--line-strong); }
+.add-row-btn { min-height: 40px; font-size: 14px; border: 1.5px dashed var(--line-strong); }
+
+/* ---------- 5. Lista de registros ---------- */
+.home-main { max-width: 1240px; }
+.home-wrap { max-width: none; padding: 22px 0 56px; }
+.home-head h1 { font-size: 26px; }
+
+.stat-card { padding: 14px 16px; }
+.stat-value, .home-stats-grid .stat-value { font-size: 30px; }
+.stat-label, .home-stats-grid .stat-label { font-size: 13.5px; color: var(--ink-soft); font-weight: 600; }
+
+.search-row input[type=search] { min-height: 50px; font-size: 16px; border: 1.5px solid var(--field-border); }
+.filter-chip { font-size: 14px; padding: 8px 16px; border: 1.5px solid var(--line-strong); color: var(--ink); }
+.filter-chip.active, .filter-chip[data-status].active { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+.records-list-head { font-size: 12.5px; color: var(--ink-soft); padding-top: 11px; padding-bottom: 11px; }
+.record-row { padding-top: 13px; padding-bottom: 13px; }
+.records-list .record-row:nth-child(even) { background: #F9FBFC; }
+.record-row:hover { background: #EAF5F2; }
+.record-name, .record-main strong { font-size: 16px; line-height: 1.3; }
+.record-protocolo { font-size: 13px; color: var(--ink-soft); }
+.record-cras, .record-col { font-size: 14px; color: var(--ink); }
+.record-chip, .folder-tab { font-size: 13px; padding: 4px 11px; }
+.record-ultimo, .record-chip-sub { font-size: 12.5px; }
+.record-index { width: 36px; height: 36px; font-size: 15px; }
+.record-actions .btn { min-height: 38px; font-size: 14px; padding: 6px 14px; }
+
+/* ---------- 6. Ficha (editor) ---------- */
+.tab-rail { width: 244px; }
+.tab-item { font-size: 14.5px; padding: 10px 12px; line-height: 1.3; }
+.tab-item.active { box-shadow: inset 3px 0 0 var(--accent); }
+.rail-progress-label { font-size: 13px; }
+
+.form-inner { max-width: 980px; }
+.section-card {
+  padding: 26px 30px 30px; border: 1px solid var(--line-strong); border-top: 4px solid var(--accent);
+  box-shadow: var(--shadow);
+}
+.section-card h2 {
+  font-size: 22px; padding-bottom: 12px; margin-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.section-card h2 .num { font-size: 14px; }
+.section-sub { font-size: 14.5px; color: var(--ink-soft); margin-bottom: 20px; }
+.section-card h3 { font-size: 17px; margin: 24px 0 10px; color: var(--ink); }
+
+/* Tabelas dinâmicas (membros, metas…) */
+.dyn-table th { font-size: 12.5px; color: var(--ink-soft); background: var(--paper-soft); }
+.dyn-table td { padding: 8px 8px; }
+.dyn-table input, .dyn-table select { min-height: 42px; font-size: 15px; }
+
+/* a coluna do nome precisa de espaço; datas e seletores ocupam só o necessário */
+.dyn-table th:first-child { width: 22% !important; }
+.dyn-table td:first-child { min-width: 150px; }
+.dyn-table input[type=date] { min-width: 0; padding-left: 8px; padding-right: 4px; }
+.dyn-table select { padding-left: 8px; padding-right: 4px; }
+.dyn-table td { padding: 8px 4px; }
+.dyn-table th { padding-left: 4px; padding-right: 4px; }
+/* em telas estreitas a tabela rola de lado em vez de cortar colunas */
+@media (max-width: 1100px) {
+  .dyn-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .dyn-table td:first-child { min-width: 190px; }
+  .dyn-table td, .dyn-table th { min-width: 96px; }
+}
+
+/* Barra de situação e protocolo no topo da ficha */
+.status-opt { font-size: 13.5px; min-height: 36px; padding: 6px 14px; border: 1.5px solid var(--line-strong); }
+.status-picker { flex-wrap: wrap; gap: 6px; }
+.protocolo-tag { font-size: 13px; color: var(--ink-soft); }
+
+/* Painel lateral (atalhos, situação, alertas) */
+.apoio-card { padding: 16px 18px; }
+.apoio-card h3 { font-size: 14.5px; }
+.apoio-card, .apoio-card li, .apoio-card p, .apoio-card span { font-size: 13.5px; line-height: 1.45; }
+
+/* Barra inferior: ações sempre visíveis e fáceis de tocar (fundo sólido, nada transparece) */
+.footer-bar { background: #fff; }
+/* menu de seções e painel lateral rolam até o fim sem ficar sob a barra inferior */
+.tab-rail, .apoio-editor { padding-bottom: 96px; }
+.footer-bar .btn { min-height: 44px; font-size: 14.5px; }
+.footer-bar #saveBtn { min-width: 170px; font-size: 15.5px; }
+.section-nav .btn { min-height: 46px; font-size: 15px; }
+
+/* ---------- 7. Gráficos ---------- */
+.kpi-label { font-size: 13px; color: var(--ink-soft); }
+.kpi-grid .kpi-card [class*="valor"], .kpi-grid .kpi-card [class*="num"], .kpi-grid .kpi-card [class*="value"] { font-size: 30px; }
+.dash-nav a, .dash-nav button { font-size: 13.5px; padding: 8px 14px; }
+.nota-tecnica { font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+
+/* ---------- 8. Mascote: presente, mas fora do caminho ---------- */
+.mascote-wrap { right: 12px; bottom: 12px; z-index: 150; }
+.mascote-btn { width: 46px; height: 46px; padding: 3px; opacity: .6; transition: opacity .15s, transform .15s; }
+.mascote-btn:hover, .mascote-btn:focus-visible, .mascote-wrap:hover .mascote-btn { opacity: 1; }
+.mascote-bubble { max-width: 210px; font-size: 13.5px; }
+/* na ficha e nas telas com barra inferior, fica acima da barra */
+main:has(> .footer-bar) ~ .mascote-wrap, body:has(.footer-bar) .mascote-wrap { bottom: 78px; }
+/* a lista ganha folga no fim para nada ficar escondido sob o mascote */
+.home-wrap { padding-bottom: 96px; }
+.record-ultimo { white-space: nowrap; }
+
+/* Modais */
+.modal, .modal-card, .modal-box { font-size: 15px; }
+.modal h2, .modal-card h2, .modal-box h2 { font-size: 20px; }
+
+/* ---------- 9. Telas largas: aproveita a área ---------- */
+@media (min-width: 1500px) {
+  .form-inner { max-width: 1080px; }
+  .home-main { max-width: 1320px; }
+}
+
+/* ---------- 10. Tablet ---------- */
+@media (max-width: 1100px) {
+  .tab-rail { width: 220px; }
+  .section-card { padding: 22px 22px 26px; }
+}
+
+/* ---------- 11. Celular ---------- */
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .topbar { gap: 6px; }
+  .topbar-tab { font-size: 14px; padding: 0 9px; }
+
+  .home-wrap { padding: 14px 0 100px; }
+  .home-head h1 { font-size: 23px; }
+  /* indicadores: o 5º cartão ocupa a linha inteira em vez de ficar sozinho */
+  .home-stats-grid .stat-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .home-stats-grid .stat-card { padding: 12px; }
+  .home-stats-grid .stat-value { font-size: 26px; }
+
+  /* faixas e filtros alinhados à margem da tela */
+  .apoio-mobile { width: 100%; }
+  .filter-tabs { flex-wrap: wrap; }
+
+  /* ficha: um campo por linha, sem apertar */
+  .field-grid { gap: 14px; }
+  .field-grid > .f, .f.c3, .f.c4, .f.c6, .f.c8 { grid-column: 1 / -1; }
+  .section-card { padding: 18px 16px 22px; }
+  .section-card h2 { font-size: 20px; }
+  .form-inner { padding-left: 12px; padding-right: 12px; }
+
+  /* situação: quebra em linhas em vez de cortar "Desistência" */
+  .status-picker { flex-wrap: wrap !important; width: 100%; }
+  .status-opt { flex: 1 1 calc(50% - 6px); justify-content: center; text-align: center; }
+
+  /* barra inferior: uma linha só, Salvar em destaque */
+  main:has(> .footer-bar) .footer-bar { padding: 8px 10px; }
+  .footer-bar { flex-wrap: nowrap !important; gap: 6px; }
+  .footer-bar .btn { flex: 1 1 auto; min-height: 46px; font-size: 13px; padding: 8px 6px; white-space: nowrap; }
+  .footer-bar #saveBtn { flex: 1.3 1 auto; min-width: 0; font-size: 14.5px; }
+
+  .mascote-btn { width: 40px; height: 40px; transform: none; }
+  .mascote-wrap { bottom: 78px; right: 8px; }
+  .mascote-bubble { display: none; }
+
+  /* tabelas largas rolam de lado em vez de estourar a tela */
+  .dyn-table-wrap, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ---------- 12. Preferências do sistema ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+@media print { .mascote-wrap { display: none !important; } }
