@@ -1,0 +1,245 @@
+/* ==========================================================================
+   Umbrela · camada de design v3 (carregada POR ÚLTIMO)
+   Só muda a aparência; a lógica do app não é tocada. Não afeta a impressão.
+   Para voltar ao visual anterior, remova o <link> deste arquivo no index.html.
+
+   Ideia: o guarda-chuva é proteção. Marinho profundo (acolhimento e seriedade),
+   verde-água (cuidado) e um fio dourado só nos detalhes. Títulos em serifa,
+   interface em Inter.
+   ========================================================================== */
+@media screen {
+
+:root {
+  --bg: #EDF1F6;
+  --paper: #FFFFFF;
+  --paper-soft: #F5F8FB;
+  --navy: #0F2742;
+  --navy-2: #163556;
+  --accent: #0E7C6B;
+  --accent-dark: #0A5E51;
+  --accent-soft: #E1F1ED;
+  --accent-light: #5FD3B8;
+  --gold: #B8862D;
+  --line: #DCE3EB;
+  --line-strong: #B4C0CE;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(15,39,66,.06);
+  --shadow: 0 1px 2px rgba(15,39,66,.05), 0 4px 14px rgba(15,39,66,.06);
+  --shadow-lift: 0 6px 16px rgba(15,39,66,.10), 0 18px 40px rgba(15,39,66,.10);
+  --font-serif: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+}
+
+body { background: var(--bg); }
+
+/* ---------- Títulos em serifa: dão voz institucional ---------- */
+.home-head h1, .section-card h2, .login-bemvindo,
+body .login-wrap .login-card h1, body .login-wrap h1,
+#mainArea > .dash-wrap h1, #mainArea h1 {
+  font-family: var(--font-serif); font-weight: 650; letter-spacing: -.01em;
+}
+.home-head h1 { font-size: 30px; }
+
+/* ---------- Barra superior: marinho, com a marca em destaque ---------- */
+body .topbar {
+  background: linear-gradient(180deg, var(--navy-2) 0%, var(--navy) 100%);
+  color: #fff; border-bottom: 0;
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 8px 22px rgba(15,39,66,.16);
+}
+body .topbar .brand { color: #fff; }
+body .topbar .brand > span:last-child > span,
+body .topbar .brand-name small { color: #A9BED3; }
+body .topbar .brand .seal {
+  background: linear-gradient(145deg, #17977F, var(--accent)); color: #fff;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.18), 0 4px 10px rgba(0,0,0,.25);
+}
+body .topbar .brand-org { color: #B9C9DA; border-left-color: rgba(255,255,255,.18); }
+body .topbar .topbar-tab { color: #C4D3E2; }
+body .topbar .topbar-tab:hover { color: #fff; background: rgba(255,255,255,.08); }
+body .topbar .topbar-tab.active { color: #fff; background: none; }
+body .topbar .topbar-tab.active::after { background: var(--accent-light); height: 3px; bottom: 0; left: 12px; right: 12px; }
+body .topbar .sync-pill, body .topbar .user-pill {
+  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #DCE7F1;
+}
+body .topbar .sync-pill.local .sync-dot { background: #E9B949; }
+body .topbar .icon-btn {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.22); color: #fff;
+}
+body .topbar .icon-btn:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.4); }
+body .topbar :focus-visible { outline: 3px solid var(--accent-light); outline-offset: 2px; }
+
+/* ---------- Botões ---------- */
+.btn { border-radius: 10px; }
+.btn-primary {
+  background: linear-gradient(180deg, #129282 0%, var(--accent) 100%);
+  border-color: var(--accent-dark);
+  box-shadow: 0 1px 2px rgba(10,94,81,.35), 0 4px 10px rgba(14,124,107,.22);
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-dark); }
+.btn-ghost { border-color: var(--line-strong); background: #fff; }
+.btn-ghost:hover { border-color: var(--navy); background: var(--paper-soft); }
+
+/* ---------- Lista de registros ---------- */
+.stat-card {
+  border: 1px solid var(--line); border-radius: var(--radius-lg); background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.stat-card[data-kpi-filtro]:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14,124,107,.12); }
+.records-list { border-radius: var(--radius-lg); box-shadow: var(--shadow); border-color: var(--line); }
+.records-list-head { background: var(--paper-soft); }
+.records-list .record-row:nth-child(even) { background: #FAFCFD; }
+.record-row { transition: background .12s, box-shadow .12s; }
+.record-row:hover { background: #EAF5F2; box-shadow: inset 3px 0 0 var(--accent); }
+.search-row input[type=search] { border-radius: 12px; box-shadow: var(--shadow-sm); }
+.search-row input[type=search]:focus { box-shadow: 0 0 0 4px rgba(14,124,107,.16); }
+.filter-chip.active, .filter-chip[data-status].active { background: var(--navy); border-color: var(--navy); }
+.empty-state, .empty { border-radius: var(--radius-lg); border-color: var(--line-strong); background: linear-gradient(180deg, #fff, var(--paper-soft)); }
+
+/* ---------- Ficha (editor): cartões calmos e campos alinhados ---------- */
+.section-card {
+  border: 1px solid var(--line); border-top: 1px solid var(--line);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow);
+  background: #fff; position: relative; overflow: hidden;
+}
+.section-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-light));
+}
+.section-card h2 { border-bottom-color: var(--line); font-size: 24px; }
+.section-card h2 .num {
+  font-family: var(--font-body); background: var(--navy); color: #fff;
+  border-radius: 8px; padding: 3px 9px; font-size: 13px;
+}
+.section-card h3 { font-family: var(--font-serif); font-weight: 650; }
+.section-sub { color: var(--ink-soft); }
+
+/* campos ocupam toda a coluna; assim as linhas ficam alinhadas */
+.field-grid { align-items: start; }
+.f { display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; }
+.f > input:not([type=checkbox]):not([type=radio]), .f > select, .f > textarea { width: 100%; box-sizing: border-box; }
+.f > label { min-height: 2.6em; display: flex; align-items: flex-end; }
+
+.tab-rail { background: #fff; border-right: 1px solid var(--line); }
+.tab-item { border-radius: 10px; }
+.tab-item.active { background: var(--accent-soft); color: var(--accent-dark); box-shadow: inset 3px 0 0 var(--accent); }
+.rail-progress-fill { background: linear-gradient(90deg, var(--accent), var(--accent-light)); }
+
+/* ---------- Gráficos: indicadores alinhados à esquerda, sem "orelhas" ---------- */
+.kpi-card {
+  border: 1px solid var(--line); border-top: 1px solid var(--line);
+  border-radius: var(--radius-lg); text-align: left; padding: 14px 16px 13px;
+  background: #fff; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.kpi-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--accent); }
+.kpi-grid .kpi-card:nth-child(4n+2)::before, .kpi-grid-sec .kpi-card:nth-child(3n+2)::before { background: var(--gold); }
+.kpi-grid .kpi-card:nth-child(4n+3)::before, .kpi-grid-sec .kpi-card:nth-child(3n+3)::before { background: var(--navy); }
+.kpi-grid .kpi-card:nth-child(4n+4)::before { background: #7B62A3; }
+.kpi-grid .kpi-card, .kpi-grid-sec .kpi-card { border-top-color: var(--line) !important; }
+.kpi-card:hover { transform: none; box-shadow: var(--shadow); }
+.kpi-card .kpi-valor, .kpi-valor {
+  font-family: var(--font-serif); font-weight: 650; letter-spacing: -.02em; color: var(--navy);
+}
+
+/* ---------- Blocos de apoio e notas ---------- */
+.apoio-card, .apoio-mobile { border-radius: var(--radius-lg); border-color: var(--line); background: #fff; box-shadow: var(--shadow-sm); }
+details > summary { cursor: pointer; }
+
+/* ---------- Indicador de salvamento: centralizado, acima da barra de ações ---------- */
+.save-pill {
+  left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 80px; top: auto;
+  box-shadow: var(--shadow-lift); border-radius: 999px;
+}
+body:has(#authScreen[style*="flex"]) .save-pill,
+body:has(#authScreen[style*="block"]) .save-pill { display: none; }
+
+/* ---------- Rodapé ---------- */
+.app-footer { background: #fff; border-top: 1px solid var(--line); }
+
+/* ---------- Assistente: fica mais discreto e não cobre o conteúdo ---------- */
+.mascote-bubble { border-radius: 14px; box-shadow: var(--shadow-lift); }
+.mascote-btn { box-shadow: 0 6px 18px rgba(15,39,66,.2); }
+
+/* ==========================================================================
+   TELA DE LOGIN — painel da marca com guarda-chuva grande + formulário limpo
+   ========================================================================== */
+body .login-wrap { background: #F7F9FC !important; }
+
+body .login-wrap .login-card-band {
+  align-items: flex-start; text-align: left; padding: 64px clamp(36px, 5vw, 72px) !important;
+  background:
+    radial-gradient(520px 520px at 112% -8%, rgba(95,211,184,.22), transparent 62%),
+    radial-gradient(420px 420px at -12% 108%, rgba(184,134,45,.20), transparent 62%),
+    linear-gradient(165deg, #12304F 0%, #0A1B2F 100%);
+}
+/* varetas de guarda-chuva ao fundo: textura que conta a história sem competir */
+body .login-wrap .login-card-band::before {
+  content: ""; position: absolute; inset: auto -120px -150px auto; width: 520px; height: 520px;
+  border-radius: 50%; background-image: none; animation: none; opacity: 1; pointer-events: none;
+  background:
+    repeating-conic-gradient(from -90deg at 50% 100%, rgba(255,255,255,.07) 0 .6deg, transparent .6deg 20deg);
+  -webkit-mask-image: radial-gradient(circle at 50% 100%, #000 0 48%, transparent 49%);
+          mask-image: radial-gradient(circle at 50% 100%, #000 0 48%, transparent 49%);
+  transform: rotate(0deg);
+}
+body .login-wrap .login-card-band > * { position: relative; z-index: 1; }
+body .login-wrap .login-scene { margin: 44px 0 30px 34px; justify-content: flex-start; }
+body .login-wrap .login-eyebrow {
+  font-family: var(--font-body); font-size: 15px; font-weight: 650;
+  letter-spacing: .01em !important; text-transform: none !important; color: #F0D590; margin: 0 0 12px;
+}
+body .login-wrap .login-card h1, body .login-wrap h1 {
+  font-size: clamp(30px, 3.2vw, 44px); line-height: 1.12; max-width: 14ch; color: #fff; margin: 0 0 18px;
+}
+body .login-wrap .login-card p.login-org { font-size: 15px; color: #BFD0E0; margin: 0 0 34px; max-width: 34ch; }
+body .login-wrap .login-pilares {
+  border-radius: 14px; padding: 6px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+  backdrop-filter: blur(4px);
+}
+body .login-wrap .login-pilar-item em { font-size: 13.5px !important; }
+
+/* painel do formulário */
+body .login-wrap .login-card-body {
+  max-width: 460px; padding: 56px 36px;
+}
+body .login-wrap .login-bemvindo { font-size: 34px; margin-bottom: 8px; }
+body .login-wrap .login-card p.sub { font-size: 15.5px; margin-bottom: 28px; }
+body .login-wrap .login-card .f label { font-size: 13.5px; font-weight: 650; }
+body .login-wrap #authEmail, body .login-wrap #authPassword {
+  min-height: 52px; font-size: 16px; border: 1.5px solid #AEBBCA !important; border-radius: 12px !important;
+  background-color: #fff; box-shadow: 0 1px 2px rgba(15,39,66,.04);
+}
+body .login-wrap #authEmail:focus, body .login-wrap #authPassword:focus {
+  border-color: var(--accent) !important; box-shadow: 0 0 0 4px rgba(14,124,107,.16) !important;
+}
+body .login-wrap .login-card .btn-primary {
+  min-height: 54px; font-size: 16px; border-radius: 12px; letter-spacing: 0;
+  background: linear-gradient(180deg, #129282 0%, var(--accent) 100%);
+  box-shadow: 0 1px 2px rgba(10,94,81,.35), 0 10px 22px rgba(14,124,107,.28);
+}
+body .login-wrap .login-card .btn-primary:hover:not(:disabled) {
+  background: var(--accent-dark); box-shadow: 0 1px 2px rgba(10,94,81,.35), 0 12px 26px rgba(14,124,107,.34);
+}
+body .login-wrap .login-sigilo {
+  background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--gold);
+  border-radius: 10px; color: var(--ink-soft);
+}
+/* a pílula de salvamento do app não deve aparecer por cima do login */
+body:has(#authScreen[style*="flex"]) .toast,
+body:has(#authScreen[style*="block"]) .toast { display: none; }
+
+@media (max-width: 900px) {
+  body .login-wrap .login-card-band { padding: 28px 22px 26px !important; align-items: center; text-align: center; }
+  body .login-wrap .login-card-band::before { display: none; }
+  body .login-wrap .login-scene { justify-content: center; margin: 60px 0 12px; transform: scale(.85); transform-origin: top center; }
+  body .login-wrap .login-card h1 { font-size: 24px; max-width: none; margin-bottom: 8px; }
+  body .login-wrap .login-card p.login-org { margin-bottom: 0; }
+  body .login-wrap .login-card-body { padding: 28px 22px 36px; }
+  body .login-wrap .login-bemvindo { font-size: 28px; }
+}
+
+}
+
+/* movimento reduzido: sem transições extras */
+@media (prefers-reduced-motion: reduce) {
+  .record-row, .btn, .kpi-card { transition: none !important; }
+}
