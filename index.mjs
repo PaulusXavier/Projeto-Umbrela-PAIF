@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.workers.dev; frame-src 'self' blob:; worker-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.workers.dev; base-uri 'self'; form-action 'self'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Umbrela - PAIF/PAF | Plano de Acompanhamento Familiar</title>
 <meta name="description" content="Umbrela: painel do Plano de Acompanhamento Familiar (PAF) do PAIF, CRAS Cristiana Vicente Nunes, Boa Vista/RR. Acesso restrito a profissionais autorizados.">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#1F3A5F">
+<meta name="theme-color" content="#0F2742">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Umbrela">
@@ -17,7 +17,13 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&display=swap">
 <link rel="stylesheet" href="produtividade.css">
+<link rel="stylesheet" href="umbrela-ui.css">
+<link rel="stylesheet" href="legibilidade.css">
+<link rel="stylesheet" href="umbrela-design.css">
 <style>
   .skip-link{position:absolute;left:-9999px;top:0;z-index:10000;background:#1F3A5F;color:#fff;padding:.6rem 1rem;border-radius:0 0 8px 0;font:600 14px system-ui,sans-serif;text-decoration:none}
   .skip-link:focus{left:0}
@@ -30,53 +36,13 @@
 <noscript><div class="noscript-aviso"><strong>O Umbrela precisa do JavaScript.</strong><br>Ative o JavaScript no navegador e recarregue a página.</div></noscript>
 <div id="app">
 
-  <div class="masthead-strip">
-    <div class="masthead-strip-inner">
-      <span>Prefeitura Municipal de Boa Vista</span>
-      <span class="masthead-strip-sep" aria-hidden="true">·</span>
-      <span>Sistema Único de Assistência Social (SUAS)</span>
-    </div>
-  </div>
-
-  <div class="masthead" id="top">
-    <div class="masthead-inner">
-      <div class="masthead-brasao" aria-hidden="true" title="Guarda-chuva da proteção social à família">
-        <svg viewBox="0 0 48 48" width="38" height="38">
-          <path d="M4 22A20 18 0 0 1 44 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          <path d="M24 6V37" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-          <path d="M24 37Q24 41.5 20 41.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-          <g fill="currentColor" stroke="none">
-            <circle cx="9" cy="30" r="2"/>
-            <circle cx="15" cy="34.5" r="1.6"/>
-            <circle cx="33" cy="34.5" r="1.6"/>
-            <circle cx="39" cy="30" r="2"/>
-          </g>
-          <g stroke="currentColor" stroke-width="1.1" stroke-linecap="round" fill="none" opacity=".85">
-            <path d="M9 32.3V43"/>
-            <path d="M15 36.4V43"/>
-            <path d="M33 36.4V43"/>
-            <path d="M39 32.3V43"/>
-          </g>
-        </svg>
-      </div>
-      <div class="masthead-text">
-        <span class="masthead-eyebrow">Secretaria Municipal de Assistência e Desenvolvimento Social — SEMADS</span>
-        <strong>CRAS Cristiana Vicente Nunes</strong>
-        <span class="masthead-service">Serviço de Proteção e Atendimento Integral à Família (PAIF)</span>
-      </div>
-      <div class="masthead-contact">
-        <span><svg class="mico" viewBox="0 0 16 16" width="11" height="11"><path d="M8 1.5c-3 0-5.4 2.4-5.4 5.4 0 4 5.4 7.6 5.4 7.6s5.4-3.6 5.4-7.6C13.4 3.9 11 1.5 8 1.5Z" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="8" cy="6.9" r="1.7" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>Rua Santo Agostinho, 193b – Centenário, Boa Vista/RR</span>
-        <span><svg class="mico" viewBox="0 0 16 16" width="11" height="11"><path d="M2.3 3.2h11.4c.4 0 .8.4.8.8v8c0 .4-.4.8-.8.8H2.3c-.4 0-.8-.4-.8-.8V4c0-.4.4-.8.8-.8Z" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2 4l6 4.6L14 4" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>(95) 98402-6627 · crascentenariosemges@gmail.com</span>
-      </div>
-    </div>
-  </div>
-
   <header class="topbar">
     <div class="brand">
       <span class="seal" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5A9.5 9.5 0 0 1 21.5 11.5"/><path d="M12 3.5v14.2"/><path d="M12 17.7q0 2.3-2.1 2.3"/><circle cx="4.7" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="19.3" cy="15" r="1" fill="currentColor" stroke="none"/></svg></span>
       <span class="brand-name">Umbrela<small>PAIF/PAF</small></span>
     </div>
-    <button type="button" class="icon-btn rail-toggle" id="railToggleBtn" title="Seções" aria-label="Abrir/fechar seções do formulário"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg></button>
+    <span class="brand-org">CRAS Cristiana Vicente Nunes</span>
+    <button type="button" class="icon-btn rail-toggle" id="railToggleBtn" title="Seções (Alt+↑ / Alt+↓ trocam de seção)" aria-label="Abrir/fechar seções do formulário"><svg class="ui-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg></button>
     <nav class="topbar-tabs" id="topbarTabs" aria-label="Seções principais">
       <button class="topbar-tab active" data-view="home" type="button">Registros</button>
       <button class="topbar-tab" data-view="prioridades" type="button">Prioridades</button>
@@ -114,12 +80,12 @@
         <span><svg class="fico" viewBox="0 0 16 16" width="11" height="11"><path d="M2.3 3.2h11.4c.4 0 .8.4.8.8v8c0 .4-.4.8-.8.8H2.3c-.4 0-.8-.4-.8-.8V4c0-.4.4-.8.8-.8Z" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2 4l6 4.6L14 4" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>(95) 98402-6627</span>
         <span><svg class="fico" viewBox="0 0 16 16" width="11" height="11"><rect x="1.5" y="1.5" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M4 5.5h8M4 8h8M4 10.5h5" stroke="currentColor" stroke-width="1.1"/></svg>crascentenariosemges@gmail.com</span>
       </div>
-      <div class="app-footer-col app-footer-tech">
-        <span class="app-footer-eyebrow">Base técnica</span>
+      <details class="app-footer-col app-footer-tech">
+        <summary class="app-footer-eyebrow">Base técnica e autoria</summary>
         <span>PAF/PAIF fundamentado na Lei nº 8.742/1993 (LOAS), NOB-SUAS/2012, Tipificação Nacional de Serviços Socioassistenciais e Decretos nº 6.214/2007 e 6.307/2007</span>
         <span>Orientações Técnicas do PAIF (MDS), Trilhas do PAIF (MDS, 2024–2026), Caderno A dimensão coletiva no SUAS (MDS/UNICEF, 2026), Protocolo do PAIF e Referências Técnicas do CFP/CREPOP para o CRAS/SUAS</span>
         <span>Paulo Xavier, CRP-20/09816, Psicólogo — Boa Vista, RR</span>
-      </div>
+      </details>
     </div>
     <div class="app-footer-bottom">
       <span>© <span id="footerYear"></span> Umbrela · CRAS Cristiana Vicente Nunes · Boa Vista/RR</span>
@@ -218,7 +184,7 @@
 <script src="paulus.v1.js"></script>
 <script src="historico.js"></script>
 <script src="notas.js"></script>
-<script src="print-runtime.js"></script>
+<script src="exportacao.js"></script>
 <script src="app.js"></script>
 <script src="produtividade.js"></script>
 <script src="paulus-consulta.js"></script>
