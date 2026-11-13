@@ -146,9 +146,10 @@ details > summary { cursor: pointer; }
 
 /* ---------- Indicador de salvamento: centralizado, acima da barra de ações ---------- */
 .save-pill {
-  left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 80px; top: auto;
+  left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 16px; top: auto;
   box-shadow: var(--shadow-lift); border-radius: 999px;
 }
+body:has(#mainArea .form-inner) .save-pill { bottom: 80px; }
 body:has(#authScreen[style*="flex"]) .save-pill,
 body:has(#authScreen[style*="block"]) .save-pill { display: none; }
 
@@ -235,6 +236,134 @@ body:has(#authScreen[style*="block"]) .toast { display: none; }
   body .login-wrap .login-card p.login-org { margin-bottom: 0; }
   body .login-wrap .login-card-body { padding: 28px 22px 36px; }
   body .login-wrap .login-bemvindo { font-size: 28px; }
+}
+
+/* ==========================================================================
+   Rodada 2 — ritmo, tabelas, assistente e acabamento
+   ========================================================================== */
+::selection { background: rgba(14,124,107,.22); }
+html { scrollbar-color: #B4C0CE transparent; scrollbar-width: thin; }
+
+/* Tabelas da ficha (membros, metas, atendimentos): rolam dentro do cartão, nunca ficam cortadas */
+.dyn-table { display: block; overflow-x: auto; max-width: 100%; scrollbar-width: thin; padding-bottom: 6px; }
+.dyn-table thead, .dyn-table tbody { min-width: 760px; }
+.dyn-table thead th { background: var(--paper-soft); border-bottom: 1px solid var(--line-strong); font-weight: 650; }
+.dyn-table tbody tr:hover td { background: #F5FAF8; }
+
+/* O assistente não cobre a ficha enquanto se escreve; na lista e nos gráficos continua falando */
+body[data-view="editor"] .mascote-bubble,
+body:has(#mainArea .form-inner) .mascote-bubble { display: none !important; }
+.mascote-bubble { max-width: 240px; font-size: 13.5px; line-height: 1.45; }
+
+/* ---------- Lista: respiro entre título, indicadores e busca ---------- */
+.home-head { margin-bottom: 18px; }
+.home-stats-grid { margin: 0 0 18px; gap: 12px; }
+.stat-card {
+  border-left: 1px solid var(--line); box-shadow: var(--shadow-sm), inset 3px 0 0 var(--stat-c, var(--navy));
+  padding: 12px 16px; align-items: center;
+}
+.stat-card:nth-child(2) { --stat-c: var(--accent); }
+.stat-card:nth-child(3) { --stat-c: #C0392B; }
+.stat-card:nth-child(4) { --stat-c: var(--gold); }
+.stat-card:nth-child(5) { --stat-c: #7B62A3; }
+.stat-value { font-family: var(--font-serif); color: var(--navy); }
+.home-pilares-toggle { margin: 0 0 16px; }
+.search-row { margin-bottom: 4px; }
+.records-list-head { text-transform: none; letter-spacing: .01em; border-bottom: 1px solid var(--line-strong); }
+.record-index { background: var(--navy); color: #fff; border: 0; font-family: var(--font-serif); font-weight: 650; }
+.record-name, .record-main strong { color: var(--navy); }
+.record-progress > span, .record-progress-fill { background: linear-gradient(90deg, var(--accent), var(--accent-light)); }
+
+/* Blocos recolhíveis ("Resumo da equipe", notas técnicas): mais discretos até serem abertos */
+.apoio-mobile > summary, details.nota-tecnica > summary, .notas-secao > summary { font-weight: 650; color: var(--ink); }
+.apoio-mobile { margin-bottom: 18px; }
+.apoio-mobile > summary:hover { background: var(--accent-soft); }
+
+/* ---------- Ficha: barra de ações com vidro e cabeçalho do registro ---------- */
+.action-bar, .editor-actions, .bottom-bar, .form-actions {
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(15,39,66,.08);
+}
+.status-picker .btn, .status-picker button { transition: background .12s, border-color .12s, color .12s; }
+.section-card + .section-card { margin-top: 22px; }
+.nota-tecnica { border-radius: 10px; border-left: 3px solid var(--accent); background: #F4F8FB; }
+.add-row-btn { border-radius: 10px; border-color: var(--accent); color: var(--accent-dark); background: #fff; }
+.add-row-btn:hover { background: var(--accent-soft); }
+
+/* ---------- Atalhos e cartões laterais ---------- */
+.apoio-card h3 { font-family: var(--font-serif); font-size: 16px; color: var(--navy); }
+.apoio-card .apoio-linha strong { color: var(--navy); }
+
+/* ---------- Janelas (modais) ---------- */
+#modalRoot [role="dialog"], .modal, .modal-card {
+  border-radius: 16px; box-shadow: var(--shadow-lift); border: 1px solid var(--line);
+}
+.modal-backdrop, .modal-overlay { backdrop-filter: blur(3px); background: rgba(10,27,47,.45); }
+
+/* ---------- Avisos rápidos (toast) ---------- */
+.toast { border-radius: 12px; background: var(--navy); color: #fff; box-shadow: var(--shadow-lift); }
+
+/* ---------- Rodapé mais leve ---------- */
+.app-footer { margin-top: 40px; }
+.app-footer-brand strong { font-family: var(--font-serif); font-size: 18px; color: var(--navy); }
+.app-footer-eyebrow { text-transform: none; letter-spacing: 0; color: var(--ink-soft); }
+
+/* ---------- Celular ---------- */
+@media (max-width: 700px) {
+  .home-head h1 { font-size: 24px; }
+  .home-stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+  .stat-card { padding: 10px 12px; }
+  .section-card { padding: 20px 16px 22px; }
+  .section-card h2 { font-size: 20px; }
+  body .topbar { box-shadow: 0 4px 14px rgba(15,39,66,.18); }
+}
+
+/* ==========================================================================
+   Rodada 3 — gráficos, prioridades e janelas
+   ========================================================================== */
+
+/* ---------- Gráficos: cartões brancos, títulos claros, navegação por seção ---------- */
+.dash-nav { gap: 8px; }
+.dash-nav-btn { border-radius: 999px; border: 1.5px solid var(--line-strong); background: #fff; color: var(--ink); }
+.dash-nav-btn:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); }
+.dash-nav-btn.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+
+.dashboard-wrap .resumo-cols > div, .dashboard-wrap .chart-box, .dashboard-wrap .resumo-secao > div {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+}
+.dashboard-wrap .resumo-cols > div { padding: 18px 20px; }
+.dashboard-wrap .resumo-cols > div > strong, .dashboard-wrap .chart-box > strong {
+  font-family: var(--font-serif); font-size: 16px; font-weight: 650; color: var(--navy); letter-spacing: -.005em;
+}
+.dashboard-wrap h4, .dashboard-wrap .resumo-secao > h4 {
+  font-family: var(--font-serif); font-size: 21px; font-weight: 650; color: var(--navy);
+  margin: 34px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.chart-insight { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px; color: var(--ink); }
+.chart-legend-inline { border-radius: 999px; }
+
+/* ---------- Prioridades ---------- */
+.filter-tabs, .prio-tabs { margin-bottom: 14px; }
+.prio-card, .prioridade-item, .prio-row {
+  border-radius: var(--radius-lg); border: 1px solid var(--line); box-shadow: var(--shadow-sm); background: #fff;
+  transition: box-shadow .15s, border-color .15s;
+}
+.prio-card:hover, .prioridade-item:hover, .prio-row:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.home-main h1, .home-wrap h1 { color: var(--navy); }
+
+/* ---------- Janelas: texto sempre alinhado à esquerda e título em serifa ---------- */
+#modalRoot h2, #modalRoot h3 { font-family: var(--font-serif); color: var(--navy); }
+#modalRoot p, #modalRoot .hint { text-align: left; }
+#modalRoot .btn-primary { min-height: 44px; }
+.toggle-group .btn.active, .seg .active, .seg-btn.active { background: var(--accent); color: #fff; border-color: var(--accent-dark); }
+
+/* ---------- Foco visível e alvos de toque ---------- */
+a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid rgba(14,124,107,.55); outline-offset: 2px; border-radius: 8px;
+}
+@media (max-width: 700px) {
+  .dashboard-wrap .resumo-cols > div { padding: 14px; }
+  .dashboard-wrap h4 { font-size: 18px; margin-top: 26px; }
 }
 
 }
