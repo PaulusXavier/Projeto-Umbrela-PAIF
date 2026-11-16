@@ -1185,7 +1185,7 @@ function abrirVisualizadorImagem(id) {
       </div>
       <div class="anexo-viewer-palco">
         ${imgs.length > 1 ? `<button type="button" class="anexo-viewer-seta esq" data-v="ant" aria-label="Anterior">‹</button>` : ""}
-        <img src="${a.dataURL}" alt="${escapeHtml(a.legenda || a.nome)}" referrerpolicy="no-referrer">
+        <img src="${dataURLAttr(a.dataURL)}" alt="${escapeHtml(a.legenda || a.nome)}" referrerpolicy="no-referrer">
         ${imgs.length > 1 ? `<button type="button" class="anexo-viewer-seta dir" data-v="prox" aria-label="Próximo">›</button>` : ""}
       </div>`;
     root.querySelectorAll("[data-v]").forEach(b => b.onclick = () => {
@@ -1489,8 +1489,14 @@ function enderecoCompleto(paf) {
 }
 function escapeHtml(str) {
   return String(str == null ? "" : str)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+
+// Segurança: um dataURL de anexo só é aceito se for imagem/PDF em base64 "puro" (sem aspas, espaços ou
+// qualquer caractere que permita sair do atributo src="..."). Dado de backup/nuvem é tratado como não confiável.
+const RE_DATAURL_SEGURO = /^data:(?:image\/[\w.+-]+|application\/pdf);base64,[A-Za-z0-9+\/]*={0,2}$/;
+function dataURLSeguro(d) { return typeof d === "string" && RE_DATAURL_SEGURO.test(d); }
+function dataURLAttr(d) { return dataURLSeguro(d) ? d : ""; }
 
 // Formata o CPF como "000.000.000-00" enquanto o usuário digita.
 function mascaraCPF(v) {
@@ -1954,7 +1960,7 @@ async function restaurarBackupJSON(arquivo) {
     if (idsExistentes.has(bruto.id)) { ignorados++; continue; }
     const paf = { ...bruto };
     if (Array.isArray(paf.anexos)) {
-      paf.anexos = paf.anexos.filter(x => x && typeof x.id === "string" && /^[\w-]{4,64}$/.test(x.id) && typeof x.dataURL === "string" && /^data:(image\/[\w.+-]+|application\/pdf);base64,/.test(x.dataURL));
+      paf.anexos = paf.anexos.filter(x => x && typeof x.id === "string" && /^[\w-]{4,64}$/.test(x.id) && dataURLSeguro(x.dataURL));
     }
     try {
       if (state.mode === "cloud" && state.db && Array.isArray(paf.anexos) && paf.anexos.length) {
@@ -4953,11 +4959,26 @@ function limparCacheLocalSensivel() {
   try { localStorage.removeItem("paf_cache"); } catch (err) { console.error(err); }
 }
 
+// Só no logout: apaga também a cópia local em texto puro (paf_records), que o fallback "Falha na nuvem — usando local"
+// grava com CPF, endereço etc. Não roda no login para não perder dados que ainda não foram para a nuvem.
+function limparRegistrosLocaisNoLogout() {
+  try { localStorage.removeItem("paf_records"); } catch (err) { console.error(err); }
+}
+
 function initAuth() {
   attachAuthHandlers();
 
   if (!firebaseConfigured()) {
-    // Sem Firebase configurado: não há login, o app roda 100% local.
+    // Se o firebase-config.js TEM chaves (nuvem pretendida) mas o SDK não carregou (offline, bloqueio de rede,
+    // extensão), NÃO abrir o app em modo local: isso pularia o login e o monitor de inatividade.
+    const nuvemPretendida = typeof FIREBASE_CONFIG !== "undefined" && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "COLE_AQUI";
+    if (nuvemPretendida) {
+      showAuthScreen();
+      authError("Não foi possível carregar o serviço de login. Verifique a internet e recarregue a página.");
+      const btn = document.getElementById("authSubmitBtn"); if (btn) btn.disabled = true;
+      return;
+    }
+    // Sem Firebase configurado de propósito: não há login, o app roda 100% local.
     initStorage();
     return;
   }
@@ -4975,6 +4996,7 @@ function initAuth() {
       if (!state.unsub) initStorage();
     } else {
       const dbAnterior = state.db;
+      const havia = !!(state.db || (state.pafs && state.pafs.length));   // havia sessão/dados (inclui fallback local sem state.db)
       pararMonitorInatividade();
       if (state.unsub) { state.unsub(); state.unsub = null; }
       state.db = null;
@@ -4987,6 +5009,7 @@ function initAuth() {
       state.mascoteSaudou = false;
       if (typeof paulusEncerrar === "function") paulusEncerrar();   // apaga a conversa e o histórico do Paulus
       limparCacheLocalSensivel();
+      if (havia) limparRegistrosLocaisNoLogout();   // só em logout real (havia sessão), nunca na abertura sem login
       showAuthScreen();
       try {
         const motivo = sessionStorage.getItem("paf_motivo_logout");
@@ -5025,6 +5048,7 @@ function initStorage() {
       console.error(e);
       state.mode = "local";
       setSyncPill("err", "Falha na nuvem — usando local");
+      toast("Falha ao conectar à nuvem. Os dados ficam só neste aparelho até a conexão voltar e serão apagados ao sair da conta.", 9000);
       loadLocal();
     }
   } else {
@@ -7165,7 +7189,7 @@ function renderSection(id, paf) {
       const cards = visiveis.map(a => {
         const ehImagem = (a.tipo || "").startsWith("image/");
         const preview = ehImagem
-          ? `<img src="${a.dataURL}" class="anexo-thumb" alt="${escapeHtml(a.legenda || a.nome)}" data-anexo-view="${a.id}">`
+          ? `<img src="${dataURLAttr(a.dataURL)}" class="anexo-thumb" alt="${escapeHtml(a.legenda || a.nome)}" data-anexo-view="${a.id}">`
           : `<div class="anexo-thumb anexo-pdf-icon" data-anexo-view="${a.id}">PDF</div>`;
         const data = a.addedAt ? fmtDateBR(dataLocalDeISO(a.addedAt)) : "";
         return `
@@ -8009,7 +8033,7 @@ async function exportPDFInterno(paf) {
     ${anexosImg.map((a, k) => `
       <div class="anexo-print-item">
         <p class="anexo-titulo">Anexo ${letraAnexo(k)} – ${escapeHtml(a.legenda || a.nome)}</p>
-        <img src="${a.dataURL}" alt="">
+        <img src="${dataURLAttr(a.dataURL)}" alt="">
       </div>`).join("")}
     </div>` : "";
 
@@ -9313,7 +9337,7 @@ async function montarWordHTML(paf) {
     let out = secao("07", "Anexos");
     imgs.forEach((a, k) => {
       out += `<p style="text-align:center;font-weight:bold;margin:8pt 0 4pt;line-height:115%;page-break-after:avoid;">Anexo ${letra(k)} – ${escapeHtml(a.legenda || a.nome)}</p>
-        <p style="text-align:center;margin:0 0 8pt;"><img src="${a.dataURL}" width="380" style="border:1pt solid ${C.borda};"></p>`;
+        <p style="text-align:center;margin:0 0 8pt;"><img src="${dataURLAttr(a.dataURL)}" width="380" style="border:1pt solid ${C.borda};"></p>`;
     });
     if (pdfs.length) {
       out += `<p style="font-size: 10pt;line-height:115%;"><b>Documentos PDF anexados</b> (não incorporados a este arquivo — baixe-os separadamente pelo app, aba "Anexos"): ${pdfs.map((a, k) => "Anexo " + letra(imgs.length + k) + " – " + escapeHtml(a.nome)).join("; ")}</p>`;
