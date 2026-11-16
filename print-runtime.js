@@ -187,7 +187,7 @@ if (document.getElementById("umb-pdfs")) (function () {
           }
           async function desenharPdf(i) {
             var alvo = document.getElementById("anexoPdfAlvo" + i);
-            var doc = await window.pdfjsLib.getDocument({ data: b64ParaBytes(PDFS[i].dataURL) }).promise;
+            var doc = await window.pdfjsLib.getDocument({ data: b64ParaBytes(PDFS[i].dataURL), isEvalSupported: false }).promise;
             alvo.innerHTML = "";
             for (var n = 1; n <= doc.numPages; n++) {
               var page = await doc.getPage(n);
