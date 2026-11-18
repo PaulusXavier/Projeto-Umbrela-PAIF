@@ -366,6 +366,172 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
   .dashboard-wrap h4 { font-size: 18px; margin-top: 26px; }
 }
 
+/* ==========================================================================
+   Rodada 4 — formulário coerente, lista mais clara e navegação lateral calma
+   ========================================================================== */
+
+/* ---------- Grade da ficha: larguras que faltavam (c2, c5, c12 estavam sem regra e viravam 1 coluna) ---------- */
+.field-grid > .f.c2  { grid-column: span 2; }
+.field-grid > .f.c5  { grid-column: span 5; }
+.field-grid > .f.c7  { grid-column: span 7; }
+.field-grid > .f.c9  { grid-column: span 9; }
+.field-grid > .f.c12 { grid-column: 1 / -1; }
+@media (max-width: 900px) {
+  .field-grid > .f.c2, .field-grid > .f.c3, .field-grid > .f.c4 { grid-column: span 6; }
+  .field-grid > .f.c5, .field-grid > .f.c6, .field-grid > .f.c7,
+  .field-grid > .f.c8, .field-grid > .f.c9 { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .field-grid > .f { grid-column: 1 / -1; }
+}
+
+/* ---------- Campos: um só desenho para texto, seleção, data e área de escrita ---------- */
+.f > label, .f .login-label-row label {
+  font-size: 13px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0;
+  min-height: 2.4em; line-height: 1.25;
+}
+.section-card input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+.section-card select, .section-card textarea {
+  border: 1.5px solid #C3CDD9; border-radius: 10px; background-color: #fff;
+  min-height: 44px; padding-top: 9px; padding-bottom: 9px; color: var(--ink);
+  transition: border-color .12s, box-shadow .12s;
+}
+.section-card textarea { min-height: 96px; }
+.section-card input:hover:not(:focus):not([type=checkbox]):not([type=radio]),
+.section-card select:hover:not(:focus), .section-card textarea:hover:not(:focus) { border-color: #8FA0B4; }
+.section-card input:focus:not([type=checkbox]):not([type=radio]),
+.section-card select:focus, .section-card textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(14,124,107,.16);
+}
+.section-card input::placeholder, .section-card textarea::placeholder { color: #8795A6; }
+.section-card input[type=checkbox], .section-card input[type=radio] { accent-color: var(--accent); }
+
+/* ---------- Cartão da seção: título com mais ar e marca lateral mais fina ---------- */
+.section-card { padding-top: 26px; }
+.section-card::before { width: 3px; }
+.section-card h2 { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; margin-bottom: 14px; }
+.section-card h3 { font-size: 17px; margin: 26px 0 10px; color: var(--navy); }
+.section-sub { margin-bottom: 18px; max-width: 70ch; }
+
+/* ---------- Seções do PAF (coluna da esquerda): sem pontinhos soltos, estado claro ---------- */
+.tab-rail { padding-top: 14px; }
+.tab-item { padding-top: 9px; padding-bottom: 9px; color: var(--ink); transition: background .12s, color .12s; }
+.tab-item:hover:not(.active) { background: var(--paper-soft); }
+.tab-item .dot, .tab-item .tab-dot { width: 7px; height: 7px; }
+.rail-progress { margin-bottom: 14px; }
+.rail-progress-fill { border-radius: 99px; }
+
+/* ---------- Painel lateral direito da ficha: leitura rápida ---------- */
+.apoio-card { padding: 16px 18px; }
+.apoio-card h3 { margin: 0 0 10px; }
+.apoio-linha { padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.apoio-linha:last-child { border-bottom: 0; }
+
+/* ---------- Lista de registros: o título vem primeiro; o resumo da equipe passa para o fim ---------- */
+.home-main { display: flex; flex-direction: column; }
+.home-main > .apoio-mobile { order: 99; margin: 26px 0 0; }
+.home-head { align-items: center; }
+.home-head h1 { letter-spacing: -.015em; }
+.stat-card { transition: border-color .12s, box-shadow .12s; }
+.stat-card[data-kpi-filtro] { cursor: pointer; }
+.stat-label { color: var(--ink-soft); font-weight: 600; }
+.filter-chip { border-radius: 999px; font-weight: 600; transition: background .12s, border-color .12s; }
+.filter-chip:not(.active):hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); }
+.record-row .btn { min-height: 36px; }
+.record-row .btn-primary { box-shadow: none; }
+.status-pill, .record-status { font-weight: 650; }
+
+/* ---------- Botões: hierarquia mais legível ---------- */
+.btn { font-weight: 600; transition: background .12s, border-color .12s, box-shadow .12s; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ---------- Barra superior: abas com área de toque maior ---------- */
+body .topbar .topbar-tab { padding: 0 14px; border-radius: 8px; font-weight: 600; }
+body .topbar .brand-name { letter-spacing: .005em; }
+
+/* ---------- Tabelas dinâmicas da ficha ---------- */
+.dyn-table tbody td { border-bottom: 1px solid var(--line); vertical-align: middle; }
+.dyn-table tbody tr:last-child td { border-bottom: 0; }
+.dyn-table input, .dyn-table select, .dyn-table textarea { min-height: 38px; }
+
+/* ---------- Gráficos: filtros e cartões ---------- */
+.dash-nav { padding: 4px 0 2px; }
+.kpi-card .kpi-label, .kpi-label { color: var(--ink-soft); font-weight: 600; }
+.chart-box, .dashboard-wrap .chart-box { padding: 16px 18px; }
+
+/* ---------- Telas largas: lista e gráficos não esticam demais ---------- */
+@media (min-width: 1500px) {
+  .home-main { max-width: 1280px; margin-left: auto; margin-right: auto; }
+}
+
+/* ---------- Celular: barra de baixo da ficha sem cortes e abas do topo com respiro ---------- */
+.footer-bar { background: rgba(255,255,255,.94); backdrop-filter: blur(8px); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(15,39,66,.08); }
+@media (max-width: 700px) {
+  .footer-bar {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .footer-bar .btn { min-height: 42px; padding-left: 8px; padding-right: 8px; font-size: 13.5px; white-space: normal; line-height: 1.2; }
+  .footer-bar .btn-primary { grid-column: 1 / -1; grid-row: 1; min-height: 46px; font-size: 15px; }
+  .footer-bar .btn:not(.btn-primary) { min-height: 40px; font-size: 12.5px; }
+  body .topbar .topbar-tabs { gap: 6px; }
+  body .topbar .topbar-tab { padding: 0 8px; font-size: 14px; }
+}
+
+/* ==========================================================================
+   Rodada 5 — cabeçalho da ficha, indicadores e leitura
+   ========================================================================== */
+
+/* ---------- Cabeçalho escuro da ficha (prontuário): três indicadores iguais, em uma linha ---------- */
+.prontuario-header { align-items: stretch; gap: 22px; }
+.prontuario-stats {
+  display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-content: center;
+  min-width: min(100%, 360px);
+}
+.prontuario-stats .stat-box {
+  display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-height: 92px;
+  padding: 12px 12px 11px; border-radius: 12px; text-align: left;
+}
+.prontuario-stats .stat-num { font-family: var(--font-serif); font-size: 28px !important; line-height: 1.05; font-weight: 650; }
+.prontuario-stats .stat-box:nth-child(2) .stat-num { font-size: 18px !important; line-height: 1.2; }
+.prontuario-stats .stat-label { font-size: 12.5px !important; line-height: 1.25; }
+.prontuario-fields { gap: 12px 28px; }
+.prontuario-fields .k { opacity: .78; font-weight: 600; }
+.prontuario-fields .v { font-size: 15.5px; font-weight: 600; }
+@media (max-width: 900px) {
+  .prontuario-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: 0; width: 100%; }
+  .prontuario-stats .stat-box { min-height: 80px; }
+  .prontuario-stats .stat-num { font-size: 24px !important; }
+}
+@media (max-width: 480px) {
+  .prontuario-stats .stat-box { padding: 10px 9px; }
+  .prontuario-stats .stat-label { font-size: 11.5px !important; }
+  .prontuario-stats .stat-box:nth-child(2) .stat-num { font-size: 15px !important; }
+}
+
+/* ---------- Cartões de dados (tempo, intervalo, etc.): número em destaque, rótulo discreto ---------- */
+.hist-stats .stat-box { background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--accent); box-shadow: var(--shadow-sm); }
+.hist-stats .stat-box .stat-num, .hist-stats .stat-box strong { font-family: var(--font-serif); color: var(--navy); }
+.hist-stats .stat-box .stat-num, .hist-stats .stat-box strong { font-size: 20px; line-height: 1.2; }
+.hist-stats .stat-box .stat-label { color: var(--ink-soft); font-weight: 600; font-size: 12.5px; line-height: 1.3; }
+
+/* ---------- Subtítulos dentro das seções: marca única e linha suave ---------- */
+.section-card h3 { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+
+/* ---------- Painel direito: situação da ficha mais legível ---------- */
+.apoio-card .apoio-linha span { color: var(--ink-soft); }
+.apoio-card .apoio-linha strong { text-align: right; }
+
+/* ---------- Modo foco e barra de status: botões do mesmo tamanho ---------- */
+.status-picker .btn, .status-picker button { min-height: 38px; font-weight: 600; }
+
+/* ---------- Pílula de situação na lista: contraste melhor ---------- */
+.record-row .pill, .record-row .status-pill { border: 1px solid rgba(14,124,107,.25); }
+
+/* ---------- Rolagem suave só quando a pessoa não pediu movimento reduzido ---------- */
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
 }
 
 /* movimento reduzido: sem transições extras */
